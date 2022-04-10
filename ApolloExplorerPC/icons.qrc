@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/browser">
+        <file>icons/Computer_Amiga.png</file>
+        <file>icons/Computer_Generic.png</file>
+        <file>icons/Computer_Linux.png</file>
+        <file>icons/Computer_MacOS.png</file>
+        <file>icons/directory.png</file>
+        <file>icons/file.png</file>
+        <file>icons/Harddisk_Amiga.png</file>
+        <file>icons/CommodoreHW.png</file>
+        <file>icons/VampireHW.png</file>
+        <file>icons/FirebirdHW.png</file>
+        <file>icons/IcedrakeHW.png</file>
+    </qresource>
+    <qresource prefix="/"/>
+</RCC>

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.5
+Type=Application
+Terminal=false
+Name=VNetPC
+Exec=/opt/vnetpc/bin/vnetpc
+Comment=VnetPC
+Icon=/usr/share/pixmaps/vnetpc.ico
+StartupNotify=false
+Encoding=UTF-8
+Categories=Network;FileTransfer
