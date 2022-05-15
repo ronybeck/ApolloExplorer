@@ -1,6 +1,9 @@
 QT       += core gui network
 TARGET=ApolloExplorer
 
+unix: QT += x11extras
+unix: LIBS += -lX11
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
@@ -13,7 +16,9 @@ QMAKE_CXXFLAGS += -O0 -g3
 INCLUDEPATH += ../
 
 SOURCES += \
-    VNetPCUtils.cpp \
+    AEUtils.cpp \
+    aeconnection.cpp \
+    amigahost.cpp \
     devicediscovery.cpp \
     dialogconsole.cpp \
     dialogdelete.cpp \
@@ -24,15 +29,19 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     messagepool.cpp \
+    mouseeventfilter.cpp \
     protocolhandler.cpp \
+    remotefilemimedata.cpp \
+    remotefiletablemodel.cpp \
+    remotefiletableview.cpp \
     scanningwindow.cpp \
-    uploadthread.cpp \
-    vnetconnection.cpp \
-    vnethost.cpp
+    uploadthread.cpp
 
 HEADERS += \
     ../protocolTypes.h \
-    VNetPCUtils.h \
+    AEUtils.h \
+    aeconnection.h \
+    amigahost.h \
     devicediscovery.h \
     dialogconsole.h \
     dialogdelete.h \
@@ -42,11 +51,13 @@ HEADERS += \
     downloadthread.h \
     mainwindow.h \
     messagepool.h \
+    mouseeventfilter.h \
     protocolhandler.h \
+    remotefilemimedata.h \
+    remotefiletablemodel.h \
+    remotefiletableview.h \
     scanningwindow.h \
-    uploadthread.h \
-    vnetconnection.h \
-    vnethost.h
+    uploadthread.h
 
 FORMS += \
     dialogconsole.ui \
@@ -57,7 +68,7 @@ FORMS += \
     scanningwindow.ui
 
 TRANSLATIONS += \
-    VnetPC_en_AU.ts
+    ApolloExplorer_en_AU.ts
 CONFIG += lrelease
 CONFIG += embed_translations
 

@@ -1,8 +1,12 @@
 #include "downloadthread.h"
-#include "VNetPCUtils.h"
 #include <QDebug>
 #include <QtEndian>
 #include <QApplication>
+#include <QMessageBox>
+
+#define DEBUG 0
+#include "AEUtils.h"
+
 
 #define LOCK QMutexLocker locker( &m_Mutex )
 #define UNLOCK locker.unlock()
@@ -49,10 +53,12 @@ void DownloadThread::run()
     connect( m_ProtocolHandler, &ProtocolHandler::fileChunkSignal, this, &DownloadThread::onFileChunkSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::outgoingByteCountSignal, this, &DownloadThread::onOutgoingBytesUpdateSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::incomingByteCountSignal, this, &DownloadThread::onIncomingBytesUpdateSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::newDirectoryListingSignal, this, &DownloadThread::onDirectoryListingSlot );
     connect( this, &DownloadThread::sendMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendMessageSlot );
     connect( this, &DownloadThread::sendAndReleaseMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendAndReleaseMessageSlot );
     connect( this, &DownloadThread::connectToHostSignal, m_ProtocolHandler, &ProtocolHandler::onConnectToHostRequestedSlot );
     connect( this, &DownloadThread::disconnectFromHostSignal, m_ProtocolHandler, &ProtocolHandler::onDisconnectFromHostRequestedSlot );
+    connect( this, &DownloadThread::getRemoteDirectorySignal, m_ProtocolHandler, &ProtocolHandler::onGetDirectorySlot );
 
     //Start the loop thread
     UNLOCK;
@@ -83,14 +89,14 @@ void DownloadThread::run()
 void DownloadThread::onConnectToHostSlot( QHostAddress host, quint16 port )
 {
     //Connect to the server
-    qDebug() << "Download thread Connecting to server " << host.toString();
+    DBGLOG << "Download thread Connecting to server " << host.toString();
     emit connectToHostSignal( host, port );
 }
 
 void DownloadThread::onDisconnectFromHostRequestedSlot()
 {
     LOCK;
-    qDebug() << "Download thread disconnecting from server";
+    DBGLOG << "Download thread disconnecting from server";
     emit disconnectFromHostSignal();
 }
 
@@ -99,7 +105,7 @@ void DownloadThread::onStartFileSlot(QString localFilePath, QString remoteFilePa
     m_LocalFilePath = localFilePath;
     m_RemoteFilePath = remoteFilePath;
 
-    qDebug() << "Opening local file " << m_LocalFilePath;
+    DBGLOG << "Opening local file " << m_LocalFilePath;
     m_LocalFile.setFileName( m_LocalFilePath );
     m_LocalFile.open( QFile::ReadWrite );
     if( !m_LocalFile.isWritable() || !m_LocalFile.isOpen() )
@@ -142,11 +148,38 @@ void DownloadThread::onCancelDownloadSlot()
     cleanup();
 }
 
+QSharedPointer<DirectoryListing> DownloadThread::onGetDirectoryListingSlot( QString remotePath )
+{
+    DBGLOG << "Getting remote directory " << remotePath;
+
+    //Now get a list of the remote files
+    quint32 waitTime = 60000;  //Wait up to 120 seconds.  Note:  This is not over doing it.  I have seen WB take 60 seconds to get a directory list of BeneathASteelSky for the CD32.  We will take longer.
+    //Wait on the reply with a timeout
+    QTimer timer;
+    timer.setSingleShot(true);
+    QEventLoop loop;
+    connect( this, &DownloadThread::directoryListingReceivedSignal, &loop, &QEventLoop::quit );
+    connect( &timer, &QTimer::timeout, &loop, &QEventLoop::quit );
+    timer.start( waitTime );
+    emit getRemoteDirectorySignal( remotePath );
+    loop.exec();
+
+    //Did a timeout occur?
+    if( !timer.isActive() )
+    {
+        DBGLOG << "Time out occured getting remote path " << remotePath;
+        return nullptr;
+    }
+
+    //So we got the path it seems.  Give it back to the caller
+    return m_DirectoryListing;
+}
+
 void DownloadThread::onConnectedToHostSlot()
 {
     LOCK;
     m_Connected = true;
-    qDebug() << "Download thread connected to server.";
+    DBGLOG << "Download thread connected to server.";
     emit connectedToServerSignal();
 }
 
@@ -154,7 +187,7 @@ void DownloadThread::onDisconnectedFromHostSlot()
 {
     LOCK;
     m_Connected = false;
-    qDebug() << "Download thread disconnected to server.";
+    DBGLOG << "Download thread disconnected to server.";
     emit disconnectedFromServerSignal();
 }
 
@@ -174,30 +207,29 @@ void DownloadThread::onAcknowledgeSlot( quint8 responseCode )
 {
     LOCK;
 
-    qDebug() << "Got an acknowledge from the server with a response of " << responseCode;
+    DBGLOG << "Got an acknowledge from the server with a response of " << responseCode;
     //Check if our request has been accepted.
     if( responseCode == 0 )
     {
-        qDebug() << "The server said the file can't be downloaded for some reason.";
+        DBGLOG << "The server said the file can't be downloaded for some reason.";
         cleanup();
         emit abortedSignal( "Rejected by server." );
         return;
     }
 
-    qDebug() << "The server is allowing our file download.";
+    DBGLOG << "The server is allowing our file download.";
 }
 
 void DownloadThread::onStartOfFileSendSlot(quint64 fileSize, quint32 numberOfChunks, QString filename)
 {
-    qDebug() << "Got the start-of-download message for " << filename << "with " << numberOfChunks << " chunks and filesize " << fileSize;
+    DBGLOG << "Got the start-of-download message for " << filename << "with " << numberOfChunks << " chunks and filesize " << fileSize;
 
     //Special case.  File to be downloaded if zero bytes in size
     if( fileSize == 0 && numberOfChunks == 0 )
     {
-        qDebug() << "File " << m_LocalFile.fileName() << " is zero bytes in size";
+        DBGLOG << "File " << m_LocalFile.fileName() << " is zero bytes in size";
         cleanup();
         emit downloadCompletedSignal();
-        //emit abortedSignal( "Rejected server side." );
     }
 
     //Otherwise we are ok
@@ -212,7 +244,7 @@ void DownloadThread::onFileChunkSlot(quint32 chunkNumber, quint32 bytes, QByteAr
     //If the number of bytes is empty, something went wrong
     if( bytes == 0 )
     {
-        qDebug() << "The server said the file can't be downloaded mid download.";
+        DBGLOG << "The server said the file can't be downloaded mid download.";
         emit abortedSignal( "Something went wrong on the server side." );
         cleanup();
         return;
@@ -220,7 +252,7 @@ void DownloadThread::onFileChunkSlot(quint32 chunkNumber, quint32 bytes, QByteAr
 
 
     //Otherwise we need to write this to the disk
-    //qDebug() << "Receiving chunk number " << chunkNumber << " containing " << bytes << " number of bytes.";
+
     m_CurrentChunk = chunkNumber;
     if( chunk.size() )
     {
@@ -253,6 +285,12 @@ void DownloadThread::onThroughputTimerExpiredSlot()
     LOCK;
     m_ThroughPut = m_BytesReceivedThisSecond;
     m_BytesReceivedThisSecond = 0;
+}
+
+void DownloadThread::onDirectoryListingSlot(QSharedPointer<DirectoryListing> listing)
+{
+    m_DirectoryListing = listing;
+    emit directoryListingReceivedSignal();
 }
 
 void DownloadThread::cleanup()

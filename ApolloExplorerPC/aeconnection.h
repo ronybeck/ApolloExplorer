@@ -1,5 +1,5 @@
-#ifndef VNETCONNECTION_H
-#define VNETCONNECTION_H
+#ifndef AECONNECTION_H
+#define AECONNECTION_H
 
 #include <QObject>
 #include <QHostAddress>
@@ -8,12 +8,12 @@
 
 #include "protocolTypes.h"
 
-class VNetConnection : public QObject
+class AEConnection : public QObject
 {
     Q_OBJECT
 public:
-    explicit VNetConnection(QObject *parent = nullptr);
-    ~VNetConnection();
+    explicit AEConnection(QObject *parent = nullptr);
+    ~AEConnection();
     template<typename T> void sendMessage( T* message )
     {
         onSendMessage( reinterpret_cast< ProtocolMessage_t*>( message ) );
@@ -69,4 +69,4 @@ private:
 
 };
 
-#endif // VNETCONNECTION_H
+#endif // AECONNECTION_H

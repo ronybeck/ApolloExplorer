@@ -1,8 +1,11 @@
 #include "uploadthread.h"
-#include "VNetPCUtils.h"
 #include <QDebug>
 #include <QtEndian>
 #include <QApplication>
+#include <QMessageBox>
+
+#define DEBUG 1
+#include "AEUtils.h"
 
 #define LOCK QMutexLocker locker( &m_Mutex )
 #define UNLOCK locker.unlock()
@@ -15,6 +18,7 @@ UploadThread::UploadThread(QObject *parent) :
     m_ProtocolHandler( nullptr ),
     m_Connected( false ),
     m_FileToUpload( false ),
+    m_JobType( JT_NONE ),
     m_RemoteFilePath( "" ),
     m_LocalFilePath( "" ),
     m_LocalFile(),
@@ -51,6 +55,7 @@ void UploadThread::run()
     connect( this, &UploadThread::sendAndReleaseMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendAndReleaseMessageSlot );
     connect( this, &UploadThread::connectToHostSignal, m_ProtocolHandler, &ProtocolHandler::onConnectToHostRequestedSlot );
     connect( this, &UploadThread::disconnectFromHostSignal, m_ProtocolHandler, &ProtocolHandler::onDisconnectFromHostRequestedSlot );
+    connect( this, &UploadThread::createDirectorySignal, m_ProtocolHandler, &ProtocolHandler::onMKDirSlot );
 
     //Start the loop thread
     UNLOCK;
@@ -155,6 +160,36 @@ void UploadThread::run()
     m_ProtocolHandler = nullptr;
 }
 
+bool UploadThread::createDirectory( QString remotePath )
+{
+    //Create the remote directory first
+    m_AcknowledgeState = ProtocolHandler::AS_Unknown;
+
+    m_JobType = JT_MKDIR;
+
+    //Wait on the reply with a timeout
+    QTimer timer;
+    timer.setSingleShot(true);
+    QEventLoop loop;
+    connect( m_ProtocolHandler, &ProtocolHandler::acknowledgeSignal, &loop, &QEventLoop::quit );
+    connect( &timer, &QTimer::timeout, &loop, &QEventLoop::quit );
+    timer.start( 10000 );    //Wait up to 10 seconds.  Note:  Floppies and CDROMS are SLLLLLOOOOOOWWWWW
+    emit createDirectorySignal( remotePath );   //Send the command now
+    loop.exec();
+
+    //Did we timeout?  Did the dir creation succeed?
+    if( !timer.isActive() || m_AcknowledgeState != ProtocolHandler::AS_SUCCESS )
+    {
+        qDebug() << "Timeout exceeded creating directory " << remotePath;
+        QMessageBox errorBox( QMessageBox::Critical, "Timeout creating remote directory", "A timeout occurred while creating remote directory" + remotePath, QMessageBox::Ok );
+        errorBox.exec();
+        return false;
+    }
+
+    //we are done
+    return true;
+}
+
 void UploadThread::onConnectToHostSlot(QHostAddress host, quint16 port)
 {
     //Connect to the server
@@ -175,12 +210,17 @@ void UploadThread::onStartFileSlot( QString localFilePath, QString remoteFilePat
 {
     LOCK;
 
+    DBGLOG << "Uploading file " << localFilePath << " to " << remoteFilePath;
+
     //Check if an upload is in progress
     if( m_FileToUpload )
     {
         qDebug() << "Rejecting request to upload file " << localFilePath << " because a file upload is in progress.";
         return;
     }
+
+    //Set the job type
+    m_JobType = JT_UPLOAD;
 
     //Open the file in question
     m_LocalFilePath = localFilePath;
@@ -284,8 +324,26 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
 {
     LOCK;
 
+    //Interpret the response code
+    switch( responseCode )
+    {
+        case 0:
+            m_AcknowledgeState = ProtocolHandler::AS_FAILED;
+        break;
+        case 1:
+            m_AcknowledgeState = ProtocolHandler::AS_SUCCESS;
+        break;
+        default:
+            m_AcknowledgeState = ProtocolHandler::AS_Unknown;
+        break;
+    }
+
+    //If we are not uploading a file, there is nothing more to do
+    if( m_JobType != JT_UPLOAD ) return;
+
     if( responseCode == 0 )
     {
+        //TODO: Should this set m_FileToUpload to false?
         qDebug() << "File could not be uploaded.  Error code " << responseCode;
         emit abortedSignal( "Upload rejected by server." );
         return;
@@ -331,4 +389,5 @@ void UploadThread::cleanup()
     m_FileChunks = 0;
     m_CurrentChunk = 0;
     m_FileToUpload = false;
+    m_JobType= JT_NONE;
 }

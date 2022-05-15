@@ -9,7 +9,7 @@
 #include <QHostAddress>
 
 #include "protocolTypes.h"
-#include "vnethost.h"
+#include "amigahost.h"
 
 class DeviceDiscovery : public QObject
 {
@@ -22,14 +22,14 @@ public slots:
     void onSocketReadReadySlot();
 
 signals:
-    void hostAliveSignal( QSharedPointer<VNetHost> );
-    void hostDiedSignal( QSharedPointer<VNetHost> );
+    void hostAliveSignal( QSharedPointer<AmigaHost> );
+    void hostDiedSignal( QSharedPointer<AmigaHost> );
 
 
 private:
     QTimer m_ScanTimer;
     QUdpSocket m_Socket;
-    QMap<QString, QSharedPointer<VNetHost>> m_HostList;
+    QMap<QString, QSharedPointer<AmigaHost>> m_HostList;
     QMutex m_Mutex;
 };
 

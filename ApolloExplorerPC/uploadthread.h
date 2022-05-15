@@ -9,17 +9,29 @@
 #include <QTimer>
 #include <QAtomicInteger>
 
-#include "vnetconnection.h"
+#include "aeconnection.h"
 #include "protocolhandler.h"
 #include "messagepool.h"
 
 class UploadThread : public QThread
 {
     Q_OBJECT
+
+    typedef enum
+    {
+        JT_NONE,
+        JT_UPLOAD,
+        JT_MKDIR,
+        JT_UNKNOWN
+    } JobType;
+
+
 public:
     explicit UploadThread(QObject *parent = nullptr);
 
     void run() override final;
+
+    bool createDirectory( QString remotePath );
 
 public slots:
     void onConnectToHostSlot( QHostAddress host, quint16 port );
@@ -44,6 +56,7 @@ signals:
     void disconnectedFromServerSignal();
     void connectedToServerSignal();
     void abortedSignal( QString message );
+    void createDirectorySignal( QString remotePath );
 
     //Communication with the protocol handler
     void sendMessageSignal( ProtocolMessage_t *message );
@@ -55,8 +68,10 @@ private:
     QMutex m_Mutex;
     QTimer m_ThroughPutTimer;
     ProtocolHandler *m_ProtocolHandler;
+    ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     bool m_Connected;
     bool m_FileToUpload;
+    JobType m_JobType;
     QString m_RemoteFilePath;
     QString m_LocalFilePath;
     QFile m_LocalFile;

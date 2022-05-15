@@ -9,7 +9,7 @@
 #include <QTimer>
 #include <QAtomicInteger>
 
-#include "vnetconnection.h"
+#include "aeconnection.h"
 #include "protocolhandler.h"
 #include "messagepool.h"
 
@@ -21,11 +21,14 @@ public:
 
     void run() override final;
 
+    QSharedPointer<DirectoryListing> onGetDirectoryListingSlot( QString remotePath );
+
 public slots:
     void onConnectToHostSlot( QHostAddress host, quint16 port );
     void onDisconnectFromHostRequestedSlot();
     void onStartFileSlot( QString localFilePath, QString remoteFilePath );
     void onCancelDownloadSlot();
+
 
     //Internally used slots
     void onConnectedToHostSlot();
@@ -36,6 +39,7 @@ public slots:
     void onStartOfFileSendSlot( quint64 fileSize, quint32 numberOfChunks, QString filename );
     void onFileChunkSlot( quint32 chunkNumber, quint32 bytes, QByteArray chunk );
     void onThroughputTimerExpiredSlot();
+    void onDirectoryListingSlot( QSharedPointer<DirectoryListing> listing );
 
 private:
     void cleanup();
@@ -46,18 +50,24 @@ signals:
     void disconnectedFromServerSignal();
     void connectedToServerSignal();
     void abortedSignal( QString message );
+    void directoryListingSignal( QSharedPointer<DirectoryListing> listing );
+
+    //Used internally
+    void directoryListingReceivedSignal();
 
     //Communication with the protocol handler
     void sendMessageSignal( ProtocolMessage_t *message );
     void sendAndReleaseMessageSignal( ProtocolMessage_t *message );
     void connectToHostSignal( QHostAddress host, quint16 port );
     void disconnectFromHostSignal();
+    void getRemoteDirectorySignal( QString remotePath );
 
 
 private:
     QMutex m_Mutex;
     QTimer m_ThroughPutTimer;
     ProtocolHandler *m_ProtocolHandler;
+    QSharedPointer<DirectoryListing> m_DirectoryListing;
     bool m_Connected;
     bool m_FileToDownload;
     QString m_RemoteFilePath;

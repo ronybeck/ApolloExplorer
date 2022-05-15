@@ -5,16 +5,20 @@
 #include <QLocale>
 #include <QTranslator>
 #include "protocolTypes.h"
+#include "directorylisting.h"
+#include "mouseeventfilter.h"
 
 int main(int argc, char *argv[])
 {
     //Register the new datatype to QT
     //Q_DECLARE_METATYPE( ProtocolMessageType_t );
     //qRegisterMetaType<ProtocolMessageType_t>();
-    qRegisterMetaType<QHostAddress>();
-
     QApplication a(argc, argv);
+    qRegisterMetaType<QHostAddress>();
+    qRegisterMetaType<QSharedPointer<DirectoryListing>>();
 
+    //Add the mouse event filter
+    a.installNativeEventFilter( MouseEventFilterSingleton::getInstance() );
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();

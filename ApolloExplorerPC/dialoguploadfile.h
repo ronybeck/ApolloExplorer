@@ -26,6 +26,10 @@ public:
     void connectToHost( QHostAddress host, quint16 port );
     void disconnectFromhost();
     void startUpload( QList<QPair<QString,QString>> files );
+    void startUpload( QSharedPointer<DirectoryListing> remotePath, QStringList localPaths );
+
+private:
+    QList<QPair<QString,QString>> createRemoteDirectoryStructure( QString localPath, QString remotePath, bool& error );
 
 public slots:
     void onCancelButtonReleasedSlot();

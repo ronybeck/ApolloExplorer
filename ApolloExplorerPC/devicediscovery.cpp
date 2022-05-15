@@ -44,11 +44,11 @@ void DeviceDiscovery::onScanTimerTimeoutSlot()
 
     //Check if any of the hosts have timed out
     LOCK;
-    QMapIterator<QString, QSharedPointer<VNetHost>> iter( m_HostList );
+    QMapIterator<QString, QSharedPointer<AmigaHost>> iter( m_HostList );
     while( iter.hasNext() )
     {
         auto entry = iter.next();
-        QSharedPointer<VNetHost> host = entry.value();
+        QSharedPointer<AmigaHost> host = entry.value();
         QString address = entry.key();
         if( host->hasTimedOut() )
         {
@@ -111,8 +111,8 @@ void DeviceDiscovery::onSocketReadReadySlot()
     if( !m_HostList.contains( senderAddressString ) )
     {
         //add this to the list
-        VNetHost *host = new VNetHost( name, osName, osVersion, hardware, sender, this );
-        m_HostList[ senderAddressString ] = QSharedPointer<VNetHost>( host );
+        AmigaHost *host = new AmigaHost( name, osName, osVersion, hardware, sender, this );
+        m_HostList[ senderAddressString ] = QSharedPointer<AmigaHost>( host );
 
         //Tell the world about this
         qDebug() << "Server " << name << " (OS: " << osName << " ver: " << osVersion << ") is online.";

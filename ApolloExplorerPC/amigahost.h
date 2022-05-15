@@ -1,5 +1,5 @@
-#ifndef VNETHOST_H
-#define VNETHOST_H
+#ifndef AMIGAHOST_H
+#define AMIGAHOST_H
 
 #include <QObject>
 #include <QHostAddress>
@@ -7,12 +7,12 @@
 
 Q_DECLARE_METATYPE(QHostAddress)
 
-class VNetHost : public QObject
+class AmigaHost : public QObject
 {
     Q_OBJECT
 public:
-    explicit VNetHost( QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent = nullptr );
-    bool operator == ( const VNetHost &rhs );
+    explicit AmigaHost( QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent = nullptr );
+    bool operator == ( const AmigaHost &rhs );
 
     bool hasTimedOut();
     void setHostRespondedNow();
@@ -39,4 +39,4 @@ private:
     QTime m_LastRepsonseTime;
 };
 
-#endif // VNETHOST_H
+#endif // AMIGAHOST_H

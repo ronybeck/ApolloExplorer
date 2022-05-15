@@ -29,8 +29,8 @@ private:
 
 
 public slots:
-    void onNewDeviceDiscoveredSlot( QSharedPointer<VNetHost> host );
-    void onDeviceLeftSlot(  QSharedPointer<VNetHost> host  );
+    void onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host );
+    void onDeviceLeftSlot(  QSharedPointer<AmigaHost> host  );
     void onHostDoubleClickedSlot( QListWidgetItem *item );
     void onBrowserWindowDestroyedSlot();
     void onSystemTrayMenuItemSelected();

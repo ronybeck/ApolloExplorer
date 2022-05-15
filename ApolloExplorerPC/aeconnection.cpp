@@ -1,4 +1,4 @@
-#include "vnetconnection.h"
+#include "aeconnection.h"
 
 #include <QDebug>
 #include <QtEndian>
@@ -7,7 +7,7 @@
 
 #define INPUT_BUFFER_SIZE 0x20000
 
-VNetConnection::VNetConnection(QObject *parent) :
+AEConnection::AEConnection(QObject *parent) :
     QObject(parent),
     m_Socket(),
     m_RawSocketModeActive( false ),
@@ -19,20 +19,20 @@ VNetConnection::VNetConnection(QObject *parent) :
 
 {
     //Signal/Slots
-    connect( &m_Socket, &QTcpSocket::connected, this, &VNetConnection::onConnectedSlot );
-    connect( &m_Socket, &QTcpSocket::disconnected, this, &VNetConnection::onDisconnectedSlot );
-    connect( &m_Socket, &QTcpSocket::readyRead, this, &VNetConnection::onReadReadySlot );
+    connect( &m_Socket, &QTcpSocket::connected, this, &AEConnection::onConnectedSlot );
+    connect( &m_Socket, &QTcpSocket::disconnected, this, &AEConnection::onDisconnectedSlot );
+    connect( &m_Socket, &QTcpSocket::readyRead, this, &AEConnection::onReadReadySlot );
 #if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
     connect( &m_Socket, &QTcpSocket::errorOccurred, this, &VNetConnection::onErrorSlot );
 #else
-    connect( &m_Socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QAbstractSocket::error), this, &VNetConnection::onErrorSlot );
+    connect( &m_Socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QAbstractSocket::error), this, &AEConnection::onErrorSlot );
 #endif
 
     //Set a message buffer
     m_IncomingMessageBuffer = static_cast<ProtocolMessage_t*>( calloc( 1, INPUT_BUFFER_SIZE ) );
 
     //Setup the throughput timer
-    connect( &m_ThroughputTimer, &QTimer::timeout, this, &VNetConnection::onThroughputTimerExpiredSlot );
+    connect( &m_ThroughputTimer, &QTimer::timeout, this, &AEConnection::onThroughputTimerExpiredSlot );
     m_ThroughputTimer.setInterval( 1000 );
     m_ThroughputTimer.setSingleShot( false );
     m_ThroughputTimer.start();
@@ -41,12 +41,12 @@ VNetConnection::VNetConnection(QObject *parent) :
     //m_Socket.setSocketOption( QAbstractSocket::SendBufferSizeSocketOption, quint64( FILE_CHUNK_SIZE + sizeof( ProtocolMessage_t ) ) );
 }
 
-VNetConnection::~VNetConnection()
+AEConnection::~AEConnection()
 {
     if( m_IncomingMessageBuffer ) free( m_IncomingMessageBuffer );
 }
 
-void VNetConnection::onConnectToHostRequestedSlot(QHostAddress serverAddress, quint16 port )
+void AEConnection::onConnectToHostRequestedSlot(QHostAddress serverAddress, quint16 port )
 {
     //Connect to the host
     m_Socket.connectToHost( serverAddress, port );
@@ -54,7 +54,7 @@ void VNetConnection::onConnectToHostRequestedSlot(QHostAddress serverAddress, qu
     qDebug() << "Connecting to server " << serverAddress << " on port " << port;
 }
 
-void VNetConnection::onDisconnectFromhostRequestedSlot()
+void AEConnection::onDisconnectFromhostRequestedSlot()
 {
     m_Socket.disconnectFromHost();
     if( m_Socket.state() != QAbstractSocket::UnconnectedState )
@@ -63,12 +63,12 @@ void VNetConnection::onDisconnectFromhostRequestedSlot()
     }
 }
 
-void VNetConnection::onErrorSlot( QAbstractSocket::SocketError error )
+void AEConnection::onErrorSlot( QAbstractSocket::SocketError error )
 {
     qDebug() << "Error: " << error << ".  " << m_Socket.errorString();
 }
 
-void VNetConnection::onSendMessage(ProtocolMessage_t *message )
+void AEConnection::onSendMessage(ProtocolMessage_t *message )
 {
     qint64 bytesSent = 0;
     quint64 bytesSentTotal = 0;
@@ -116,7 +116,7 @@ void VNetConnection::onSendMessage(ProtocolMessage_t *message )
     }
 }
 
-void VNetConnection::onConnectedSlot()
+void AEConnection::onConnectedSlot()
 {
     qDebug() << "Connected to server";
 
@@ -129,13 +129,13 @@ void VNetConnection::onConnectedSlot()
     emit connectedToHostSignal();
 }
 
-void VNetConnection::onDisconnectedSlot()
+void AEConnection::onDisconnectedSlot()
 {
     qDebug() << "Disconnected from server";
     emit disconnectedFromHostSignal();
 }
 
-void VNetConnection::onReadReadySlot()
+void AEConnection::onReadReadySlot()
 {
     qint64 bytesRead = 0;
 
@@ -260,7 +260,7 @@ void VNetConnection::onReadReadySlot()
         onReadReadySlot();
 }
 
-void VNetConnection::onThroughputTimerExpiredSlot()
+void AEConnection::onThroughputTimerExpiredSlot()
 {
     //Emit the current byte count
     emit outgoingByteCountSignal( m_OutgoingByteCount );
@@ -271,12 +271,12 @@ void VNetConnection::onThroughputTimerExpiredSlot()
     m_IncomgingByteCount = 0;
 }
 
-void VNetConnection::onSetRawSocketMode()
+void AEConnection::onSetRawSocketMode()
 {
     m_RawSocketModeActive = true;
 }
 
-void VNetConnection::onRawOutgoingBytesSlot(QByteArray bytes)
+void AEConnection::onRawOutgoingBytesSlot(QByteArray bytes)
 {
     m_Socket.write( bytes );
 }

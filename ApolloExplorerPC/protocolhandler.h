@@ -6,7 +6,7 @@
 #include <QTcpSocket>
 
 #include "protocolTypes.h"
-#include "vnetconnection.h"
+#include "aeconnection.h"
 #include "directorylisting.h"
 
 class ProtocolHandler : public QObject
@@ -21,6 +21,14 @@ public:
         CP_RECONNECTING,
         CP_CONNECTED
     } ConnectionPhase_t;
+
+    typedef enum
+    {
+        AS_Unknown,
+        AS_SUCCESS,
+        AS_FAILED,
+    } AcknowledgeState;
+
 
 public:
     explicit ProtocolHandler(QObject *parent = nullptr);
@@ -87,7 +95,7 @@ signals:
     void rawOutgoingBytesSignal( QByteArray bytes );
 
 private:
-    VNetConnection m_VNetConnection;
+    AEConnection m_VNetConnection;
     QHostAddress m_ServerAddress;
     quint16 m_ServerPort;
 

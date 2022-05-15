@@ -12,6 +12,8 @@
 #include "dialoguploadfile.h"
 #include "dialogconsole.h"
 #include "dialogdelete.h"
+#include "remotefiletableview.h"
+#include "remotefiletablemodel.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -23,10 +25,9 @@ class MainWindow : public QMainWindow
 
     typedef enum
     {
-        AS_Unknown,
-        AS_SUCCESS,
-        AS_FAILED,
-    } AcknowledgeState;
+        VIEW_LIST,
+        VIEW_ICON
+    } ViewType;
 
 public:
     MainWindow(QWidget *parent = nullptr);
@@ -46,6 +47,7 @@ public slots:
     void onShowInfoFilesToggledSlot(bool enabled);
     void onRefreshButtonReleasedSlot();
     void onBrowserItemDoubleClickSlot();
+    void onBrowserItemsDoubleClickedSlot( QList<QSharedPointer<DirectoryListing>> directoryListings );
     void onDrivesItemSelectedSlot();
     void onUpButtonReleasedSlot();
     void onPathEditFinishedSlot();
@@ -114,18 +116,22 @@ private:
     ProtocolHandler m_ProtocolHandler;
     QMap<QString, QSharedPointer<DirectoryListing>> m_DirectoryListings;
     QStringList m_Volumes;
-    AcknowledgeState m_AcknowledgeState;
+    ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     QTimer m_ReconnectTimer;
+
+    //Custom Views
+    RemoteFileTableView *m_FileTableView;
+    RemoteFileTableModel *m_FileTableModel;
 
     //Preferences
     bool m_ConfirmWindowClose;
     bool m_HideInfoFiles;
     bool m_ShowFileSizes;
-    bool m_ListViewEnabled;
+    ViewType m_ViewType;
 
     //File downloading
-    DialogDownloadFile m_DialogDownloadFile;
-    DialogUploadFile m_DialogUploadFile;
+    QSharedPointer<DialogDownloadFile> m_DialogDownloadFile;
+    QSharedPointer<DialogUploadFile> m_DialogUploadFile;
     DialogDelete m_DialogDelete;
 
     //Throughput book keeping

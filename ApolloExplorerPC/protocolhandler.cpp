@@ -3,7 +3,7 @@
 #include <QtEndian>
 #include <QEventLoop>
 
-#include "VNetPCUtils.h"
+#include "AEUtils.h"
 
 ProtocolHandler::ProtocolHandler(QObject *parent) :
     QObject(parent),
@@ -13,19 +13,19 @@ ProtocolHandler::ProtocolHandler(QObject *parent) :
     m_ConnectionPhase( CP_DISCONNECTED )
 {
     //setup signal slots
-    connect( &m_VNetConnection, &VNetConnection::connectedToHostSignal, this, &ProtocolHandler::onConnectedSlot );
-    connect( &m_VNetConnection, &VNetConnection::disconnectedFromHostSignal, this, &ProtocolHandler::onDisconnectedSlot );
-    connect( &m_VNetConnection, &VNetConnection::newMessageReceived, this, &ProtocolHandler::onMessageReceivedSlot );
-    connect( this, &ProtocolHandler::connectToHostSignal, &m_VNetConnection, &VNetConnection::onConnectToHostRequestedSlot );
-    connect( this, &ProtocolHandler::disconnectFromHostSignal, &m_VNetConnection, &VNetConnection::onDisconnectFromhostRequestedSlot );
+    connect( &m_VNetConnection, &AEConnection::connectedToHostSignal, this, &ProtocolHandler::onConnectedSlot );
+    connect( &m_VNetConnection, &AEConnection::disconnectedFromHostSignal, this, &ProtocolHandler::onDisconnectedSlot );
+    connect( &m_VNetConnection, &AEConnection::newMessageReceived, this, &ProtocolHandler::onMessageReceivedSlot );
+    connect( this, &ProtocolHandler::connectToHostSignal, &m_VNetConnection, &AEConnection::onConnectToHostRequestedSlot );
+    connect( this, &ProtocolHandler::disconnectFromHostSignal, &m_VNetConnection, &AEConnection::onDisconnectFromhostRequestedSlot );
 
     //Through put signals
-    connect( &m_VNetConnection, &VNetConnection::outgoingByteCountSignal, this, &ProtocolHandler::outgoingByteCountSignal );
-    connect( &m_VNetConnection, &VNetConnection::incomingByteCountSignal, this, &ProtocolHandler::incomingByteCountSignal );
+    connect( &m_VNetConnection, &AEConnection::outgoingByteCountSignal, this, &ProtocolHandler::outgoingByteCountSignal );
+    connect( &m_VNetConnection, &AEConnection::incomingByteCountSignal, this, &ProtocolHandler::incomingByteCountSignal );
 
     //Raw Socket
-    connect( this, &ProtocolHandler::rawOutgoingBytesSignal, &m_VNetConnection, &VNetConnection::onRawOutgoingBytesSlot );
-    connect( &m_VNetConnection, &VNetConnection::rawIncomingBytesSignal, this, &ProtocolHandler::onRawIncomingBytesSlot );
+    connect( this, &ProtocolHandler::rawOutgoingBytesSignal, &m_VNetConnection, &AEConnection::onRawOutgoingBytesSlot );
+    connect( &m_VNetConnection, &AEConnection::rawIncomingBytesSignal, this, &ProtocolHandler::onRawIncomingBytesSlot );
 }
 
 void ProtocolHandler::onConnectToHostRequestedSlot( QHostAddress serverAddress, quint16 port )

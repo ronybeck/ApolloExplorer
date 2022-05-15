@@ -1,6 +1,6 @@
-#include "vnethost.h"
+#include "amigahost.h"
 
-VNetHost::VNetHost( QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent ) :
+AmigaHost::AmigaHost( QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent ) :
     QObject(parent),
     m_Name( name ),
     m_OsName( osName ),
@@ -11,7 +11,7 @@ VNetHost::VNetHost( QString name, QString osName, QString osVersion, QString har
     m_TimeoutTime = QTime::currentTime().addSecs( 10 );
 }
 
-bool VNetHost::operator ==( const VNetHost &rhs )
+bool AmigaHost::operator ==( const AmigaHost &rhs )
 {
     if( rhs.m_Name != m_Name )
         return false;
@@ -20,7 +20,7 @@ bool VNetHost::operator ==( const VNetHost &rhs )
     return true;
 }
 
-bool VNetHost::hasTimedOut()
+bool AmigaHost::hasTimedOut()
 {
     QTime now = QTime::currentTime();
     if( m_TimeoutTime < now )
@@ -29,32 +29,32 @@ bool VNetHost::hasTimedOut()
     return false;
 }
 
-void VNetHost::setHostRespondedNow()
+void AmigaHost::setHostRespondedNow()
 {
     m_TimeoutTime = QTime::currentTime().addSecs( 4 );
 }
 
-const QString &VNetHost::Name() const
+const QString &AmigaHost::Name() const
 {
     return m_Name;
 }
 
-const QString &VNetHost::OsName() const
+const QString &AmigaHost::OsName() const
 {
     return m_OsName;
 }
 
-const QString &VNetHost::OsVersion() const
+const QString &AmigaHost::OsVersion() const
 {
     return m_OsVersion;
 }
 
-const QString &VNetHost::Hardware() const
+const QString &AmigaHost::Hardware() const
 {
     return m_Hardware;
 }
 
-const QHostAddress &VNetHost::Address() const
+const QHostAddress &AmigaHost::Address() const
 {
     return m_Address;
 }

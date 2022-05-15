@@ -13,7 +13,7 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     m_SystemTrayIcon( QPixmap( ":/browser/icons/VampireHW.png" ) )
 {
     ui->setupUi(this);
-    setWindowTitle( "VNet Scanner" );
+    setWindowTitle( "ApolloExplorer Scanner" );
 
     //Signal Slots
     connect( &m_DeviceDiscovery, &DeviceDiscovery::hostAliveSignal, this, &ScanningWindow::onNewDeviceDiscoveredSlot );
@@ -40,7 +40,7 @@ ScanningWindow::~ScanningWindow()
     delete ui;
 }
 
-void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<VNetHost> host )
+void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host )
 {
     //Create a new item for the browser
     QListWidgetItem *item = new QListWidgetItem();
@@ -86,7 +86,7 @@ void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<VNetHost> host )
     }
 }
 
-void ScanningWindow::onDeviceLeftSlot( QSharedPointer<VNetHost> host )
+void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
 {
     QString itemName = getItemName( host->Name(), host->Address() );
     auto items = ui->listWidget->findItems( itemName, Qt::MatchExactly );
