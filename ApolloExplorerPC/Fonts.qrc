@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="comfortaa">fonts/Comfortaa-VariableFont_wght.ttf</file>
+    </qresource>
+</RCC>

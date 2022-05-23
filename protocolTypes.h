@@ -10,7 +10,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_REVISION 5
+#define VERSION_REVISION 6
 #define MAIN_LISTEN_PORTNUMBER 30202
 #define BROADCAST_PORTNUMBER 30201
 
@@ -205,12 +205,10 @@ typedef struct
 typedef struct
 {
 	ProtocolMessage_t header;
-	char name[16];
-	char osName[8];
+    char name[16];
+    char osName[8];
 	char osVersion[8];
-	char hardware[8];
-	char online;			//1 online, 0 going offline
-	char padding[3];
+    char hardware[32];
 } ProtocolMessage_DeviceAnnouncement_t;
 
 typedef struct

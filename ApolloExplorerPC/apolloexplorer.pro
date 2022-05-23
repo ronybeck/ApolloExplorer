@@ -86,4 +86,5 @@ DISTFILES += \
     icons/file.png
 
 RESOURCES += \
+    Fonts.qrc \
     icons.qrc

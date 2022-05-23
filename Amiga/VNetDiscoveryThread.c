@@ -473,7 +473,7 @@ static void discoveryThread()
 
 	//Let's see what is in the tool types
 	dbglog( "[discoverySocket] Opening disk object\n" );
-	struct DiskObject *diskObject = GetDiskObject( "VNetServerAmiga" );
+	struct DiskObject *diskObject = GetDiskObject( "ApolloExplorerServerAmiga" );
 	if( diskObject )
 	{
 		dbglog( "[discoverySocket] Opened disk object\n" );
@@ -504,7 +504,7 @@ static void discoveryThread()
 		}
 
 		STRPTR osversion = FindToolType( diskObject->do_ToolTypes, "osversion" );
-		if( osname )
+		if( osversion )
 		{
 			dbglog( "[discoverySocket] ToolTypes osversion: %s\n", osversion );
 			strncpy( announceMessage->osVersion, osversion, sizeof( announceMessage->osVersion ) );
@@ -519,7 +519,7 @@ static void discoveryThread()
 		}
 
 		STRPTR hardware = FindToolType( diskObject->do_ToolTypes, (STRPTR)"hardware" );
-		if( osname )
+		if( hardware )
 		{
 			dbglog( "[discoverySocket] ToolTypes hardware: %s\n", hardware );
 			strncpy( announceMessage->hardware, hardware, sizeof( announceMessage->hardware ) );

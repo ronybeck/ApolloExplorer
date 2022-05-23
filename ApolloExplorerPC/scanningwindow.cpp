@@ -1,5 +1,28 @@
 #include "scanningwindow.h"
 #include "ui_scanningwindow.h"
+#include <QPixmap>
+
+static QPixmap getPixmap( QSharedPointer<AmigaHost> host )
+{
+    if( host->Hardware().contains( "V2", Qt::CaseInsensitive ) ||
+        host->Hardware().contains( "V4", Qt::CaseInsensitive ) ||
+        host->Hardware().contains( "V500", Qt::CaseInsensitive ) ||
+        host->Hardware().contains( "V600", Qt::CaseInsensitive ) ||
+        host->Hardware().contains( "V1200", Qt::CaseInsensitive ))
+    {
+        return QPixmap( ":/browser/icons/VampireHW.png" );
+    }
+    else if( host->Hardware().contains( "FB", Qt::CaseInsensitive ) || host->Hardware().contains( "FB500", Qt::CaseInsensitive ))
+    {
+        return QPixmap( ":/browser/icons/FirebirdHW.png" );
+    }
+    else if( host->Hardware().contains( "Icedrake", Qt::CaseInsensitive ))
+    {
+        return QPixmap( ":/browser/icons/IcedrakeHW.png" );
+    }
+
+    return QPixmap( ":/browser/icons/CommodoreHW.png" );
+}
 
 static QString getItemName( QString name, QHostAddress address )
 {
@@ -14,11 +37,13 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle( "ApolloExplorer Scanner" );
+    //ui->groupBoxDetails->hide();
 
     //Signal Slots
     connect( &m_DeviceDiscovery, &DeviceDiscovery::hostAliveSignal, this, &ScanningWindow::onNewDeviceDiscoveredSlot );
     connect( &m_DeviceDiscovery, &DeviceDiscovery::hostDiedSignal, this, &ScanningWindow::onDeviceLeftSlot );
     connect( ui->listWidget, &QListWidget::itemDoubleClicked, this, &ScanningWindow::onHostDoubleClickedSlot );
+    connect( ui->listWidget, &QListWidget::itemClicked, this, &ScanningWindow::onHostIconClickedSlot );
 
     //Show the system try
     m_SystemTrayIcon.show();
@@ -42,32 +67,17 @@ ScanningWindow::~ScanningWindow()
 
 void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host )
 {
+    //Update the hostmap
+    m_HostMap[ host->Address().toString() ] = host;
+
     //Create a new item for the browser
     QListWidgetItem *item = new QListWidgetItem();
     item->setText( getItemName( host->Name(), host->Address() ) );
     QString hint( "Name: " + host->Name() + "\nOS: " + host->OsName() + " " + host->OsVersion() + "\nHardware: " + host->Hardware() + "\nAddress: " + host->Address().toString() );
-    if( host->Hardware().contains( "V2", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V4", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V500", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V600", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V1200", Qt::CaseInsensitive ))
-    {
-        item->setIcon( QPixmap( ":/browser/icons/VampireHW.png" ) );
-    }
-    else if( host->Hardware().contains( "FB", Qt::CaseInsensitive ) || host->Hardware().contains( "FB500", Qt::CaseInsensitive ))
-    {
-        item->setIcon( QPixmap( ":/browser/icons/FirebirdHW.png" ) );
-    }
-    else if( host->Hardware().contains( "Icedrake", Qt::CaseInsensitive ))
-    {
-        item->setIcon( QPixmap( ":/browser/icons/IcedrakeHW.png" ) );
-    }
-    else
-    {
-        item->setIcon( QPixmap( ":/browser/icons/CommodoreHW.png" ) );
-    }
+    item->setIcon( getPixmap( host ) );
     item->setToolTip( hint );
     item->setData( Qt::UserRole, host->Address().toString() );
+
     ui->listWidget->addItem( item );
 
     //Add a new system try menu option
@@ -129,7 +139,7 @@ void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
 
 void ScanningWindow::onHostDoubleClickedSlot( QListWidgetItem *item )
 {
-        //Now open a browser window for this.
+    //Now open a browser window for this.
         QString addressString = item->data( Qt::UserRole ).toString();
 
         //First see if we have a window for this address already
@@ -204,4 +214,23 @@ void ScanningWindow::onSystemTrayIconClickedSlot( QSystemTrayIcon::ActivationRea
         setVisible( false );
     else
         setVisible( true );
+}
+
+void ScanningWindow::onHostIconClickedSlot( QListWidgetItem *item  )
+{
+    //First show the side bar
+    ui->groupBoxDetails->show();
+
+    //Get the host information
+    QString address( item->data( Qt::UserRole ).toString() );
+    QSharedPointer<AmigaHost> host = m_HostMap[ address ];
+
+    //Set the details in the side bar
+    QPixmap icon = getPixmap( host );
+    //QPixmap scaledIcon = icon.scaledToWidth( ui->labelIcon->width() );
+    //ui->labelIcon->setPixmap( scaledIcon );
+    ui->labelIcon->setPixmap( icon );
+    ui->labelName->setText( "Name: " + host->Name() );
+    ui->labelHardware->setText( "Hardware: " + host->Hardware() );
+    ui->labelOS->setText( "OS: " + host->OsName() + " " + host->OsVersion() );
 }

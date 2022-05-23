@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QLocale>
 #include <QTranslator>
+#include <QFontDatabase>
 #include "protocolTypes.h"
 #include "directorylisting.h"
 #include "mouseeventfilter.h"
@@ -19,6 +20,9 @@ int main(int argc, char *argv[])
 
     //Add the mouse event filter
     a.installNativeEventFilter( MouseEventFilterSingleton::getInstance() );
+
+    //Add the fonts
+    QFontDatabase::addApplicationFont(":/comfortaa");
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();

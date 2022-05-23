@@ -35,11 +35,13 @@ public slots:
     void onBrowserWindowDestroyedSlot();
     void onSystemTrayMenuItemSelected();
     void onSystemTrayIconClickedSlot( QSystemTrayIcon::ActivationReason reason );
+    void onHostIconClickedSlot( QListWidgetItem *item );
 
 
 private:
     DeviceDiscovery m_DeviceDiscovery;
     QMap<QString, MainWindow*> m_BrowserList;
+    QMap<QString, QSharedPointer<AmigaHost>> m_HostMap;
     QSystemTrayIcon m_SystemTrayIcon;
     QMenu m_SystemTrayMenu;
     QMenu m_SystemTrayHostsMenu;
