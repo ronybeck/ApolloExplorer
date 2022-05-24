@@ -35,6 +35,60 @@
    <iconset resource="icons.qrc">
     <normaloff>:/browser/icons/VampireHW.png</normaloff>:/browser/icons/VampireHW.png</iconset>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget
+{	
+	background-color: #444444;
+	font: bold 12px;
+	color:  white;
+	font: 700 10pt &quot;Comfortaa&quot;;
+}
+QLabel{
+	padding-left: 3px;
+	padding-right: 3px;
+}
+
+QLineEdit
+{
+border: 1px solid rgb(136, 138, 133);
+}
+
+QPushButton
+{
+	margin: 5px;
+	padding: 5px;
+	border: 1px solid rgb(136, 138, 133);
+    border-radius: 2px;
+	text-align: center;
+}
+QPushButton::pressed
+{
+	background-color: #555555;
+}
+QPushButton::hover
+{
+	border: 1px solid #aaaaaa;
+}
+QGroupBox
+{
+	padding: 1px;
+	margin: 1px;
+}
+
+QHeaderView::section
+{
+	margin: 2px;
+	padding: 2px;
+}
+
+QMenu::indicator {
+    border: 1px inset white;
+}
+QMenu::indicator:checked {
+    border: 1px inset white;
+	background: red;
+}</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">

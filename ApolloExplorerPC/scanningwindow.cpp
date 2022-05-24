@@ -233,4 +233,5 @@ void ScanningWindow::onHostIconClickedSlot( QListWidgetItem *item  )
     ui->labelName->setText( "Name: " + host->Name() );
     ui->labelHardware->setText( "Hardware: " + host->Hardware() );
     ui->labelOS->setText( "OS: " + host->OsName() + " " + host->OsVersion() );
+    ui->labelIPAddress->setText( "IP: " + address );
 }

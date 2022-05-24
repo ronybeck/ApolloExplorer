@@ -26,6 +26,8 @@ RemoteFileTableView::RemoteFileTableView()
     verticalHeader()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
     verticalHeader()->setSizeAdjustPolicy( AdjustToContents );
     horizontalHeader()->setSectionResizeMode( QHeaderView::Stretch );
+    this->verticalHeader()->setEnabled( false );
+    this->verticalHeader()->setVisible( false );
     setSizeAdjustPolicy( QAbstractScrollArea::AdjustToContents );
     setSelectionMode( QAbstractItemView::ExtendedSelection );
     setSelectionBehavior( QAbstractItemView::SelectRows );

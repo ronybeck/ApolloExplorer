@@ -21,16 +21,27 @@
    <string notr="true">QWidget
 {	
 	background-color: #444444;
-	margin-top: 2ex;
 	font: bold 12px;
 	color:  white;
 	font: 700 10pt &quot;Comfortaa&quot;;
 }
+QLabel{
+	padding-left: 3px;
+	padding-right: 3px;
+}
+
+QLineEdit
+{
+border: 1px solid rgb(136, 138, 133);
+}
+
 QPushButton
 {
 	margin: 5px;
+	padding: 5px;
 	border: 1px solid rgb(136, 138, 133);
-    border-radius: 5px;
+    border-radius: 2px;
+	text-align: center;
 }
 QPushButton::pressed
 {
@@ -39,6 +50,25 @@ QPushButton::pressed
 QPushButton::hover
 {
 	border: 1px solid #aaaaaa;
+}
+QGroupBox
+{
+	padding: 1px;
+	margin: 1px;
+}
+
+QHeaderView::section
+{
+	margin: 2px;
+	padding: 2px;
+}
+
+QMenu::indicator {
+    border: 1px inset white;
+}
+QMenu::indicator:checked {
+    border: 1px inset white;
+	background: red;
 }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
@@ -299,20 +329,29 @@ QPushButton::hover
          </property>
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <property name="spacing">
+            <number>0</number>
+           </property>
            <property name="leftMargin">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="topMargin">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="rightMargin">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="bottomMargin">
-            <number>1</number>
+            <number>0</number>
            </property>
            <item>
             <widget class="QLabel" name="label_3">
+             <property name="frameShape">
+              <enum>QFrame::NoFrame</enum>
+             </property>
+             <property name="lineWidth">
+              <number>0</number>
+             </property>
              <property name="text">
               <string>Path</string>
              </property>
@@ -387,7 +426,7 @@ QPushButton::hover
               <enum>QListView::Adjust</enum>
              </property>
              <property name="viewMode">
-              <enum>QListView::IconMode</enum>
+              <enum>QListView::ListMode</enum>
              </property>
              <property name="wordWrap">
               <bool>true</bool>
