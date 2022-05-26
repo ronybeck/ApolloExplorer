@@ -24,7 +24,7 @@
 #endif
 
 
-#include "VNetUtil.h"
+#include "AEUtil.h"
 
 static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameBufferLen  )
 {

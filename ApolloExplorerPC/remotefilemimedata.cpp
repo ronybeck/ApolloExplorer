@@ -159,7 +159,7 @@ QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Typ
     //Start the download
     DBGLOG << "Starting download";
     QEventLoop loop;
-    connect( m_DownloadDialog.get(), &DialogDownloadFile::downloadCompletedSignal, &loop, &QEventLoop::quit );
+    connect( m_DownloadDialog.get(), &DialogDownloadFile::singleFileDownloadCompletedSignal, &loop, &QEventLoop::quit );
     m_DownloadDialog->startDownload( m_RemotePaths, m_TempFilePath );
     loop.exec();
     DBGLOG << "Hopefully the download finished";

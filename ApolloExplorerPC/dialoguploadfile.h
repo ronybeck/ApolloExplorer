@@ -43,6 +43,7 @@ public slots:
 
 signals:
     void uploadCompletedSignal();
+    void allFilesUploadedSignal();
     void startupUploadSignal( QString localFilePath, QString remoteFilePath );
 
 private:

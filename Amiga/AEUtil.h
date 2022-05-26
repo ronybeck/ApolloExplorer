@@ -5,8 +5,8 @@
  *      Author: rony
  */
 
-#ifndef AMIGA_VNETUTIL_H_
-#define AMIGA_VNETUTIL_H_
+#ifndef AMIGA_AEUTIL_H_
+#define AMIGA_AEUTIL_H_
 
 #if DBGOUT == 1
 #include <stdio.h>
@@ -24,4 +24,4 @@
     _s[l]=0; \
 } while(0)
 
-#endif /* AMIGA_VNETUTIL_H_ */
+#endif /* AMIGA_AEUTIL_H_ */

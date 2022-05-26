@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DialogPreferences</class>
+ <widget class="QDialog" name="DialogPreferences">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>461</width>
+    <height>212</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Apollo Explorer Settings</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="icons.qrc">
+    <normaloff>:/browser/icons/VampireHW.png</normaloff>:/browser/icons/VampireHW.png</iconset>
+  </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget
+{	
+	background-color: #444444;
+	font: bold 12px;
+	color:  white;
+	font: 700 10pt &quot;Comfortaa&quot;;
+}
+QLabel{
+	padding-left: 3px;
+	padding-right: 3px;
+}
+
+QLineEdit
+{
+border: 1px solid rgb(136, 138, 133);
+}
+
+QPushButton
+{
+	margin: 5px;
+	padding: 5px;
+	border: 1px solid rgb(136, 138, 133);
+    border-radius: 2px;
+	text-align: center;
+}
+QPushButton::pressed
+{
+	background-color: #555555;
+}
+QPushButton::hover
+{
+	border: 1px solid #aaaaaa;
+}
+QGroupBox
+{
+	padding-top: 15px;
+	margin: 1px;
+}
+
+QHeaderView::section
+{
+	margin: 2px;
+	padding: 2px;
+}
+
+QMenu::indicator {
+    border: 1px inset white;
+}
+QMenu::indicator:checked {
+    border: 1px inset white;
+	background: red;
+}</string>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>false</bool>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Settings</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Double Click Action</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBox">
+          <property name="minimumSize">
+           <size>
+            <width>150</width>
+            <height>0</height>
+           </size>
+          </property>
+          <item>
+           <property name="text">
+            <string>Download</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Open</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Ignore</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="icons.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>DialogPreferences</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>DialogPreferences</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

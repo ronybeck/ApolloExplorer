@@ -213,6 +213,7 @@ void DialogUploadFile::onUploadCompletedSlot()
     {
         //We are done
         hide();
+        emit allFilesUploadedSignal();
         return;
     }
 

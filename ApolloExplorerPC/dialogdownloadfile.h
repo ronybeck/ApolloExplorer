@@ -31,6 +31,7 @@ public:
     void disconnectFromhost();
     void startDownload( QList<QPair<QString,QString>> files );
     void startDownload( QList<QSharedPointer<DirectoryListing>> remotePaths, QString localPath );
+    void startDownloadAndOpen( QList<QSharedPointer<DirectoryListing>> remotePaths );
     bool isCurrentlyDownloading();
 
 public slots:
@@ -41,11 +42,13 @@ public slots:
     void onConnectedToHostSlot();
     void onDisconnectedFromHostSlot();
     void onAbortedSlot( QString reason );
-    void onDownloadCompletedSlot();
+    void onSingleFileDownloadCompletedSlot();
+    void onAllFileDownloadsCompletedSlot();
     void onProgressUpdate( quint8 procent, quint64 bytes, quint64 throughput );
 
 signals:
-    void downloadCompletedSignal();
+    void singleFileDownloadCompletedSignal();
+    void allFilesDownloaded();
     void startDownloadSignal( QString localFilePath, QString remoteFilePath );
 
 private:
@@ -58,6 +61,7 @@ private:
     QList<QPair<QString, QString>> m_DownloadList;
     QMutex m_Mutex;
     QAtomicInteger<bool> m_DownloadActive;
+    QStringList m_FilesToOpen;      //Which files are to be opened when the download is completed
 };
 
 #endif // DIALOGDOWNLOADFILE_H

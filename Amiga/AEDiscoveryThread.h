@@ -5,9 +5,9 @@
  *      Author: rony
  */
 
-#ifndef AMIGA_VNETDISCOVERYTHREAD_H_
-#define AMIGA_VNETDISCOVERYTHREAD_H_
+#ifndef AMIGA_AEDISCOVERYTHREAD_H_
+#define AMIGA_AEDISCOVERYTHREAD_H_
 
 void startDiscoveryThread();
 
-#endif /* AMIGA_VNETDISCOVERYTHREAD_H_ */
+#endif /* AMIGA_AEDISCOVERYTHREAD_H_ */

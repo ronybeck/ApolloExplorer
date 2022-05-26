@@ -35,8 +35,8 @@ int RemoteFileTableModel::columnCount(const QModelIndex &parent) const
 
 static inline QString prettyFileSize( qint32 size )
 {
-#define GigaByte 1024*1024*1024
-#define MegaByte 1024*1024
+#define GigaByte (1024*1024*1024)
+#define MegaByte (1024*1024)
 #define KiloByte 1024
 
     if( size > GigaByte )
@@ -44,7 +44,7 @@ static inline QString prettyFileSize( qint32 size )
         return QString( QString::number( size / GigaByte, 10 ) + QString( " GBytes" ) );
     }
     if( size > MegaByte )
-    {
+    {        
         return QString( QString::number( size / MegaByte, 10 ) + QString( " MBytes" ) );
     }
     if( size > KiloByte )

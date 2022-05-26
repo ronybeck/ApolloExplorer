@@ -1,6 +1,7 @@
 #include "scanningwindow.h"
 #include "ui_scanningwindow.h"
 #include <QPixmap>
+#include <QWindow>
 
 static QPixmap getPixmap( QSharedPointer<AmigaHost> host )
 {
@@ -30,20 +31,39 @@ static QString getItemName( QString name, QHostAddress address )
     return itemName;
 }
 
+static QSharedPointer<AmigaHost> findHostByAddress( QString address, QMap<QString, QSharedPointer<AmigaHost>> mapping, bool& found )
+{
+    found = false;
+    QMapIterator<QString,QSharedPointer<AmigaHost>> iter( mapping );
+    while( iter.hasNext() )
+    {
+        auto nextEntry = iter.next();
+        auto host = nextEntry.value();
+        if( host->Address().toString() == address )
+        {
+            found = true;
+            return host;
+        }
+    }
+    return nullptr;
+}
+
 ScanningWindow::ScanningWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::ScanningWindow),
+    m_Settings( new QSettings( "ApolloTeam", "ApolloExplorer" ) ),
     m_SystemTrayIcon( QPixmap( ":/browser/icons/VampireHW.png" ) )
 {
     ui->setupUi(this);
     setWindowTitle( "ApolloExplorer Scanner" );
-    //ui->groupBoxDetails->hide();
 
     //Signal Slots
     connect( &m_DeviceDiscovery, &DeviceDiscovery::hostAliveSignal, this, &ScanningWindow::onNewDeviceDiscoveredSlot );
     connect( &m_DeviceDiscovery, &DeviceDiscovery::hostDiedSignal, this, &ScanningWindow::onDeviceLeftSlot );
     connect( ui->listWidget, &QListWidget::itemDoubleClicked, this, &ScanningWindow::onHostDoubleClickedSlot );
     connect( ui->listWidget, &QListWidget::itemClicked, this, &ScanningWindow::onHostIconClickedSlot );
+    connect( ui->checkBoxOpenAutomatically, &QCheckBox::released, this, &ScanningWindow::onAutoConnectCheckboxToggledSlot );
+    connect( ui->pushButton, &QPushButton::released, this, &ScanningWindow::onConnectButtonReleasedSlot );
 
     //Show the system try
     m_SystemTrayIcon.show();
@@ -55,14 +75,45 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     m_SystemTrayMenu.addSeparator();
     connect( &m_SystemTrayIcon, &QSystemTrayIcon::activated, this, &ScanningWindow::onSystemTrayIconClickedSlot );
     QAction *quitAction = m_SystemTrayMenu.addAction( "Quit", this, &ScanningWindow::close );
-    //quitAction->setMenuRole( QAction::QuitRole );
-    //quitAction->setPriority( QAction::HighPriority );
+
+    //Restore the last window position
+    m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
+    this->resize(
+                m_Settings->value( SETTINGS_WINDOW_WIDTH, size().width() ).toInt(),
+                m_Settings->value( SETTINGS_WINDOW_HEIGHT, size().height() ).toInt()
+                );
+    this->move(
+                m_Settings->value( SETTINGS_WINDOW_POSX, pos().x() ).toInt(),
+                m_Settings->value( SETTINGS_WINDOW_POSY, pos().y() ).toInt()
+                );
+    m_Settings->endGroup();
 }
 
 ScanningWindow::~ScanningWindow()
 {
     m_SystemTrayMenu.setVisible( false );
     delete ui;
+}
+
+void ScanningWindow::openNewHostWindow(QSharedPointer<AmigaHost> host)
+{
+    //Now open a browser window for this.
+    QString addressString = host->Address().toString();
+
+    //First see if we have a window for this address already
+    if( m_BrowserList.contains( addressString ) )
+    {
+        MainWindow *mainWindow = m_BrowserList[ addressString ];
+        mainWindow->raise();
+        return;
+    }
+
+    MainWindow *newWindow = new MainWindow( m_Settings, host );
+    newWindow->onConnectButtonReleasedSlot();
+    newWindow->setConfirmWindowClose( false );
+    newWindow->show();
+
+    connect( newWindow, &MainWindow::browserWindowCloseSignal, this, &ScanningWindow::onBrowserWindowDestroyedSlot );
 }
 
 void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host )
@@ -93,6 +144,19 @@ void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host )
         MainWindow *mainWin = m_BrowserList[ address ];
         //mainWin->close();
         mainWin->onDeviceDiscoveredSlot();
+    }else
+    {
+        //If this needs to be opened automatically, open it now
+        m_Settings->beginGroup( "hosts" );
+        m_Settings->beginGroup( host->Name() );
+        bool openWindow = m_Settings->value( "AutoConnect", false ).toBool();
+        m_Settings->endGroup();
+        m_Settings->endGroup();
+        if( openWindow )
+        {
+            openNewHostWindow( host );
+        }
+
     }
 }
 
@@ -100,6 +164,12 @@ void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
 {
     QString itemName = getItemName( host->Name(), host->Address() );
     auto items = ui->listWidget->findItems( itemName, Qt::MatchExactly );
+
+    //If this is the currently selected host, disable the system tab
+    if( m_SelectedHost->Name() == host->Name() )
+    {
+        ui->groupBoxDetails->setEnabled( false );
+    }
 
     //Remove these items
     QListIterator<QListWidgetItem*> iter( items );
@@ -140,25 +210,33 @@ void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
 void ScanningWindow::onHostDoubleClickedSlot( QListWidgetItem *item )
 {
     //Now open a browser window for this.
-        QString addressString = item->data( Qt::UserRole ).toString();
+    QString addressString = item->data( Qt::UserRole ).toString();
 
-        //First see if we have a window for this address already
-        if( m_BrowserList.contains( addressString ) )
-        {
-            MainWindow *mainWindow = m_BrowserList[ addressString ];
-            mainWindow->raise();
-            return;
-        }
+    //First see if we have a window for this address already
+    if( m_BrowserList.contains( addressString ) )
+    {
+        MainWindow *mainWindow = m_BrowserList[ addressString ];
+        mainWindow->raise();
+        return;
+    }
 
-        MainWindow *newWindow = new MainWindow();
-        newWindow->onSetHostSlot( QHostAddress( addressString ) );
-        newWindow->onConnectButtonReleasedSlot();
-        newWindow->setConfirmWindowClose( false );
-        newWindow->show();
+    //Ok, so we need to open a new browser window
+    bool found;
+    QSharedPointer<AmigaHost> host = findHostByAddress( addressString, m_HostMap, found );
+    if( !found )
+    {
+        DBGLOG << "Couldn't find host with ip address " << addressString << " in the host map.";
+        return;
+    }
 
-        connect( newWindow, &MainWindow::browserWindowCloseSignal, this, &ScanningWindow::onBrowserWindowDestroyedSlot );
+    MainWindow *newWindow = new MainWindow( m_Settings, host );
+    newWindow->onConnectButtonReleasedSlot();
+    newWindow->setConfirmWindowClose( false );
+    newWindow->show();
 
-        m_BrowserList[ addressString ] = newWindow;
+    connect( newWindow, &MainWindow::browserWindowCloseSignal, this, &ScanningWindow::onBrowserWindowDestroyedSlot );
+
+    m_BrowserList[ addressString ] = newWindow;
 }
 
 void ScanningWindow::onBrowserWindowDestroyedSlot()
@@ -195,9 +273,17 @@ void ScanningWindow::onSystemTrayMenuItemSelected()
         return;
     }
 
+    //Ok, we need to open a new window
+    bool found;
+    QSharedPointer<AmigaHost> host = findHostByAddress( hostAddress, m_HostMap, found );
+    if( !found )
+    {
+        DBGLOG << "Couldn't find host with ip address " << hostAddress << " in the host map.";
+        return;
+    }
+
     //Otherwise open one
-    MainWindow *newWindow = new MainWindow();
-    newWindow->onSetHostSlot( QHostAddress( hostAddress ) );
+    MainWindow *newWindow = new MainWindow( m_Settings, host );
     newWindow->onConnectButtonReleasedSlot();
     newWindow->setConfirmWindowClose( false );
     newWindow->show();
@@ -219,19 +305,68 @@ void ScanningWindow::onSystemTrayIconClickedSlot( QSystemTrayIcon::ActivationRea
 void ScanningWindow::onHostIconClickedSlot( QListWidgetItem *item  )
 {
     //First show the side bar
-    ui->groupBoxDetails->show();
+    ui->groupBoxDetails->setEnabled( true );
 
     //Get the host information
     QString address( item->data( Qt::UserRole ).toString() );
-    QSharedPointer<AmigaHost> host = m_HostMap[ address ];
+    m_SelectedHost = m_HostMap[ address ];
 
     //Set the details in the side bar
-    QPixmap icon = getPixmap( host );
+    QPixmap icon = getPixmap( m_SelectedHost );
     //QPixmap scaledIcon = icon.scaledToWidth( ui->labelIcon->width() );
     //ui->labelIcon->setPixmap( scaledIcon );
     ui->labelIcon->setPixmap( icon );
-    ui->labelName->setText( "Name: " + host->Name() );
-    ui->labelHardware->setText( "Hardware: " + host->Hardware() );
-    ui->labelOS->setText( "OS: " + host->OsName() + " " + host->OsVersion() );
+    ui->labelName->setText( "Name: " + m_SelectedHost->Name() );
+    ui->labelHardware->setText( "Hardware: " + m_SelectedHost->Hardware() );
+    ui->labelOS->setText( "OS: " + m_SelectedHost->OsName() + " " + m_SelectedHost->OsVersion() );
     ui->labelIPAddress->setText( "IP: " + address );
+
+    //Get the settings for this host
+    m_Settings->beginGroup( SETTINGS_HOSTS );
+    m_Settings->beginGroup( m_SelectedHost->Name() );
+    ui->checkBoxOpenAutomatically->setChecked( m_Settings->value( "AutoConnect", false ).toBool() );
+    m_Settings->endGroup();
+    m_Settings->endGroup();
+}
+
+void ScanningWindow::onConnectButtonReleasedSlot()
+{
+    openNewHostWindow( m_SelectedHost );
+}
+
+void ScanningWindow::onAutoConnectCheckboxToggledSlot()
+{
+    //Find the settings for this host
+    QString hostname = m_SelectedHost->Name();
+    m_Settings->beginGroup( SETTINGS_HOSTS );
+    m_Settings->beginGroup( hostname );
+    m_Settings->setValue( "AutoConnect", ui->checkBoxOpenAutomatically->isChecked() );
+    qDebug() << "Setting auto connect to " << m_Settings->value( "AutoConnect" ).toBool() << " for host " << hostname;
+    m_Settings->endGroup();
+    m_Settings->endGroup();
+    m_Settings->sync();
+}
+
+void ScanningWindow::resizeEvent( QResizeEvent *event )
+{
+    QMainWindow::resizeEvent( event );
+
+    //Change the settings
+    m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
+    m_Settings->setValue( SETTINGS_WINDOW_WIDTH, event->size().width() );
+    m_Settings->setValue( SETTINGS_WINDOW_HEIGHT, event->size().height() );
+    m_Settings->endGroup();
+    m_Settings->sync();
+}
+
+void ScanningWindow::moveEvent(QMoveEvent *event )
+{
+    QMainWindow::moveEvent( event );
+
+    //Change the settings
+    m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
+    m_Settings->setValue( SETTINGS_WINDOW_POSX, event->pos().x() );
+    m_Settings->setValue( SETTINGS_WINDOW_POSY, event->pos().y() );
+    m_Settings->endGroup();
+    m_Settings->sync();
 }

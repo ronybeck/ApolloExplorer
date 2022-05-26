@@ -23,6 +23,7 @@ SOURCES += \
     dialogconsole.cpp \
     dialogdelete.cpp \
     dialogdownloadfile.cpp \
+    dialogpreferences.cpp \
     dialoguploadfile.cpp \
     directorylisting.cpp \
     downloadthread.cpp \
@@ -46,6 +47,7 @@ HEADERS += \
     dialogconsole.h \
     dialogdelete.h \
     dialogdownloadfile.h \
+    dialogpreferences.h \
     dialoguploadfile.h \
     directorylisting.h \
     downloadthread.h \
@@ -63,6 +65,7 @@ FORMS += \
     dialogconsole.ui \
     dialogdelete.ui \
     dialogdownloadfile.ui \
+    dialogpreferences.ui \
     dialoguploadfile.ui \
     mainwindow.ui \
     scanningwindow.ui

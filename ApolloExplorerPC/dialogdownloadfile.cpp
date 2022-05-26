@@ -5,6 +5,9 @@
 #include <QDebug>
 #include <QFileInfo>
 #include <QDir>
+#include <QFile>
+#include <QUrl>
+#include <QDesktopServices>
 
 #include "AEUtils.h"
 
@@ -28,8 +31,9 @@ DialogDownloadFile::DialogDownloadFile(QWidget *parent) :
     connect( &m_DownloadThread, &DownloadThread::abortedSignal, this, &DialogDownloadFile::onAbortedSlot );
     connect( &m_DownloadThread, &DownloadThread::connectedToServerSignal, this, &DialogDownloadFile::onConnectedToHostSlot );
     connect( &m_DownloadThread, &DownloadThread::disconnectedFromServerSignal, this, &DialogDownloadFile::onDisconnectedFromHostSlot );
-    connect( &m_DownloadThread, &DownloadThread::downloadCompletedSignal, this, &DialogDownloadFile::onDownloadCompletedSlot );
+    connect( &m_DownloadThread, &DownloadThread::downloadCompletedSignal, this, &DialogDownloadFile::onSingleFileDownloadCompletedSlot );
     connect( &m_DownloadThread, &DownloadThread::downloadProgressSignal, this, &DialogDownloadFile::onProgressUpdate );
+    connect( this, &DialogDownloadFile::allFilesDownloaded, this, &DialogDownloadFile::onAllFileDownloadsCompletedSlot );
 
     //Gui signal slots
     connect( ui->buttonBox, &QDialogButtonBox::rejected, this, &DialogDownloadFile::onCancelButtonReleasedSlot );
@@ -103,13 +107,40 @@ void DialogDownloadFile::startDownload(QList<QSharedPointer<DirectoryListing> > 
                 QMessageBox errorBox( "Getting remote Subdirectories failed..", "For reasons unknown, we couldn't get all remote directories.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
                 errorBox.exec();
                 resetDownloadDialog();
-                emit downloadCompletedSignal();
+                emit singleFileDownloadCompletedSignal();
             }
         }
     }
 
     //Now start the download
     startDownload( files );
+}
+
+void DialogDownloadFile::startDownloadAndOpen(QList<QSharedPointer<DirectoryListing> > remotePaths)
+{
+    //First create the temp directory
+    QString tmpPath = QDir::tempPath() + "/ApolloExplorer/";
+    QDir tmpDir( tmpPath );
+    if( !tmpDir.exists() )
+    {
+        DBGLOG << "Temp path " << tmpPath << " doesn't exist.  Creating it.";
+        tmpDir.mkpath( tmpPath );
+    }
+    //We want to build a list of files that will be downloaded
+    m_FilesToOpen.clear();
+    QListIterator<QSharedPointer<DirectoryListing>> iter( remotePaths );
+    while( iter.hasNext() )
+    {
+        auto nextEntry = iter.next();
+        if( nextEntry->Type() == DET_FILE )
+        {
+            QString destinationPath = tmpPath + nextEntry->Name();
+            m_FilesToOpen.push_back( destinationPath );
+        }
+    }
+
+    //Now start the download
+    startDownload( remotePaths, tmpPath );
 }
 
 void DialogDownloadFile::startDownload( QList<QPair<QString, QString> > files )
@@ -131,12 +162,12 @@ void DialogDownloadFile::startDownload( QList<QPair<QString, QString> > files )
     if( m_DownloadList.isEmpty() )
     {
         resetDownloadDialog();
-        emit downloadCompletedSignal();
+        emit singleFileDownloadCompletedSignal();
         return;
     }
 
     //Start the first file
-    onDownloadCompletedSlot();
+    onSingleFileDownloadCompletedSlot();
 
 }
 
@@ -153,10 +184,10 @@ void DialogDownloadFile::onCancelButtonReleasedSlot()
 
     //Update the gui with a feedback
     resetDownloadDialog();
-
+    hide();
     m_DownloadThread.onCancelDownloadSlot();
 
-    emit downloadCompletedSignal();
+    emit allFilesDownloaded();
 }
 
 
@@ -167,10 +198,10 @@ void DialogDownloadFile::onAbortedSlot( QString reason )
     errorBox.exec();
     resetDownloadDialog();
     hide();
-    emit downloadCompletedSignal();
+    emit allFilesDownloaded();
 }
 
-void DialogDownloadFile::onDownloadCompletedSlot()
+void DialogDownloadFile::onSingleFileDownloadCompletedSlot()
 {
     LOCK;
     //Do we have any more files to donload?
@@ -179,7 +210,7 @@ void DialogDownloadFile::onDownloadCompletedSlot()
         //Looks like we are done
         resetDownloadDialog();
         hide();
-        emit downloadCompletedSignal();
+        emit allFilesDownloaded();
         return;
     }
 
@@ -195,6 +226,25 @@ void DialogDownloadFile::onDownloadCompletedSlot()
     //Set the filename in the gui
     ui->labelDownload->setText( "File: " + remoteFilePath );
     ui->labelFilesRemaining->setText( "Files remaining: " + QString::number( m_DownloadList.count() ) );
+}
+
+void DialogDownloadFile::onAllFileDownloadsCompletedSlot()
+{
+    //Now check if we have some files to open
+    if( m_FilesToOpen.size() == 0)  return;
+
+    //Go through each file and open it
+    QStringListIterator iter( m_FilesToOpen );
+    while( iter.hasNext() )
+    {
+        QString filePath = iter.next();
+        QUrl file = QUrl::fromLocalFile( filePath );
+        DBGLOG << "Opening file " << file.toString();
+        QDesktopServices::openUrl( file );
+    }
+
+    //Cleanup
+    m_FilesToOpen.clear();
 }
 
 void DialogDownloadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)
@@ -307,6 +357,6 @@ void DialogDownloadFile::onDisconnectedFromHostSlot()
         QMessageBox errorBox( "Server Disconnected.", "The server disconnected with " + QString::number( m_DownloadList.count() ) + " files remaining.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
         errorBox.exec();
         resetDownloadDialog();
-        emit downloadCompletedSignal();
+        emit singleFileDownloadCompletedSignal();
     }
 }

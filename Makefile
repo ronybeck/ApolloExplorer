@@ -7,9 +7,9 @@ AE_Includes=-I/opt/amiga/m68k-amigaos/ndk-include/
 
 TARGET=ApolloExplorerServerAmiga
 AMIGA_SRC=	Amiga/ApolloExplorerServerAmiga.c \
-			Amiga/VNetServerThread.c \
-			Amiga/VNetDiscoveryThread.c \
-			Amiga/VNetUtil.c \
+			Amiga/AEServerThread.c \
+			Amiga/AEDiscoveryThread.c \
+			Amiga/AEUtil.c \
 			Amiga/protocol.c \
 			Amiga/DirectoryList.c \
 			Amiga/SendFile.c \

@@ -6,12 +6,18 @@
 #include <QAction>
 #include <QMutexLocker>
 #include <QAtomicInt>
+#include <QSharedPointer>
+#include <QSettings>
 
+#define DEBUG 1
+#include "AEUtils.h"
+#include "amigahost.h"
 #include "protocolhandler.h"
 #include "dialogdownloadfile.h"
 #include "dialoguploadfile.h"
 #include "dialogconsole.h"
 #include "dialogdelete.h"
+#include "dialogpreferences.h"
 #include "remotefiletableview.h"
 #include "remotefiletablemodel.h"
 
@@ -30,10 +36,14 @@ class MainWindow : public QMainWindow
     } ViewType;
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<AmigaHost> amigaHost, QWidget *parent = nullptr);
     ~MainWindow();
 
     void closeEvent (QCloseEvent *event) override;
+
+    //Window Manipulation
+    void resizeEvent( QResizeEvent *event ) override;
+    void moveEvent(QMoveEvent *event) override;
 
     bool ConfirmWindowClose() const;
     void setConfirmWindowClose(bool newConfirmWindowClose);
@@ -52,8 +62,11 @@ public slots:
     void onUpButtonReleasedSlot();
     void onPathEditFinishedSlot();
     void showContextMenu( QPoint );
-    void onSetHostSlot( QHostAddress host );
+    //void onSetHostSlot( QHostAddress host );
     void onAbortDeletionRequestedSlot();
+
+    //Menu itmes
+    void onSettingsMenuItemClickedSlot();
 
     //Context Menu
     void onRunCLIHereSlot();
@@ -118,12 +131,15 @@ private:
     QStringList m_Volumes;
     ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     QTimer m_ReconnectTimer;
+    QSharedPointer<AmigaHost> m_AmigaHost;
 
     //Custom Views
     RemoteFileTableView *m_FileTableView;
     RemoteFileTableModel *m_FileTableModel;
 
     //Preferences
+    QSharedPointer<QSettings> m_Settings;
+    DialogPreferences m_DialogPreferences;
     bool m_ConfirmWindowClose;
     bool m_HideInfoFiles;
     bool m_ShowFileSizes;

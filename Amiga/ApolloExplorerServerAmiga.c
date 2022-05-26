@@ -1,3 +1,4 @@
+
 #define DBGOUT 0
 
 #include <sys/types.h>
@@ -5,9 +6,9 @@
 
 #include "protocolTypes.h"
 #include "protocol.h"
-#include "VNetUtil.h"
-#include "VNetServerThread.h"
-#include "VNetDiscoveryThread.h"
+#include "AEUtil.h"
+#include "AEServerThread.h"
+#include "AEDiscoveryThread.h"
 
 struct Library *SocketBase = NULL;
 
@@ -90,20 +91,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-#if 0
-	//Create a message port so we can send the socket handles to child processes
-	dbglog( "[master] Creating message port %s.\n", g_MessagePortName );
-	g_VNetSocketMessagePort = CreatePort( g_MessagePortName, 0 );
-	if( g_VNetSocketMessagePort == NULL )
-	{
-		dbglog( "Failed to create message port.\n" );
-		goto shutdown;
-	}
-	AddPort( g_VNetSocketMessagePort );
-	dbglog( "[master] Master Message Port: 0x%08x\n", g_VNetSocketMessagePort );
-#endif
-
-#if 1
 	//Create a message port so we can send the socket handles to child processes
 	dbglog( "[master] Creating message port %s.\n", g_MessagePortName );
 	g_VNetSocketMessagePort = CreateMsgPort();
@@ -116,7 +103,6 @@ int main(int argc, char *argv[])
 	g_VNetSocketMessagePort->mp_Node.ln_Pri = 0;
 	AddPort( g_VNetSocketMessagePort );
 	dbglog( "[master] Master Message Port: 0x%08x\n", (unsigned int)g_VNetSocketMessagePort );
-#endif
 
 	//Start announcing our presence on the network
 	startDiscoveryThread();

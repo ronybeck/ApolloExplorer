@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>829</width>
-    <height>381</height>
+    <width>842</width>
+    <height>349</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -48,6 +48,31 @@ QPushButton::pressed
 QPushButton::hover
 {
 	border: 1px solid #aaaaaa;
+}
+
+QGroupBox
+{
+	padding: 5px;
+}
+
+QCheckBox::indicator
+{
+	border: 1px solid rgb(136, 138, 133);
+    border-radius: 2px;
+}
+
+QCheckBox::indicator:unchecked {
+    image: url(checkbox_unchecked.png);
+}
+
+QCheckBox::indicator:checked {
+    image: url(checkbox_checked.png);
+	background-color: red;
+}
+
+QListView::item
+{
+	padding: 10px;
 }</string>
   </property>
   <property name="unifiedTitleAndToolBarOnMac">
@@ -58,7 +83,7 @@ QPushButton::hover
     <item>
      <widget class="QGroupBox" name="groupBoxDetails">
       <property name="enabled">
-       <bool>true</bool>
+       <bool>false</bool>
       </property>
       <property name="styleSheet">
        <string notr="true"/>
@@ -144,6 +169,13 @@ QPushButton::hover
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="checkBoxOpenAutomatically">
+         <property name="text">
+          <string>Open Automatically</string>
          </property>
         </widget>
        </item>

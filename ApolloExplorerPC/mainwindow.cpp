@@ -12,9 +12,8 @@
 #include <QTableWidgetItem>
 #include  <QMenu>
 #include <QHeaderView>
-
 #include "messagepool.h"
-#include "AEUtils.h"
+
 
 #define PATH_ROLE 1
 #define TYPE_ROLE 2
@@ -51,7 +50,7 @@ static QString getSizeAsFormatedString( quint64 size )
     return QString( QString::number( size / KiloByte ) + " Bytes");
 }
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<AmigaHost> amigaHost, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow),
       m_ProtocolHandler( ),
@@ -59,8 +58,11 @@ MainWindow::MainWindow(QWidget *parent)
       m_Volumes( ),
       m_AcknowledgeState( ProtocolHandler::AS_Unknown ),
       m_ReconnectTimer( this ),
+      m_AmigaHost( amigaHost ),
       m_FileTableView( nullptr ),
       m_FileTableModel( nullptr ),
+      m_Settings( settings ),
+      m_DialogPreferences( m_Settings ),
       m_ConfirmWindowClose( true ),
       m_HideInfoFiles( true ),
       m_ShowFileSizes( false ),
@@ -74,10 +76,24 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    //setAcceptDrops(true);
-//    ui->labelUploadSpeed->setAcceptDrops( false );
-//    ui->labelDownloadSpeed->setAcceptDrops( false );
-//    ui->labelServerVersion->setAcceptDrops( false );
+    //Setup the host information in the window
+    ui->lineEditServerAddress->setText( m_AmigaHost->Address().toString() );
+    setWindowTitle( "File browser " + m_AmigaHost->Name() + "(" + m_AmigaHost->Address().toString() + ")" );
+    ui->groupBoxServerAddress->hide();
+
+    //Restore the last window position
+    m_Settings->beginGroup( SETTINGS_HOSTS );
+    m_Settings->beginGroup( m_AmigaHost->Name() );
+    this->resize(
+                m_Settings->value( SETTINGS_WINDOW_WIDTH, size().width() ).toInt(),
+                m_Settings->value( SETTINGS_WINDOW_HEIGHT, size().height() ).toInt()
+                );
+    this->move(
+                m_Settings->value( SETTINGS_WINDOW_POSX, pos().x() ).toInt(),
+                m_Settings->value( SETTINGS_WINDOW_POSY, pos().y() ).toInt()
+                );
+    m_Settings->endGroup();
+    m_Settings->endGroup();
 
     //Setup the dialogs
     m_DialogDownloadFile = QSharedPointer<DialogDownloadFile>( new DialogDownloadFile() );
@@ -119,9 +135,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->actionShow_Drives, &QAction::toggled, this, &MainWindow::onShowDrivesToggledSlot );
     connect( ui->actionList_Mode, &QAction::toggled, this, &MainWindow::onListModeToggledSlot );
     connect( ui->actionShow_Info_Files, &QAction::toggled, this, &MainWindow::onShowInfoFilesToggledSlot );
+    connect( ui->actionSettings, &QAction::triggered, this, &MainWindow::onSettingsMenuItemClickedSlot );
 
     //Upload download slots
-    connect( m_DialogUploadFile.get(), &DialogUploadFile::uploadCompletedSignal, this, &MainWindow::onRefreshButtonReleasedSlot );
+    connect( m_DialogUploadFile.get(), &DialogUploadFile::allFilesUploadedSignal, this, &MainWindow::onRefreshButtonReleasedSlot );
 
     //Deletion dialog
     connect( &m_DialogDelete, &DialogDelete::cancelDeletionSignal, this, &MainWindow::onAbortDeletionRequestedSlot );
@@ -159,8 +176,6 @@ MainWindow::MainWindow(QWidget *parent)
         m_FileTableView->hide();
         ui->listWidgetFileBrowser->show();
     }
-
-    this->setWindowTitle( "File Browser" );
 }
 
 MainWindow::~MainWindow()
@@ -188,6 +203,34 @@ void MainWindow::closeEvent (QCloseEvent *event)
         event->accept();
         emit browserWindowCloseSignal();
     }
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event )
+{
+    QMainWindow::resizeEvent( event );
+
+    //Change the settings
+    m_Settings->beginGroup( SETTINGS_HOSTS );
+    m_Settings->beginGroup( m_AmigaHost->Name() );
+    m_Settings->setValue( SETTINGS_WINDOW_WIDTH, event->size().width() );
+    m_Settings->setValue( SETTINGS_WINDOW_HEIGHT, event->size().height() );
+    m_Settings->endGroup();
+    m_Settings->endGroup();
+    m_Settings->sync();
+}
+
+void MainWindow::moveEvent(QMoveEvent *event)
+{
+    QMainWindow::moveEvent( event );
+
+    //Change the settings
+    m_Settings->beginGroup( SETTINGS_HOSTS );
+    m_Settings->beginGroup( m_AmigaHost->Name() );
+    m_Settings->setValue( SETTINGS_WINDOW_POSX, event->pos().x() );
+    m_Settings->setValue( SETTINGS_WINDOW_POSY, event->pos().y() );
+    m_Settings->endGroup();
+    m_Settings->endGroup();
+    m_Settings->sync();
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *e)
@@ -434,7 +477,7 @@ void MainWindow::onBrowserItemsDoubleClickedSlot(QList<QSharedPointer<DirectoryL
 {
     LOCK;
 
-    QString localDirPath = QDir::homePath();
+    static QString localDirPath = QDir::homePath();
 
     //Examine the list and see if there is anything there
     if( directoryListings.empty() )
@@ -448,15 +491,37 @@ void MainWindow::onBrowserItemsDoubleClickedSlot(QList<QSharedPointer<DirectoryL
     if( directoryListings.size() > 1 ||
             ( directoryListings.size() == 1 && directoryListings[ 0 ]->Type() == DET_FILE ) )
     {
-        //Ask the user where to save the files
-        QFileDialog destDialog( this, "Destination for files", localDirPath );
-        destDialog.setFileMode( QFileDialog::DirectoryOnly );
-        int result = destDialog.exec();
-        if( result == 0 )
-            return;
+        //Let's see what the user configured to do on double click
+        m_Settings->beginGroup( SETTINGS_BROWSER );
+        QString action = m_Settings->value( SETTINGS_BROWSER_DOUBLECLICK_ACTION, SETTINGS_DOWNLOAD ).toString();
+        m_Settings->endGroup();
 
-        m_DialogDownloadFile->startDownload( directoryListings, localDirPath );
-        return;
+        if( action == SETTINGS_IGNORE )
+        {
+            DBGLOG << "Ignoring double click";
+            return;
+        }
+        if( action == SETTINGS_OPEN )
+        {
+            DBGLOG << "Opening files after download.";
+            m_DialogDownloadFile->startDownloadAndOpen( directoryListings );
+            return;
+        }
+        if( action == SETTINGS_DOWNLOAD )
+        {
+            DBGLOG << "Downloading files.";
+            //Ask the user where to save the files
+            QFileDialog destDialog( this, "Destination for files", localDirPath );
+            destDialog.setFileMode( QFileDialog::DirectoryOnly );
+            int result = destDialog.exec();
+            if( result == 0 )
+                return;
+            //Get the selected directory
+            localDirPath = destDialog.directory().absolutePath();
+            DBGLOG << "Downloading to directory " << localDirPath;
+            m_DialogDownloadFile->startDownload( directoryListings, localDirPath );
+            return;
+        }
     }
 
     //The only case left now is a single directory.
@@ -550,16 +615,23 @@ void MainWindow::showContextMenu(QPoint pos )
     myMenu.exec( globalPos );
 }
 
+#if 0
 void MainWindow::onSetHostSlot(QHostAddress host)
 {
     ui->lineEditServerAddress->setText( host.toString() );
     setWindowTitle( "File browser " + host.toString() );
     ui->groupBoxServerAddress->hide();
 }
+#endif
 
 void MainWindow::onAbortDeletionRequestedSlot()
 {
     m_AbortDeleteRequested = true;
+}
+
+void MainWindow::onSettingsMenuItemClickedSlot()
+{
+    m_DialogPreferences.show();
 }
 
 void MainWindow::onRunCLIHereSlot()

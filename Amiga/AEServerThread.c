@@ -22,8 +22,8 @@
 
 #endif
 
-#include "VNetServerThread.h"
-#include "VNetUtil.h"
+#include "AEServerThread.h"
+#include "AEUtil.h"
 #include "DirectoryList.h"
 #include "SendFile.h"
 #include "ReceiveFile.h"

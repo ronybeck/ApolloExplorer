@@ -23,7 +23,7 @@
 
 #endif
 
-#include "VNetUtil.h"
+#include "AEUtil.h"
 #include "protocol.h"
 #include "protocolTypes.h"
 

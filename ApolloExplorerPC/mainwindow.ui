@@ -121,7 +121,7 @@ QMenu::indicator:checked {
           <number>65535</number>
          </property>
          <property name="value">
-          <number>30202</number>
+          <number>30302</number>
          </property>
         </widget>
        </item>
@@ -506,6 +506,8 @@ QMenu::indicator:checked {
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionSettings"/>
+    <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuView">
@@ -550,6 +552,11 @@ QMenu::indicator:checked {
    </property>
    <property name="text">
     <string>Show Info Files</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
    </property>
   </action>
  </widget>

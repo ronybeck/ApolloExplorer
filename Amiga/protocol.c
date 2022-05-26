@@ -19,7 +19,7 @@
 #include <proto/bsdsocket.h>
 #endif
 
-#include "VNetUtil.h"
+#include "AEUtil.h"
 
 #ifdef __VBCC__
 

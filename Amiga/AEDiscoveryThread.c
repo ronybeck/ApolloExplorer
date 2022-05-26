@@ -22,7 +22,7 @@
 #define DBGOUT 1
 
 #include "protocol.h"
-#include "VNetUtil.h"
+#include "AEUtil.h"
 
 #define VREG_BOARD_Unknown      0x00      // Unknown
 #define VREG_BOARD_V600         0x01      // V600
@@ -221,22 +221,22 @@ static void getHardwareName( char *name, LONG len )
 	switch( boardID )
 	{
 		case VREG_BOARD_V600:
-			snprintf( name, len, "%s", "V600" );
+			snprintf( name, len, "%s", "V2 600" );
 			break;
 		case VREG_BOARD_V500:
-			snprintf( name, len, "%s", "V500" );
+			snprintf( name, len, "%s", "V2 500" );
 			break;
 		case VREG_BOARD_V4:
-			snprintf( name, len, "%s", "FB500" );
+			snprintf( name, len, "%s", "Firebird" );
 			break;
 		case VREG_BOARD_ICEDRAKE:
 			snprintf( name, len, "%s", "Icedrake" );
 			break;
 		case VREG_BOARD_V4SA:
-			snprintf( name, len, "%s", "V4" );
+			snprintf( name, len, "%s", "V4 Standalone" );
 			break;
 		case VREG_BOARD_V1200:
-			snprintf( name, len, "%s", "V1200" );
+			snprintf( name, len, "%s", "V2 1200" );
 			break;
 		case VREG_BOARD_V4000:
 			snprintf( name, len, "%s", "V4000" );
