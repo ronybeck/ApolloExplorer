@@ -31,8 +31,6 @@ RemoteFileTableView::RemoteFileTableView()
     setSizeAdjustPolicy( QAbstractScrollArea::AdjustToContents );
     setSelectionMode( QAbstractItemView::ExtendedSelection );
     setSelectionBehavior( QAbstractItemView::SelectRows );
-    setSelectionMode( QAbstractItemView::ExtendedSelection );
-    setSelectionBehavior( QAbstractItemView::SelectRows );
     this->setGridStyle( Qt::PenStyle::NoPen );
 }
 
@@ -51,6 +49,8 @@ void RemoteFileTableView::dragEnterEvent(QDragEnterEvent *e)
 void RemoteFileTableView::dropEvent(QDropEvent *e)
 {
     DBGLOG << "Action: " << e->type();
+    //if( e->source() == this )   return;     //Don't drop to yourself.
+
     e->acceptProposedAction();
 
     //By default, we will upload to the root of the view
@@ -90,8 +90,9 @@ void RemoteFileTableView::dropEvent(QDropEvent *e)
 
 void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
 {
-    //DBGLOG << "Action: " << e->type();
+    DBGLOG << "Action: " << e->type();
     //e->setDropAction( Qt::MoveAction );
+    if( e->source() == this )   return;     //Igore dragging to self
     e->accept();
 
     //By default, we will upload to the root of the view
@@ -121,7 +122,7 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
     //Set up the mimedata
     RemoteFileMimeData* newMimeData = new RemoteFileMimeData();
     newMimeData->setDownloadDialog( m_DownloadDialog );
-    newMimeData->setTempFilePath( QDir::tempPath() + "/" );
+    //newMimeData->setTempFilePath( QDir::tempPath() + "/" );
     newMimeData->setAction( Qt::MoveAction );
 
     //Get the list of selected items
@@ -163,6 +164,33 @@ void RemoteFileTableView::mouseReleaseEvent(QMouseEvent *e )
         DBGLOG << "Mouse event: Left mouse button did something.";
     }
     QTableView::mouseReleaseEvent( e );
+}
+
+QList<QSharedPointer<DirectoryListing> > RemoteFileTableView::getSelectedItems()
+{
+    //Get the list of selected items
+    QList<QSharedPointer<DirectoryListing>> selectedDirectoryListings;
+    auto selectedItems = this->selectedIndexes();
+    for( auto item = selectedItems.begin(); item != selectedItems.end(); item++ )
+    {
+        RemoteFileTableModel *model = dynamic_cast<RemoteFileTableModel*>( this->model() );
+        QSharedPointer<DirectoryListing> listing = model->getDirectoryListingForIndex( *item );
+
+        if( !listing.isNull() )
+        {
+            //We will get a listing for every column in the table.
+            //So filter out each duplicate.
+            if( selectedDirectoryListings.contains( listing ) ) continue;
+
+            selectedDirectoryListings << listing;
+            qDebug() << "Item at row " << item->row() << ": " << listing->Name();
+        }
+        else
+            qDebug() << "Item at row " << item->row() << ": NONAME";
+    }
+
+    //Now let the caller know what was selected
+    return selectedDirectoryListings;
 }
 
 void RemoteFileTableView::setDownloadDialog(QSharedPointer<DialogDownloadFile> dialog)

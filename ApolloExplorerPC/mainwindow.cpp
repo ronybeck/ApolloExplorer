@@ -128,7 +128,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( ui->pushButtonDisconnect, &QPushButton::released, this, &MainWindow::onDisconnectButtonReleasedSlot );
     connect( ui->pushButtonRefresh, &QPushButton::released, this, &MainWindow::onRefreshButtonReleasedSlot );
     connect( ui->pushButtonUp, &QPushButton::released, this, &MainWindow::onUpButtonReleasedSlot );
-    connect( ui->listWidgetFileBrowser, &QListWidget::doubleClicked, this, &MainWindow::onBrowserItemDoubleClickSlot );
+    //connect( ui->listWidgetFileBrowser, &QListWidget::doubleClicked, this, &MainWindow::onBrowserItemDoubleClickSlot );
     connect( m_FileTableView, &RemoteFileTableView::itemsDoubleClicked, this, &MainWindow::onBrowserItemsDoubleClickedSlot );
     connect( ui->listWidgetDrives, &QListWidget::clicked, this, &MainWindow::onDrivesItemSelectedSlot );
     connect( ui->lineEditPath, &QLineEdit::editingFinished, this, &MainWindow::onPathEditFinishedSlot );
@@ -388,6 +388,7 @@ void MainWindow::onRefreshButtonReleasedSlot()
     emit getRemoteDirectorySignal( pathString );
 }
 
+#if 0
 void MainWindow::onBrowserItemDoubleClickSlot()
 {
     LOCK;
@@ -472,6 +473,7 @@ void MainWindow::onBrowserItemDoubleClickSlot()
         onDownloadSelectedSlot();
     }
 }
+#endif
 
 void MainWindow::onBrowserItemsDoubleClickedSlot(QList<QSharedPointer<DirectoryListing> > directoryListings )
 {
@@ -713,13 +715,17 @@ void MainWindow::onDeleteSlot()
 {
     LOCK;
 
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    qint32 deleteDelay = m_Settings->value( SETTINGS_BROWSER_DELAY_BETWEEN_DELETES, 100 ).toInt();
+    m_Settings->endGroup();
+
     QMessageBox msgBox( QMessageBox::Warning, "Delete", "Are you sure you want to delete this files", QMessageBox::Ok|QMessageBox::Cancel );
     if( msgBox.exec() )
     {
         qDebug() << "Deleting.......";
     }else
     {
-        qDebug() << "Aborting reboot";
+        qDebug() << "Aborting delete";
         return;
     }
 
@@ -730,43 +736,18 @@ void MainWindow::onDeleteSlot()
     m_DialogDelete.show();
 
     //Get the list of files selected
-    QStringList remotePathList;
+    QList<QSharedPointer<DirectoryListing>> directoryListing;
     QString currentDir = ui->lineEditPath->text();
     if( m_ViewType == VIEW_LIST )
     {
-#if REPLACE_ME
-        QList<QTableWidgetItem *> selectedItems = ui->tableWidgetFileBrowser->selectedItems();
-
-        //Go through each of the selected and add them to the list
-        QListIterator<QTableWidgetItem*> iter( selectedItems );
-        while( iter.hasNext() )
-        {
-            //Get the next item in the list
-            QTableWidgetItem *item = iter.next();
-            if( item == nullptr ) continue;
-            if( item->column() > 0 ) continue;
-            QString entryName = item->text();
-            remotePathList.append( entryName );
-        }
-#endif
+        directoryListing = m_FileTableView->getSelectedItems();
     }else
     {
-        QList<QListWidgetItem *> selectedItems = ui->listWidgetFileBrowser->selectedItems();
-
-        //Go through each of the selected and add them to the list
-        QListIterator<QListWidgetItem*> iter( selectedItems );
-        while( iter.hasNext() )
-        {
-            //Get the next item in the list
-            QListWidgetItem *item = iter.next();
-            if( item == nullptr ) continue;
-            QString entryName = item->text();
-            remotePathList.append( entryName );
-        }
+//Replace this here for icon mode
     }
 
     //Go through each of the selected
-    QStringListIterator entryIter( remotePathList );
+    QListIterator<QSharedPointer<DirectoryListing>> entryIter( directoryListing );
     while( entryIter.hasNext() )
     {
         //Process the event queue
@@ -777,34 +758,21 @@ void MainWindow::onDeleteSlot()
             return;
 
         //Wait between each delete as to not overwelm the amiga
-        QThread::msleep( 100 );
+        QThread::msleep( deleteDelay );
 
         //Get the next item in the list
-        QString entryName = entryIter.next();
-
-        //Otherwise, display what we have
-        QSharedPointer<DirectoryListing> directoryListing = m_DirectoryListings[ currentDir ];
-        QSharedPointer<DirectoryListing> directoryEntry = directoryListing->findEntry( entryName );
-        if( directoryEntry.isNull() )
-            continue;
+        QSharedPointer<DirectoryListing> directoryEntry = entryIter.next();
 
         //If this is a directory......
         if( directoryEntry->Type() == DET_USERDIR )
         {
-            //Form the remote path
-            QString remoteDirPath = currentDir;
-            if( remoteDirPath.endsWith( ":" ) || remoteDirPath.endsWith( "/" ) )
-                remoteDirPath += entryName;
-            else
-                remoteDirPath += "/" + entryName;
-
             //Update the deletion dialog
-            emit currentFileBeingDeleted( remoteDirPath );
+            emit currentFileBeingDeleted( directoryEntry->Path() );
             QApplication::processEvents();
 
             //Clear out and delete this directory
             bool errorInSubdir = 0;
-            deleteDirectoryRecursive( remoteDirPath, errorInSubdir );
+            deleteDirectoryRecursive( directoryEntry->Path(), errorInSubdir );
 
             //Did we succeed in deleting the sub directory?
             if( errorInSubdir )
@@ -816,42 +784,35 @@ void MainWindow::onDeleteSlot()
             //Now delete this directory
             //emit deleteRemoteDirectorySignal( remoteDirPath );
             QString errorMessage;
-            if( m_ProtocolHandler.deleteFile( remoteDirPath, errorMessage ) == false )
+            if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
             {
-                qDebug() << "Failed to delete path " << remoteDirPath;
-                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + remoteDirPath, QMessageBox::Ok );
+                qDebug() << "Failed to delete path " << directoryEntry->Path();
+                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + directoryEntry->Path(), QMessageBox::Ok );
                 errorBox.exec();
                 return;
             }
 
-            qDebug() << "Deleting file " << remoteDirPath;
+            qDebug() << "Deleted file " << directoryEntry->Path();
         }
 
         //If it is a file to download
         if( directoryEntry->Type() == DET_FILE )
         {
-            //Form the remote path
-            QString nextRemoteFile = currentDir;
-            if( nextRemoteFile.endsWith( ":" ) || nextRemoteFile.endsWith( "/" ) )
-                nextRemoteFile += entryName;
-            else
-                nextRemoteFile += "/" + entryName;
-
             //Update the deletion dialog
-            emit currentFileBeingDeleted( nextRemoteFile );
+            emit currentFileBeingDeleted( directoryEntry->Path() );
             QApplication::processEvents();
 
             //Send delete command for them
             //emit deleteRemoteDirectorySignal( remoteDirPath );
             QString errorMessage;
-            if( m_ProtocolHandler.deleteFile( nextRemoteFile, errorMessage ) == false )
+            if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
             {
-                qDebug() << "Failed to delete path " << nextRemoteFile;
-                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + nextRemoteFile, QMessageBox::Ok );
+                qDebug() << "Failed to delete path " << directoryEntry->Path();
+                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + directoryEntry->Path(), QMessageBox::Ok );
                 errorBox.exec();
                 return;
             }
-            qDebug() << "Deleting file " << nextRemoteFile;
+            qDebug() << "Deleted file " << directoryEntry->Path();
         }
     }
 
@@ -1239,13 +1200,17 @@ void MainWindow::updateFilebrowser()
         newModel->showInfoFiles( !m_HideInfoFiles );
         m_FileTableView->setModel( newModel );
         connect( m_FileTableView->horizontalHeader(), &QHeaderView::sectionClicked, newModel, &RemoteFileTableModel::onHeaderSectionClicked  );
-
-        //Now remove the old model
         if( m_FileTableModel )
         {
-            delete m_FileTableModel;
-            m_FileTableModel = newModel;
+            //Get the sort order of the old (This code is confusing and could be cleaned up)
+            int sortColumn = 0;
+            bool sortReversed = false;
+            m_FileTableModel->getHeaderSelection( sortColumn, sortReversed );
+            newModel->onHeaderSectionClicked( sortColumn );
+            if( sortReversed ) newModel->onHeaderSectionClicked( sortColumn );
+            m_FileTableModel->deleteLater();
         }
+        m_FileTableModel = newModel;
     }
 
     //List all the directories first
@@ -1358,6 +1323,10 @@ void MainWindow::updateDrivebrowser()
 
 void MainWindow::deleteDirectoryRecursive(QString remotePath, bool &error)
 {
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    qint32 deleteDelay = m_Settings->value( SETTINGS_BROWSER_DELAY_BETWEEN_DELETES, 100 ).toInt();
+    m_Settings->endGroup();
+
     //First clearout our cached copy of this directory.
     //We will get a fresh copy
     m_DirectoryListings.remove( remotePath );
@@ -1414,7 +1383,7 @@ void MainWindow::deleteDirectoryRecursive(QString remotePath, bool &error)
             return;
 
         //Wait between each delete as to not overwelm the amiga
-        QThread::msleep( 100 );
+        QThread::msleep( deleteDelay );
 
         //Get the next entry
         QSharedPointer<DirectoryListing> listing = iter.next();

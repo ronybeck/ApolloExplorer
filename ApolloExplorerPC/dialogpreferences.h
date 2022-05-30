@@ -20,6 +20,7 @@ public:
     ~DialogPreferences();
 
     void onDoubleClickComboBoxChanged( const QString selection );
+    void onDelayBetweenDeletesChangedSlot( int newValue );
 
 private:
     Ui::DialogPreferences *ui;

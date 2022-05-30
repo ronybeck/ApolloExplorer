@@ -71,22 +71,23 @@ RemoteFileMimeData::RemoteFileMimeData()
 {
     m_Action = Qt::IgnoreAction;
     m_LeftMouseButtonDown = true;
+    m_TempFilePath = QDir::tempPath() + "/ApolloExplorer/";
 
 #if __linux__
 //    Window root, child;
 //    int rootX, rootY, winX, winY;
 //    unsigned int mask;
 
-    #define MOUSEFILE "/dev/input/mice"
+//    #define MOUSEFILE "/dev/input/mice"
 
 
     //dpy = XOpenDisplay(NULL);
     //Display *xDisplay = QX11Info::display();
-    qint32 peakerID = QX11Info::generatePeekerId();
-    if( !QX11Info::peekEventQueue( PeekerCallback, this, QX11Info::PeekFromCachedIndex, peakerID ) )
-    {
-        DBGLOG << "XCB Failed to add peaker callback";
-    }
+//    qint32 peakerID = QX11Info::generatePeekerId();
+//    if( !QX11Info::peekEventQueue( PeekerCallback, this, QX11Info::PeekFromCachedIndex, peakerID ) )
+//    {
+//        DBGLOG << "XCB Failed to add peaker callback";
+//    }
     //XQueryPointer(xDisplay,DefaultRootWindow(xDisplay),&root,&child, &rootX,&rootY,&winX,&winY,&mask);
 
 //    if((fd = open(MOUSEFILE, O_RDONLY | O_NONBLOCK )) == -1)
@@ -154,33 +155,19 @@ QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Typ
         return QVariant();
     }
 
-
+    //Create the temporary directory
+    QDir tmpDir( m_TempFilePath );
+    tmpDir.mkdir( m_TempFilePath );
 
     //Start the download
     DBGLOG << "Starting download";
     QEventLoop loop;
-    connect( m_DownloadDialog.get(), &DialogDownloadFile::singleFileDownloadCompletedSignal, &loop, &QEventLoop::quit );
+    connect( m_DownloadDialog.get(), &DialogDownloadFile::allFilesDownloaded, &loop, &QEventLoop::quit );
     m_DownloadDialog->startDownload( m_RemotePaths, m_TempFilePath );
     loop.exec();
     DBGLOG << "Hopefully the download finished";
 
-    //Return the URIs in the requested format
-    if( type == QVariant::Type::ByteArray )
-    {
-        QByteArray array;
-        QListIterator<QUrl> iter( m_LocalUrls );
-        while( iter.hasNext() )
-        {
-            QUrl url = iter.next();
-            array.append( url.toString().toStdString().c_str() );
-            array.append( char( 0 ) );
-        }
-
-        return array;
-    }
-
-    //If we got here, we were asked for a non-supported type
-    return QVariant();
+    return QMimeData::retrieveData( mimeType, type );
 }
 
 bool RemoteFileMimeData::hasFormat(const QString &mimeType) const

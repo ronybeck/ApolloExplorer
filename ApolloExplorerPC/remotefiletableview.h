@@ -22,6 +22,8 @@ public:
     void mouseMoveEvent( QMouseEvent *e ) override;
     void mouseReleaseEvent(QMouseEvent *e) override;
 
+    QList<QSharedPointer<DirectoryListing>> getSelectedItems();
+
     void setDownloadDialog( QSharedPointer<DialogDownloadFile> dialog );
     void setUploadDialog( QSharedPointer<DialogUploadFile> dialog );
 

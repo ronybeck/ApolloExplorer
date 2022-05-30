@@ -4,8 +4,14 @@
 
 #include <QStyle>
 
+#define LOCK QMutexLocker locker( m_Mutex )
+#define UNLOCK locker.unlock()
+#define RELOCK locker.relock()
+
+
 RemoteFileTableModel::RemoteFileTableModel(  QSharedPointer<DirectoryListing> directoryListing, QObject *parent)
     : QAbstractTableModel{parent},
+      m_Mutex( new QMutex( QMutex::Recursive ) ),
       m_HeaderNames( ),
       m_Index(),
       m_DirectoryListing(),
@@ -314,9 +320,12 @@ void RemoteFileTableModel::sortEntries()
     }
 
     //Now we need to inform the view that the current entries will be removed (because we need to re-add them in the new order)
-    beginRemoveRows( QModelIndex(), 0, m_FileList.size() - 1  );
-    m_Index.clear();
-    endRemoveRows();
+    if( m_Index.size() > 0 )
+    {
+        beginRemoveRows( QModelIndex(), 0, m_FileList.size() - 1  );
+        m_Index.clear();
+        endRemoveRows();
+    }
 
     //Now we add them back in the new order
     QVectorIterator<QSharedPointer<DirectoryListing>> indexIter( m_FileList );
@@ -334,6 +343,12 @@ void RemoteFileTableModel::sortEntries()
         entryCount++;
     }
     endInsertRows();
+}
+
+void RemoteFileTableModel::getHeaderSelection(int &column, bool &reversed)
+{
+    column = m_SortColumn;
+    reversed = m_ReverseOrder;
 }
 
 void RemoteFileTableModel::onHeaderSectionClicked( int section )

@@ -6,6 +6,7 @@
 #include <QAbstractTableModel>
 #include <QObject>
 #include <QVector>
+#include <QMutexLocker>
 
 class RemoteFileTableModel : public QAbstractTableModel
 {
@@ -32,6 +33,7 @@ public:
     QSharedPointer<DirectoryListing> getDirectoryListingForIndex( const QModelIndex &index ) const;
     void showInfoFiles( bool enable );
     void sortEntries();
+    void getHeaderSelection( int &column, bool &reversed );
 
     QSharedPointer<DirectoryListing> getRootDirectoryListing() const;
 
@@ -39,6 +41,7 @@ public slots:
     void onHeaderSectionClicked( int section );
 
 private:
+    QMutex *m_Mutex;
     QStringList m_HeaderNames;
     QMap<QModelIndex,QSharedPointer<DirectoryListing>> m_Index;
     QSharedPointer<DirectoryListing> m_DirectoryListing;

@@ -56,7 +56,7 @@ public slots:
     void onListModeToggledSlot(bool enabled);
     void onShowInfoFilesToggledSlot(bool enabled);
     void onRefreshButtonReleasedSlot();
-    void onBrowserItemDoubleClickSlot();
+    //void onBrowserItemDoubleClickSlot();
     void onBrowserItemsDoubleClickedSlot( QList<QSharedPointer<DirectoryListing>> directoryListings );
     void onDrivesItemSelectedSlot();
     void onUpButtonReleasedSlot();
