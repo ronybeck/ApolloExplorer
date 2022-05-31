@@ -166,7 +166,7 @@ void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
     auto items = ui->listWidget->findItems( itemName, Qt::MatchExactly );
 
     //If this is the currently selected host, disable the system tab
-    if( m_SelectedHost->Name() == host->Name() )
+    if( !m_SelectedHost.isNull() && ( m_SelectedHost->Name() == host->Name() ) )
     {
         ui->groupBoxDetails->setEnabled( false );
     }

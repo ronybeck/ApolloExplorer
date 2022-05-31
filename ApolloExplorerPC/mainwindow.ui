@@ -61,6 +61,7 @@ QHeaderView::section
 {
 	margin: 2px;
 	padding: 2px;
+	background-color: #444444;
 }
 
 QMenu::indicator {
@@ -499,7 +500,7 @@ QMenu::indicator:checked {
      <x>0</x>
      <y>0</y>
      <width>774</width>
-     <height>21</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

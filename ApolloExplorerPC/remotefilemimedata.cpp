@@ -6,107 +6,21 @@
 
 #include <QApplication>
 
-//Linux specific stuff
-#if __linux__
-extern "C"
+RemoteFileMimeData::RemoteFileMimeData() :
+    m_Action( Qt::IgnoreAction ),
+    m_TempFilePath( QDir::tempPath() + "/ApolloExplorer/" ),
+    m_LocalUrls( ),
+    m_DownloadList( ),
+    m_DownloadDialog( nullptr ),
+    m_RemotePaths( ),
+    m_LeftMouseButtonDown( true )
 {
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 
-#include <linux/input.h>
-#include <fcntl.h>
-#include <X11/Xlib.h>
-}
-#endif
-
-
-#if __linux__
-bool PeekerCallback( xcb_generic_event_t *event, void *peekerData )
-{
-    DBGLOG << "Got an XCB event.";
-    switch( event->response_type )
-    {
-        case XCB_BUTTON_PRESS:
-        {
-            xcb_button_press_event_t *bp = (xcb_button_press_event_t *)event;
-            switch( bp->detail )
-            {
-                case 1:
-                {
-                    DBGLOG << "Left mouse button pressed.";
-                    RemoteFileMimeData *mimeData = reinterpret_cast<RemoteFileMimeData*>( peekerData );
-                    mimeData->m_LeftMouseButtonDown = true;
-                    break;
-                }
-                default:
-                break;
-            }
-        }
-        case XCB_BUTTON_RELEASE:
-        {
-            DBGLOG << "Left mouse button released.";
-            xcb_button_press_event_t *bp = (xcb_button_press_event_t *)event;
-            switch( bp->detail )
-            {
-                case 1:
-                {
-                    RemoteFileMimeData *mimeData = reinterpret_cast<RemoteFileMimeData*>( peekerData );
-                    mimeData->m_LeftMouseButtonDown = true;
-                    break;
-                }
-                default:
-                break;
-            }
-        }
-        default:
-        break;
-    }
-
-    return false;
-}
-#endif
-
-RemoteFileMimeData::RemoteFileMimeData()
-{
-    m_Action = Qt::IgnoreAction;
-    m_LeftMouseButtonDown = true;
-    m_TempFilePath = QDir::tempPath() + "/ApolloExplorer/";
-
-#if __linux__
-//    Window root, child;
-//    int rootX, rootY, winX, winY;
-//    unsigned int mask;
-
-//    #define MOUSEFILE "/dev/input/mice"
-
-
-    //dpy = XOpenDisplay(NULL);
-    //Display *xDisplay = QX11Info::display();
-//    qint32 peakerID = QX11Info::generatePeekerId();
-//    if( !QX11Info::peekEventQueue( PeekerCallback, this, QX11Info::PeekFromCachedIndex, peakerID ) )
-//    {
-//        DBGLOG << "XCB Failed to add peaker callback";
-//    }
-    //XQueryPointer(xDisplay,DefaultRootWindow(xDisplay),&root,&child, &rootX,&rootY,&winX,&winY,&mask);
-
-//    if((fd = open(MOUSEFILE, O_RDONLY | O_NONBLOCK )) == -1)
-//    {
-//      perror("opening device");
-//      exit(EXIT_FAILURE);
-//    }
-
-    //Set non-blocking IO
-    //int flags = fcntl( fd, F_GETFL);
-    //fcntl( fd, F_SETFL, flags | O_NONBLOCK );
-#endif
 }
 
 RemoteFileMimeData::~RemoteFileMimeData()
 {
-#if __linux__
-    //close( fd );
-#endif
+
 }
 
 QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Type type) const

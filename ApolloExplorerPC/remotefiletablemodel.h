@@ -21,6 +21,7 @@ class RemoteFileTableModel : public QAbstractTableModel
 
 public:
     explicit RemoteFileTableModel( QSharedPointer<DirectoryListing> directoryListing, QObject *parent = nullptr );
+    ~RemoteFileTableModel();
 
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent) const override;

@@ -52,7 +52,15 @@ QPushButton::hover
 
 QGroupBox
 {
-	padding: 5px;
+	padding: 10px;
+	border: 1px solid  rgb(136, 138, 133);
+	margin: 10px;
+	border-radius: 2px;
+}
+QGroupBox::Title
+{
+	subcontrol-origin: margin;
+    subcontrol-position: top center;
 }
 
 QCheckBox::indicator

@@ -27,6 +27,11 @@ RemoteFileTableModel::RemoteFileTableModel(  QSharedPointer<DirectoryListing> di
     updateListing( directoryListing );
 }
 
+RemoteFileTableModel::~RemoteFileTableModel()
+{
+    DBGLOG << "Destroying";
+}
+
 int RemoteFileTableModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED( parent )
@@ -215,11 +220,14 @@ QVariant RemoteFileTableModel::headerData(int section, Qt::Orientation orientati
         case Qt::ForegroundRole:
         case Qt::CheckStateRole:
         case Qt::InitialSortOrderRole:
+        {
+            return Qt::DescendingOrder;
+        }
         default:
         break;
     }
 
-    return QVariant();
+    return QAbstractTableModel::headerData( section, orientation, role );
 }
 
 Qt::ItemFlags RemoteFileTableModel::flags(const QModelIndex &index) const
@@ -320,12 +328,14 @@ void RemoteFileTableModel::sortEntries()
     }
 
     //Now we need to inform the view that the current entries will be removed (because we need to re-add them in the new order)
-    if( m_Index.size() > 0 )
+    if( this->rowCount() > 0 )
     {
-        beginRemoveRows( QModelIndex(), 0, m_FileList.size() - 1  );
-        m_Index.clear();
+        DBGLOG << "m_Index.size() : " << m_Index.size();
+        DBGLOG << "rowCount() : " << this->rowCount();
+        beginRemoveRows( QModelIndex(), 0, this->rowCount() - 1 );
         endRemoveRows();
     }
+    m_Index.clear();
 
     //Now we add them back in the new order
     QVectorIterator<QSharedPointer<DirectoryListing>> indexIter( m_FileList );

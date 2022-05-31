@@ -352,6 +352,8 @@ void MainWindow::onListModeToggledSlot(bool enabled)
 
 void MainWindow::onShowInfoFilesToggledSlot(bool enabled)
 {
+    LOCK;
+
     m_HideInfoFiles = !enabled;
     if( m_FileTableModel ) m_FileTableModel->showInfoFiles( enabled );
     updateFilebrowser();
@@ -1195,6 +1197,7 @@ void MainWindow::updateFilebrowser()
 
     if( m_ViewType == VIEW_LIST )
     {
+#if 0
         //First, create a new model
         RemoteFileTableModel* newModel = new RemoteFileTableModel( m_DirectoryListings[ selectedPath ] );
         newModel->showInfoFiles( !m_HideInfoFiles );
@@ -1208,9 +1211,23 @@ void MainWindow::updateFilebrowser()
             m_FileTableModel->getHeaderSelection( sortColumn, sortReversed );
             newModel->onHeaderSectionClicked( sortColumn );
             if( sortReversed ) newModel->onHeaderSectionClicked( sortColumn );
-            m_FileTableModel->deleteLater();
+            delete m_FileTableModel;
+        }else
+        {
+            newModel->sort( 2, Qt::DescendingOrder );
         }
         m_FileTableModel = newModel;
+#else
+        if( m_FileTableModel )
+            m_FileTableModel->updateListing( m_DirectoryListings[ selectedPath ] );
+        else
+        {
+            m_FileTableModel = new RemoteFileTableModel( m_DirectoryListings[ selectedPath ] );
+            m_FileTableModel->showInfoFiles( !m_HideInfoFiles );
+            m_FileTableView->setModel( m_FileTableModel );
+            connect( m_FileTableView->horizontalHeader(), &QHeaderView::sectionClicked, m_FileTableModel, &RemoteFileTableModel::onHeaderSectionClicked  );
+        }
+#endif
     }
 
     //List all the directories first
