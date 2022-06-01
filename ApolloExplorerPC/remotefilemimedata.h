@@ -50,6 +50,7 @@ private:
 
 protected:
     bool m_LeftMouseButtonDown;
+    mutable bool m_DataRetreived;
 
 #if __linux__
     friend bool PeekerCallback( xcb_generic_event_t *event, void *peekerData );

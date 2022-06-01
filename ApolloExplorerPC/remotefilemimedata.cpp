@@ -1,5 +1,7 @@
 #include "remotefilemimedata.h"
-
+#ifdef __MINGW32__
+#include "windows.h"
+#endif
 #define DEBUG 1
 #include "AEUtils.h"
 #include "mouseeventfilter.h"
@@ -13,14 +15,15 @@ RemoteFileMimeData::RemoteFileMimeData() :
     m_DownloadList( ),
     m_DownloadDialog( nullptr ),
     m_RemotePaths( ),
-    m_LeftMouseButtonDown( true )
+    m_LeftMouseButtonDown( true ),
+    m_DataRetreived( false )
 {
 
 }
 
 RemoteFileMimeData::~RemoteFileMimeData()
 {
-
+    DBGLOG << "Destroying";
 }
 
 QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Type type) const
@@ -62,12 +65,25 @@ QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Typ
         return QVariant();
     }
 
+#ifdef __MINGW32__
+    if(((unsigned short)GetAsyncKeyState(VK_LBUTTON))>1)
+    {
+        return QMimeData::retrieveData( mimeType, type );
+    }
+#else
     //Is the mouse button released now?
     if( MouseEventFilterSingleton::getInstance()->isLeftMouseButtonDown() )
     {
         DBGLOG << "Sorry, but the mouse button is still down";
         return QVariant();
     }
+#endif
+
+    //if we already downloaded this, then we don't need to do anything more
+    if( m_DataRetreived )
+        return QMimeData::retrieveData( mimeType, type );
+
+    m_DataRetreived = true;
 
     //Create the temporary directory
     QDir tmpDir( m_TempFilePath );
@@ -132,6 +148,9 @@ void RemoteFileMimeData::addRemotePath( const QSharedPointer<DirectoryListing> r
         QString localPath = m_TempFilePath + "/" + entry->Name();
         QString remotePath = entry->Path();
         DBGLOG << "Will copy " << remotePath << " to " << localPath;
+
+        //Make sure we don't already have this in our list
+        if( m_DownloadList.contains(QPair<QString,QString>( localPath, remotePath )))   continue;
         m_DownloadList.append( QPair<QString,QString>( localPath, remotePath ) );
 
         //If the requested data is a directory, we should create a temporary directory here
@@ -143,7 +162,11 @@ void RemoteFileMimeData::addRemotePath( const QSharedPointer<DirectoryListing> r
 
         //Now build the local file URL
         QUrl url = QUrl::fromLocalFile( localPath );
-        if( !m_LocalUrls.contains( url ) ) m_LocalUrls.push_back( url );
+        if( !m_LocalUrls.contains( url ) &&
+                !this->urls().contains( url ) )
+        {
+            m_LocalUrls.push_back( url );
+        }
     }
 
     if( m_LocalUrls.size() )

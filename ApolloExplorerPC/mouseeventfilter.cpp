@@ -21,7 +21,7 @@ MouseEventFilter::MouseEventFilter() :
 
 }
 
-bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *)
+bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *result )
 {
 #if __linux__
 #define MOUSE_BUTTON_MASK_1 0x0001
@@ -74,6 +74,10 @@ bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *mess
             break;
         }
     }
+#else
+    Q_UNUSED( eventType )
+    Q_UNUSED( message )
+    Q_UNUSED( result )
 #endif
     return false;
 }

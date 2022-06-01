@@ -37,7 +37,7 @@ public:
     void setIcon(QPixmap *newIcon);
     const QVector<QSharedPointer<DirectoryListing> > &Entries() const;
 
-    DirectoryListing& operator=(const DirectoryListing &other );
+    //DirectoryListing& operator=(const DirectoryListing &other );
     bool operator>(const DirectoryListing &other );
     bool operator<(const DirectoryListing &other );
 

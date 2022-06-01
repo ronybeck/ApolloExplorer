@@ -22,7 +22,9 @@ DirectoryListing::DirectoryListing(QObject *parent) :
 
 DirectoryListing::~DirectoryListing()
 {
+    DBGLOG << "Deleting point " << this;
     if( m_Icon )    delete m_Icon;
+    m_Icon = nullptr;
 }
 
 void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
@@ -33,7 +35,7 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
 
     //Extract the neccessary details for now
     quint32 entryCount = qFromBigEndian<quint32>( newListing->entryCount );
-    quint32 newListingSize = qFromBigEndian<quint32>( newListing->header.length );
+    //quint32 newListingSize = qFromBigEndian<quint32>( newListing->header.length );
     ProtocolMessage_DirEntry_t *entry = reinterpret_cast<ProtocolMessage_DirEntry_t*>( &newListing->entries[ 0 ] );
     //qDebug() << "New Directory Listing contains " << entryCount << " entries.";
 
@@ -73,7 +75,7 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
 
 
         //Create a new DirectoryListing
-        DirectoryListing *dirList = new DirectoryListing( this );
+        DirectoryListing *dirList = new DirectoryListing();
 
         //Extract the necessary information
         dirList->setName( fileInfo.fileName() );
@@ -95,6 +97,9 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
 
         //Store the resulting entry in our list
         QSharedPointer<DirectoryListing> newEntry( dirList );
+#if 1
+        m_Entries.push_back( newEntry );
+#else
         if( m_Entries.empty())
         {
             m_Entries.push_back( newEntry );
@@ -119,8 +124,7 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
             //If we didn't get to insert it then we need to push it to the back
             if( !inserted)  m_Entries.push_back( newEntry );
         }
-
-
+#endif
         //Calculate the pointer for the next entry
         entry = reinterpret_cast<ProtocolMessage_DirEntry_t*>( ((char*)entry) + entry->entrySize );
     }
@@ -193,11 +197,13 @@ const QVector<QSharedPointer<DirectoryListing> > &DirectoryListing::Entries() co
     return m_Entries;
 }
 
+/*
 DirectoryListing& DirectoryListing::operator=(const DirectoryListing &other)
 {
     DirectoryListing newListing;
     return *this;
 }
+*/
 
 bool DirectoryListing::operator>(const DirectoryListing &other)
 {

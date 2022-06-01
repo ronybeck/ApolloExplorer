@@ -833,40 +833,15 @@ void MainWindow::onDownloadSelectedSlot()
     LOCK;
 
     static QString localDirPath = QDir::homePath();
-    QList<QPair<QString, QString> > fileList;
-    QStringList selectedFileEntries;
+    QList<QSharedPointer<DirectoryListing>> remotePaths;
 
     //Get the list of files selected
     if( m_ViewType == VIEW_LIST )
     {
-#if REPLACE_ME
-        QList<QTableWidgetItem*> selectedItems = ui->tableWidgetFileBrowser->selectedItems();
-        if( selectedItems.count() == 0 )    return;
-
-        //Extract a list of entries
-        QListIterator<QTableWidgetItem*> iter( selectedItems );
-        while( iter.hasNext() )
-        {
-            QTableWidgetItem *item = iter.next();
-            if( item->column() > 0 ) continue;
-            QString entryName = item->text();
-            selectedFileEntries.push_back( entryName );
-            qDebug() << "Added entry " << entryName << " to the list.";
-        }
-#endif
+        remotePaths = m_FileTableView->getSelectedItems();
     }else
     {
-        QList<QListWidgetItem *> selectedItems = ui->listWidgetFileBrowser->selectedItems();
-        if( selectedItems.count() == 0 )    return;     //Nothing to do then
-
-        //extract a list of file/Dir names
-        QListIterator<QListWidgetItem*> iter( selectedItems );
-        while( iter.hasNext() )
-        {
-            QListWidgetItem *item = iter.next();
-            QString entryName = item->text();
-            selectedFileEntries.push_back( entryName );
-        }
+    //Do something here
     }
 
     //Ask the user where to save the files
@@ -887,6 +862,10 @@ void MainWindow::onDownloadSelectedSlot()
     localDirPath = selectedDirs.at( 0 );
     QString currentDir = ui->lineEditPath->text();
 
+
+#if 1
+    m_DialogDownloadFile->startDownload( remotePaths, localDirPath );
+#else
     QMessageBox msgBox( this );
     msgBox.setModal( false );
     msgBox.setWindowTitle( "Collecting Files" );
@@ -963,6 +942,7 @@ void MainWindow::onDownloadSelectedSlot()
 
     //Now that we have a list, trigger the download
     m_DialogDownloadFile->startDownload( fileList );
+#endif
 }
 
 void MainWindow::onConnectedToHostSlot()

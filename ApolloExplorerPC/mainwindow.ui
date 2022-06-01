@@ -54,7 +54,14 @@ QPushButton::hover
 QGroupBox
 {
 	padding: 1px;
+	border: 1px solid  rgb(136, 138, 133);
 	margin: 1px;
+	border-radius: 2px;
+}
+QGroupBox::Title
+{
+	subcontrol-origin: margin;
+    subcontrol-position: top center;
 }
 
 QHeaderView::section
@@ -65,7 +72,9 @@ QHeaderView::section
 }
 
 QMenu::indicator {
-    border: 1px inset white;
+	border: 1px solid rgb(136, 138, 133);
+    border-radius: 2px;
+	width: 20px;
 }
 QMenu::indicator:checked {
     border: 1px inset white;
@@ -166,6 +175,12 @@ QMenu::indicator:checked {
       </property>
       <item>
        <widget class="QGroupBox" name="groupBoxDrives">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
         <property name="title">
          <string/>
         </property>
@@ -214,7 +229,7 @@ QMenu::indicator:checked {
            </property>
            <property name="minimumSize">
             <size>
-             <width>100</width>
+             <width>120</width>
              <height>0</height>
             </size>
            </property>
@@ -273,25 +288,37 @@ QMenu::indicator:checked {
             <bool>false</bool>
            </property>
            <property name="resizeMode">
-            <enum>QListView::Adjust</enum>
+            <enum>QListView::Fixed</enum>
            </property>
            <property name="layoutMode">
             <enum>QListView::SinglePass</enum>
+           </property>
+           <property name="gridSize">
+            <size>
+             <width>100</width>
+             <height>100</height>
+            </size>
            </property>
            <property name="viewMode">
             <enum>QListView::IconMode</enum>
            </property>
            <property name="uniformItemSizes">
-            <bool>true</bool>
+            <bool>false</bool>
+           </property>
+           <property name="batchSize">
+            <number>150</number>
            </property>
            <property name="wordWrap">
-            <bool>true</bool>
+            <bool>false</bool>
            </property>
            <property name="selectionRectVisible">
             <bool>true</bool>
            </property>
            <property name="itemAlignment">
-            <set>Qt::AlignLeading</set>
+            <set>Qt::AlignCenter|Qt::AlignHCenter|Qt::AlignJustify|Qt::AlignTop|Qt::AlignVCenter</set>
+           </property>
+           <property name="currentRow">
+            <number>-1</number>
            </property>
            <property name="sortingEnabled">
             <bool>false</bool>

@@ -44,12 +44,12 @@ public slots:
 private:
     QMutex *m_Mutex;
     QStringList m_HeaderNames;
-    QMap<QModelIndex,QSharedPointer<DirectoryListing>> m_Index;
     QSharedPointer<DirectoryListing> m_DirectoryListing;
     QVector<QSharedPointer<DirectoryListing>> m_FileList;
     SortColumn m_SortColumn;
     bool m_ReverseOrder;
     bool m_ShowInfoFiles;
+    qint32 m_RowCount;
 };
 
 #endif // REMOTEFILETABLEMODEL_H

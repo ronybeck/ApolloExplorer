@@ -10,7 +10,7 @@ class MouseEventFilter : public QAbstractNativeEventFilter
 public:
     explicit MouseEventFilter();
 
-    bool nativeEventFilter(const QByteArray &eventType, void *message, long *) override;
+    bool nativeEventFilter(const QByteArray &eventType, void *message, long *result) override;
     bool isLeftMouseButtonDown();
 
 private:

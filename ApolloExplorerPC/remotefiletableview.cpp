@@ -119,6 +119,7 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
 {
     DBGLOG << "Something happened.";
 
+#if 1
     //Set up the mimedata
     RemoteFileMimeData* newMimeData = new RemoteFileMimeData();
     newMimeData->setDownloadDialog( m_DownloadDialog );
@@ -144,6 +145,7 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
     QDrag *drag = new QDrag(this);
     drag->setMimeData( newMimeData );
     drag->exec( Qt::MoveAction|Qt::CopyAction, Qt::MoveAction );
+#endif
 }
 
 void RemoteFileTableView::mouseMoveEvent(QMouseEvent *e)
@@ -183,10 +185,10 @@ QList<QSharedPointer<DirectoryListing> > RemoteFileTableView::getSelectedItems()
             if( selectedDirectoryListings.contains( listing ) ) continue;
 
             selectedDirectoryListings << listing;
-            qDebug() << "Item at row " << item->row() << ": " << listing->Name();
+            DBGLOG << "Item at row " << item->row() << ": " << listing->Name();
         }
         else
-            qDebug() << "Item at row " << item->row() << ": NONAME";
+            DBGLOG << "Item at row " << item->row() << ": NONAME";
     }
 
     //Now let the caller know what was selected
@@ -220,10 +222,12 @@ void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )
             if( selectedDirectoryListings.contains( listing ) ) continue;
 
             selectedDirectoryListings << listing;
-            qDebug() << "Item at row " << item->row() << ": " << listing->Name();
+            DBGLOG << "Item at row " << item->row() << ": " << listing->Name();
         }
         else
-            qDebug() << "Item at row " << item->row() << ": NONAME";
+        {
+            DBGLOG << "Item at row " << item->row() << ": NONAME";
+        }
     }
 
     //Now let the parent know what was selected

@@ -13,12 +13,12 @@ RemoteFileTableModel::RemoteFileTableModel(  QSharedPointer<DirectoryListing> di
     : QAbstractTableModel{parent},
       m_Mutex( new QMutex( QMutex::Recursive ) ),
       m_HeaderNames( ),
-      m_Index(),
       m_DirectoryListing(),
       m_FileList( ),
-      m_SortColumn( SORT_NAME ),
+      m_SortColumn( SORT_TYPE ),
       m_ReverseOrder( false ),
-      m_ShowInfoFiles( false )
+      m_ShowInfoFiles( false ),
+      m_RowCount( 0 )
 {
     //Setup the header names
     m_HeaderNames << "Name" << "Type" << "Size";
@@ -35,12 +35,14 @@ RemoteFileTableModel::~RemoteFileTableModel()
 int RemoteFileTableModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED( parent )
-    return m_FileList.size();
+    LOCK;
+    return m_RowCount;
 }
 
 int RemoteFileTableModel::columnCount(const QModelIndex &parent) const
 {
     Q_UNUSED( parent )
+    LOCK;
     return m_HeaderNames.size();
 }
 
@@ -68,8 +70,9 @@ static inline QString prettyFileSize( qint32 size )
 
 QVariant RemoteFileTableModel::data(const QModelIndex &index, int role) const
 {
+    LOCK;
     //Get the directory listing in question
-    QSharedPointer<DirectoryListing> directoryListing = m_Index[ index ];
+    QSharedPointer<DirectoryListing> directoryListing = m_FileList[ index.row() ];
 
     switch( role )
     {
@@ -239,6 +242,8 @@ Qt::ItemFlags RemoteFileTableModel::flags(const QModelIndex &index) const
 
 void RemoteFileTableModel::updateListing(QSharedPointer<DirectoryListing> newListing )
 {
+    LOCK;
+
     //Add the new listing
     m_DirectoryListing = newListing;
 
@@ -265,19 +270,24 @@ void RemoteFileTableModel::updateListing(QSharedPointer<DirectoryListing> newLis
 
 QSharedPointer<DirectoryListing> RemoteFileTableModel::getDirectoryListingForIndex(const QModelIndex &index) const
 {
-    if( m_Index.contains( index ) )
-        return m_Index[ index ];
+    LOCK;
+    if( index.row() < m_FileList.size() )
+        return m_FileList[ index.row() ];
     return nullptr;
 }
 
 void RemoteFileTableModel::showInfoFiles(bool enable)
 {
+    LOCK;
+
     m_ShowInfoFiles = enable;
     updateListing( m_DirectoryListing );
 }
 
 void RemoteFileTableModel::sortEntries()
 {
+    LOCK;
+
     //Perform the sort
     if( m_ReverseOrder )
     {
@@ -330,27 +340,21 @@ void RemoteFileTableModel::sortEntries()
     //Now we need to inform the view that the current entries will be removed (because we need to re-add them in the new order)
     if( this->rowCount() > 0 )
     {
-        DBGLOG << "m_Index.size() : " << m_Index.size();
-        DBGLOG << "rowCount() : " << this->rowCount();
         beginRemoveRows( QModelIndex(), 0, this->rowCount() - 1 );
         endRemoveRows();
     }
-    m_Index.clear();
 
     //Now we add them back in the new order
     QVectorIterator<QSharedPointer<DirectoryListing>> indexIter( m_FileList );
     beginInsertRows( QModelIndex(), 0, m_FileList.size() - 1 );
-    quint32 entryCount = 0;
+    m_RowCount = 0;
     while( indexIter.hasNext() )
     {
         QSharedPointer<DirectoryListing> entry = indexIter.next();
-        QModelIndex nameIndex = createIndex( entryCount, 0 );
-        m_Index[ nameIndex ] = entry;
-        QModelIndex typeIndex = createIndex( entryCount, 1 );
-        m_Index[ typeIndex ] = entry;
-        QModelIndex sizeIndex = createIndex( entryCount, 2 );
-        m_Index[ sizeIndex ] = entry;
-        entryCount++;
+        QModelIndex nameIndex = createIndex( m_RowCount, 0 );
+        QModelIndex typeIndex = createIndex( m_RowCount, 1 );
+        QModelIndex sizeIndex = createIndex( m_RowCount, 2 );
+        m_RowCount++;
     }
     endInsertRows();
 }
@@ -379,6 +383,8 @@ void RemoteFileTableModel::onHeaderSectionClicked( int section )
 
 QSharedPointer<DirectoryListing> RemoteFileTableModel::getRootDirectoryListing() const
 {
+    LOCK;
+
     return m_DirectoryListing;
 }
 
