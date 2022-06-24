@@ -1,5 +1,5 @@
 /*
- * VNetServerThread.c
+ * AEClientThread.c
  *
  *  Created on: May 16, 2021
  *      Author: rony
@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <sys/filio.h>
 #include <proto/dos.h>
-#include <proto/exec.h>
+#include <clib/exec_protos.h>
 #include <dos/dostags.h>
 #define __BSDSOCKET_NOLIBBASE__
 #include <proto/bsdsocket.h>
@@ -22,7 +22,8 @@
 
 #endif
 
-#include "AEServerThread.h"
+#include "AEClientThread.h"
+#include "AETypes.h"
 #include "AEUtil.h"
 #include "DirectoryList.h"
 #include "SendFile.h"
@@ -35,36 +36,186 @@ extern char g_KeepServerRunning;
 
 static unsigned short g_NextClientPort = MAIN_LISTEN_PORTNUMBER + 1;
 
-struct NewClientMessage
-{
-	struct Message msg;
-	unsigned short port;
-	char killClient;		//Set this if the client should be rejected
-};
-
 static void clientThread();
+
+ClientThread_t *g_ClientThreadList;
+struct SignalSemaphore g_ClientThreadListLock;
+
+void initialiseClientThreadList()
+{
+	//Initialise and then obtain the semaphore, so we won't be disturbed
+	InitSemaphore( &g_ClientThreadListLock );
+	lockClientThreadList();
+
+	//Initialise the list.  This is a doubly linked list with NULL objects at each end
+	ClientThread_t *head = AllocVec( sizeof( ClientThread_t ), MEMF_CLEAR|MEMF_FAST );
+	ClientThread_t *tail = AllocVec( sizeof( ClientThread_t ), MEMF_CLEAR|MEMF_FAST );
+	head->next = tail;
+	tail->previous = head;
+	g_ClientThreadList = head;
+
+	//We are done
+	unlockClientThreadList();
+}
+
+void freeClientThreadList( ClientThread_t *list )
+{
+	ClientThread_t *head = list;
+	ClientThread_t *node = head->next;
+	while( node->next )
+	{
+		ClientThread_t *nextNode = node->next;
+		FreeVec( node );
+		node = nextNode;
+	}
+	FreeVec( node );	//This should be the tail
+	FreeVec( head );
+}
+
+void addClientThreadToList( ClientThread_t *client )
+{
+	//Lock the list
+	lockClientThreadList();
+
+	//Add this to the front of the list
+	ClientThread_t *head = g_ClientThreadList;
+	ClientThread_t *first = head->next;
+	client->previous = head;
+	client->next = first;
+	head->next = client;
+	first->previous = client;
+
+	//Unlock the list
+	unlockClientThreadList();
+}
+
+void removeClientThreadFromList( ClientThread_t *client )
+{
+	//Lock the list
+	lockClientThreadList();
+
+	//Find the entry in question
+	ClientThread_t *node = g_ClientThreadList->next;
+	while( node->next )
+	{
+		ClientThread_t *nextNode = node->next;
+		ClientThread_t *previousNode = node->previous;
+		if( node == client || node->process == client->process )
+		{
+			//We found the node in question.
+			//Relink the nodes before and after this node with each other
+			nextNode->previous = previousNode;
+			previousNode->next = nextNode;
+			client->next = NULL;
+			client->previous = NULL;
+
+			unlockClientThreadList();
+			return;
+		}
+
+		node = node->next;
+	}
+
+	//If we made it here, then we never found the client thread.
+	dbglog( "[%s] We didn't find this client thread.\n", __FUNCTION__ );
+	unlockClientThreadList();
+}
+
+ClientThread_t *getClientThreadList()
+{
+	//Make a copy and return that
+	ClientThread_t *head = AllocVec( sizeof( ClientThread_t ), MEMF_FAST|MEMF_CLEAR );
+	ClientThread_t *tail = AllocVec( sizeof( ClientThread_t ), MEMF_FAST|MEMF_CLEAR );
+	head->next = tail;
+	tail->previous = head;
+
+	ClientThread_t *node = g_ClientThreadList->next;
+	while( node->next )
+	{
+		//Insert the new node
+		ClientThread_t *nodeCopy = AllocVec( sizeof( ClientThread_t ), MEMF_FAST|MEMF_CLEAR );
+		nodeCopy->next = head->next;
+		head->next->previous = nodeCopy;
+		nodeCopy->previous = head;
+		head->next = nodeCopy;
+
+		//Copy the contents
+		memcpy( nodeCopy->ip, node->ip, sizeof( node->ip ) );
+		nodeCopy->port = node->port;
+		nodeCopy->messagePort = node->messagePort;
+
+		//Next thread
+		node = node->next;
+	}
+	return head;
+}
+
+void lockClientThreadList()
+{
+	ObtainSemaphore( &g_ClientThreadListLock );
+}
+
+void unlockClientThreadList()
+{
+	ReleaseSemaphore( &g_ClientThreadListLock );
+}
+
+static void removeClientByPort( UWORD port )
+{
+	//Traverse the list and find it in the list
+	ClientThread_t *node = g_ClientThreadList->next;
+	while( node->next )
+	{
+		if( node->port == port )
+		{
+			dbglog( "[?] Removed client with port allocation %u from client list.\n", port );
+			removeClientThreadFromList( node );
+			return;
+		}
+		node = node->next;
+	}
+}
+#if 0
+static void removeClientBySocket( SOCKET clientSocket )
+{
+		//Get the peer name
+		struct sockaddr_in name;
+		socklen_t nameLen = sizeof( name );
+		getpeername( clientSocket, (struct sockaddr *)&name, &nameLen );
+		UWORD port = name.sin_port;
+
+		//Now remove by port
+		removeClientByPort( port );
+}
+#endif
+
+UBYTE getClientListSize()
+{
+	UBYTE count = 0;
+	ClientThread_t *node = g_ClientThreadList->next;
+	while( node->next )	{	count++; node = node->next;	}
+	return count;
+}
+
+void getIPFromClient( ClientThread_t *client, char ipAddress[ 17 ] )
+{
+	//We assume that the caller is smart enough to allocate the required bytes in the string
+	snprintf( ipAddress, 17, "%u.%u.%u.%u", 
+					(UBYTE)client->ip[0], 
+					(UBYTE)client->ip[1],
+					(UBYTE)client->ip[2],
+					(UBYTE)client->ip[3] );
+}
 
 void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOCKET clientSocket )
 {
 	dbglog( "[master] Accepted socket connection.\n" );
 	if ( DOSBase )
 	{
-#if 0
-		BPTR consoleHandle = Open( "CONSOLE:", MODE_OLDFILE );
-		if( consoleHandle )
-		{
-			dbglog( "[master] Console handle opened.\n" );
-		}
-		else
-		{
-			dbglog( "[master] Console handle NOT opened.\n" );
-		}
-#endif
-
 		//Start a client thread
 		struct TagItem tags[] = {
 				{ NP_StackSize,		16384 },
-				{ NP_Name,			(ULONG)"VNetClientThread" },
+				{ NP_Name,			(ULONG)"AEClientThread" },
 				{ NP_Entry,			(ULONG)clientThread },
 				//{ NP_Output,		(ULONG)consoleHandle },
 				{ NP_Synchronous, 	FALSE },
@@ -79,16 +230,16 @@ void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOC
 			//CloseLibrary( DOSBase );
 			return;
 		}
-		dbglog( "[master] Child started.\n" );
+		//dbglog( "[master] Child started.\n" );
 
 		//Wait for the child to request the socket handle
 		dbglog( "[master] Waiting for child tell us what port the client should reconnect on.\n" );
-		struct NewClientMessage *newClientMessage = (struct NewClientMessage *)WaitPort( msgPort );
-		GetMsg( msgPort );	//Remove this message from the queue
+		struct AEMessage *newClientMessage = (struct AEMessage *)WaitPort( msgPort );
+		struct Message *clientMessage = GetMsg( msgPort );	//Remove this message from the queue
 		unsigned short clientPort = newClientMessage->port;
 
 		//Did the child request to kill the client?
-		if( newClientMessage->killClient )
+		if( newClientMessage->messageType == AEM_KillClient )
 		{
 			dbglog( "[master] Child requested the termination of new client.\n" );
 			CloseSocket( clientSocket );
@@ -109,16 +260,36 @@ void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOC
 		reconnectMessage.header.length = sizeof( reconnectMessage );
 		reconnectMessage.header.type = PMT_NEW_CLIENT_PORT;
 		reconnectMessage.port = clientPort;
-		dbglog( "[master] reconnectMessage.header.token %08x\n", reconnectMessage.header.token );
-		dbglog( "[master] reconnectMessage.header.length %d\n", reconnectMessage.header.length );
-		dbglog( "[master] reconnectMessage.header.type %x\n", reconnectMessage.header.type );
-		dbglog( "[master] reconnectMessage.port %d\n", reconnectMessage.port );
-		dbglog( "[master] Send the connecting client the new port %d.\n", reconnectMessage.port );
+		//dbglog( "[master] reconnectMessage.header.token %08x\n", reconnectMessage.header.token );
+		//dbglog( "[master] reconnectMessage.header.length %d\n", reconnectMessage.header.length );
+		//dbglog( "[master] reconnectMessage.header.type %x\n", reconnectMessage.header.type );
+		//dbglog( "[master] reconnectMessage.port %d\n", reconnectMessage.port );
+		//dbglog( "[master] Send the connecting client the new port %d.\n", reconnectMessage.port );
 		int bytesSent = 0;
 		if( ( bytesSent = sendMessage( SocketBase, clientSocket, (ProtocolMessage_t*)&reconnectMessage ) ) != reconnectMessage.header.length )
 		{
 			dbglog( "[master] Only sent %d bytes of %d.\n", bytesSent, reconnectMessage.header.length );
-		}
+		}		
+
+		//Generate a new client entry
+		ClientThread_t *clientThread = AllocVec( sizeof( *clientThread ), MEMF_CLEAR|MEMF_FAST );
+		clientThread->process = clientProcess;
+		clientThread->port = clientPort;
+		clientThread->messagePort = clientMessage->mn_ReplyPort;
+
+		//Get the peer name
+		struct sockaddr_in name;
+		socklen_t nameLen = sizeof( name );
+		getpeername( clientSocket, (struct sockaddr *)&name, &nameLen );
+		memcpy( clientThread->ip, &name.sin_addr.s_addr, 4 );
+		dbglog( "[Master] created thread for IP %u.%u.%u.%u:%d\n", 
+									(UBYTE)clientThread->ip[ 0 ],
+									(UBYTE)clientThread->ip[ 1 ],
+									(UBYTE)clientThread->ip[ 2 ],
+									(UBYTE)clientThread->ip[ 3 ],
+									clientThread->port );
+
+		addClientThreadToList( clientThread );
 		dbglog( "[master] Done handling the new inbound connection.\n" );
 
 		CloseSocket( clientSocket );
@@ -130,7 +301,6 @@ static void clientThread()
 {
 	dbglog( "[child] Client thread started.\n" );
 
-	struct Library *DOSBase = OpenLibrary( "dos.library", 0 );
 	struct Library *SocketBase = NULL;
 	struct sockaddr_in addr;
 	int returnCode = 0;
@@ -149,7 +319,7 @@ static void clientThread()
 		dbglog( "[child] Couldn't find master port.  Aborting child process.\n" );
 		return;
 	}
-	dbglog( "[child] MsgPort = 0x%08x\n", (unsigned int)masterPort );
+	//dbglog( "[child] MsgPort = 0x%08x\n", (unsigned int)masterPort );
 
 
 	//Create a reply message port
@@ -161,13 +331,13 @@ static void clientThread()
 	}
 
 	//Ready our new client message to send to the parent process
-	struct NewClientMessage newClientMessage = {
-													.msg.mn_Node.ln_Type = NT_MESSAGE,
-													.msg.mn_Length = sizeof( struct NewClientMessage ),
-													.msg.mn_ReplyPort = replyPort,
-													.killClient = 1,		//default incase we have to terminate the client
-													.port = newPort
-												};
+	struct AEMessage newClientMessage;
+	memset( &newClientMessage, 0, sizeof( newClientMessage ) );
+	newClientMessage.msg.mn_Node.ln_Type = NT_MESSAGE;
+	newClientMessage.msg.mn_Length = sizeof( struct AEMessage );
+	newClientMessage.msg.mn_ReplyPort = replyPort;
+	newClientMessage.messageType = AEM_KillClient;
+	newClientMessage.port = newPort;
 
 	//Open the BSD Socket library
 	dbglog( "[child] Opening bsdsocket.library.\n" );
@@ -179,6 +349,10 @@ static void clientThread()
 		dbglog( "[child] Failed to open the bsdsocket.library.\n" );
 		PutMsg( masterPort, (struct Message *)&newClientMessage );
 		WaitPort( replyPort );
+		DeleteMsgPort( replyPort );
+		lockClientThreadList();
+		removeClientByPort( newPort );
+		unlockClientThreadList();
 		dbglog( "[child] Exiting.\n" );
 		return;
 	}
@@ -191,12 +365,17 @@ static void clientThread()
 		dbglog( "[child] Error opening client socket.\n" );
 		PutMsg( masterPort, (struct Message *)&newClientMessage );
 		WaitPort( replyPort );
+		DeleteMsgPort( replyPort );
+		lockClientThreadList();
+		removeClientByPort( newPort );
+		unlockClientThreadList();
 		dbglog( "[child] Exiting.\n" );
 		return;
 	}
 
 	dbglog( "[child] Setting socket options.\n" );
 	int yes = 1;
+	//int no = 0;
 	returnCode = setsockopt( childServerSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 	if(returnCode == SOCKET_ERROR)
 	{
@@ -205,10 +384,12 @@ static void clientThread()
 		WaitPort( replyPort );
 		dbglog( "[child] Exiting.\n" );
 		DeleteMsgPort( replyPort );
+		lockClientThreadList();
+		removeClientByPort( newPort );
+		unlockClientThreadList();
 		CloseSocket( childServerSocket );
 		return;
 	}
-
 
 	//setting the bind port
 	dbglog( "[child] Binding to port %d\n", newPort );
@@ -224,6 +405,9 @@ static void clientThread()
 		WaitPort( replyPort );
 		dbglog( "[child] Exiting.\n" );
 		DeleteMsgPort( replyPort );
+		lockClientThreadList();
+		removeClientByPort( newPort );
+		unlockClientThreadList();
 		CloseSocket( childServerSocket );
 		return;
 	}
@@ -237,15 +421,19 @@ static void clientThread()
 		WaitPort( replyPort );
 		dbglog( "[child] Exiting.\n" );
 		DeleteMsgPort( replyPort );
+		lockClientThreadList();
+		removeClientByPort( newPort );
+		unlockClientThreadList();
 		CloseSocket( childServerSocket );
 		return;
 	}
 
 	//Send the socket to the parent process
 	dbglog( "[child] Informing the parent which port the client should reconnect on.\n" );
-	newClientMessage.killClient = 0;	//Disable the 'kill' command first though
-	dbglog( "[child] Sending message ( message: 0x%08x )\n", (unsigned int)&newClientMessage );
+	newClientMessage.messageType = AEM_NewClient;	//New client message
+	//dbglog( "[child] Sending message ( message: 0x%08x )\n", (unsigned int)&newClientMessage );
 	PutMsg( masterPort, (struct Message *)&newClientMessage );
+	WaitPort( replyPort );
 
 
 	//Get the socket we will be using
@@ -254,13 +442,12 @@ static void clientThread()
 	if( portMessage == NULL )
 	{
 		dbglog( "[child] Got a null back from parent.  Do we care though?\n" );
-		return;
 	}
-	dbglog( "[child] Got reply from parent.  Message address: 0x%08x\n", (unsigned int)portMessage );
-	DeleteMsgPort( replyPort );
+	//dbglog( "[child] Got reply from parent.  Message address: 0x%08x\n", (unsigned int)portMessage );
 
 	//Now wait for the client to connect
 	dbglog("[child] Awaiting new connection\n" );
+
 	socklen_t addrLen = sizeof( addr );
 	SOCKET newClientSocket = (SOCKET)accept( childServerSocket, (struct sockaddr *)&addr, &addrLen);
 	if( newClientSocket < 0 )
@@ -277,31 +464,88 @@ static void clientThread()
 
 	//Start reading all inbound messages
 	int bytesRead = 0;
-	char keepThisConnectionRunning = 1;
-	while( g_KeepServerRunning && keepThisConnectionRunning )
+	volatile char keepThisConnectionRunning = 1;
+	LONG bytesAvailable = 0;
+	while( keepThisConnectionRunning )
 	{
+		IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
+		if( bytesAvailable == 0 )
+		{
+			//Do we have any messages on our message port?
+			struct Message *newMessage = GetMsg( replyPort );
+			if( newMessage != NULL )
+			{
+				//dbglog( "[child] We got a message on the message port.\n" );
+				//If this is a terminate message, start shutting down the clients
+				struct AEMessage *aeMsg = (struct AEMessage *)newMessage;
+				if( aeMsg->messageType == AEM_KillClient )
+				{
+					dbglog( "[child] Received kill client.\n" );
+
+					//Form the disconnect message
+					ProtocolMessageDisconnect_t disconnectMessage;
+					disconnectMessage.header.length = sizeof( disconnectMessage );
+					disconnectMessage.header.type = PMT_CLOSING;
+					disconnectMessage.header.token = MAGIC_TOKEN;
+					snprintf( disconnectMessage.message, sizeof( disconnectMessage.message ), "Shutting down server.  Sorry, but you are out." );
+
+					//Send the disconnect
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&disconnectMessage );
+
+					//Give the message time to be deliverey by the stack
+					dbglog( "[child] Sent disconnect message.  Delaying to allow delivery.\n" );
+					Delay( 5 );
+
+					//Send a reply back to the caller
+					dbglog( "[child] Acknowledging the master's request.\n" );
+					ReplyMsg( newMessage );
+
+					keepThisConnectionRunning = 0;
+					dbglog( "[child] Staring the shutdown.\n" );
+					goto exit_child;
+				}
+			}
+			Delay( 2 );
+			continue;
+		}
+
 		//Pull in the next message from the socket
-		dbglog( "[child] Waiting for the next message.\n" );
+		//dbglog( "[child] Reading next network message.\n" );
 		bytesRead = getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH );
 		//dbglog( "[child] Message read containing %d bytes.\n", bytesRead );
 
 		//sanity check
 		if( bytesRead < 0 )
 		{
+			//Form the disconnect message
+			ProtocolMessageDisconnect_t disconnectMessage;
+			disconnectMessage.header.length = sizeof( disconnectMessage );
+			disconnectMessage.header.type = PMT_CLOSING;
+			disconnectMessage.header.token = MAGIC_TOKEN;
+
 			switch( bytesRead )
 			{
 				case MAGIC_TOKEN_MISSING:
 					dbglog( "[child] Magic Token missing in message.  Terminating Connection.\n" );
+					//Send the disconnect
+					snprintf( disconnectMessage.message, sizeof( disconnectMessage.message ), "Magic token in packet was wrong or missing.  Disconnecting." );
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&disconnectMessage );
 					keepThisConnectionRunning = 0;
 					continue;
 				break;
 				case INVALID_MESSAGE_TYPE:
 					dbglog( "[child] Received message of an invalid type.  Terminating Connection.\n" );
+					//Send the disconnect
+					snprintf( disconnectMessage.message, sizeof( disconnectMessage.message ), "Server received an invalid message type.  Disconnecting." );
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&disconnectMessage );
 					keepThisConnectionRunning = 0;
 					continue;
 				break;
 				case INVALID_MESSAGE_SIZE:
 					dbglog( "[child] Received a message of an invalid size.  Terminating Connection.\n" );
+					//Send the disconnect
+					snprintf( disconnectMessage.message, sizeof( disconnectMessage.message ), "Message size was wrong.  Disconnecting." );
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&disconnectMessage );
 					keepThisConnectionRunning = 0;
 					continue;
 				break;
@@ -334,7 +578,9 @@ static void clientThread()
 						.minor = VERSION_MINOR,
 						.rev = VERSION_REVISION
 				};
+				dbglog( "[child] Sending Version back\n" );
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&versionMessage );
+				dbglog( "[child] Version sent.\n" );
 			break;
 			case PMT_GET_DIR_LIST:
 			{
@@ -432,7 +678,7 @@ static void clientThread()
 					dbglog( "[child] Sending the next chunk %d of %d.\n", nextFileChunk->chunkNumber, numberOfChunks );
 					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)nextFileChunk );
 
-					//Check for an incomine message (e.g. an abort request)
+					//Check for an incoming message (e.g. an abort request)
 					IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
 					if( bytesAvailable )
 					{
@@ -692,87 +938,6 @@ static void clientThread()
 				char command[ 128 ];
 				strncpy( command, runMessage->command, 128 );
 				dbglog( "[child] Received request to run '%s'.\n", command );
-				LONG returnCode;
-				(void)returnCode;
-#if 0
-				returnCode = Execute( command , newClientSocket, NULL );
-#endif
-
-#if 1
-				/*
-				BPTR consoleHandle = Open( "CON:0/40/640/150/Auto", MODE_OLDFILE );
-				if( !consoleHandle )
-				{
-					dbglog( "[child] Failed to open the console.\n" );
-					return;
-				}
-				*/
-
-				returnCode = SystemTags(
-							(STRPTR)command,
-							SYS_Input, NULL,
-							SYS_Output, newClientSocket,
-							TAG_DONE );
-#endif
-
-#if 0
-				dbglog( "[child] Opening console.\n" );
-				BPTR consoleHandle = Open( "CON:0/40/640/150/Auto", MODE_OLDFILE );
-				if( !consoleHandle )
-				{
-					dbglog( "[child] Failed to open the console.\n" );
-					return;
-				}
-
-				//Setup some selects
-				dbglog( "[child] Setting up the select variables.\n" );
-				fd_set networkReadSet;
-				fd_set consoleReadSet;
-				char buffer;
-				struct timeval timeOut = { .tv_sec = 0, .tv_usec = 100000 };	//100ms
-				FD_ZERO( &networkReadSet );
-				FD_ZERO( &consoleReadSet );
-				FD_SET( newClientSocket, &networkReadSet );
-				FD_SET( consoleHandle, &consoleReadSet );
-
-
-				//Now loop feeding the network socket to CON: and vica versa
-				dbglog( "[child] Start the polling loop.\n" );
-				while( 1 )
-				{
-					dbglog( "[child] Looping.\n" );
-					FD_ZERO( &networkReadSet );
-					FD_ZERO( &consoleReadSet );
-
-					//Wait on the network first
-					WaitSelect( newClientSocket+1,&networkReadSet, NULL, NULL, &timeOut, NULL );
-
-					//Anything to send?
-					if( FD_ISSET( newClientSocket, &networkReadSet ) )
-					{
-						recv( newClientSocket, &buffer, 1, 0 );
-						dbglog( "Got from network: %c", buffer );
-						Write( consoleHandle, &buffer, 1 );
-					}
-
-					//Wait on the console now
-					WaitSelect( consoleHandle+1,&consoleReadSet, NULL, NULL, &timeOut, NULL );
-
-					//Anything to send?
-					if( FD_ISSET( consoleHandle, &consoleReadSet ) )
-					{
-						recv( consoleHandle, &buffer, 1, 0 );
-						dbglog( "Got from console: %c", buffer );
-						send( newClientSocket, &buffer, 1, 0 );
-					}
-				}
-
-				FD_CLR( newClientSocket, &networkReadSet );
-				FD_CLR( consoleHandle, &consoleReadSet );
-				Close( consoleHandle );
-				Close( newClientSocket );
-#endif
-
 				dbglog( "[child] Got return code %d from the command.\n", (int)returnCode );
 				break;
 			}
@@ -794,14 +959,35 @@ static void clientThread()
 		}
 	}
 
-	exit_child:
+exit_child: ;
+
+	//Remove this client from the list
+	dbglog( "[client] Locking the client list.\n" );
+	lockClientThreadList();
+	dbglog( "[client] Removing ourselves from the client list.\n" );
+	removeClientByPort( newPort );
+	dbglog( "[client] Unlocking the client list.\n" );
+	unlockClientThreadList();
+
+	//Close our message port.  We need to clear it out first though.
+	dbglog( "[child] Deleting message port.\n" );
+	// struct Message *newMessage = GetMsg( replyPort );
+	// while( newMessage != NULL )
+	// {
+	// 	ReplyMsg( newMessage );
+	// 	newMessage = GetMsg( replyPort );
+	// }
+	DeleteMsgPort( replyPort );
+
 	//Free our messagebuffer
+	dbglog( "[child] Freeing message buffer.\n" );
 	FreeVec( message );
 
 	//Now close the socket because we are done here
 	dbglog( "[child] Closing client thread for socket 0x%08x.\n", childServerSocket );
 	CloseSocket( childServerSocket );
 
-	CloseLibrary( DOSBase );
+	dbglog( "[child] Terminating.\n" );
+	return;
 }
 

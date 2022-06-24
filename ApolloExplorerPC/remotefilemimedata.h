@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QEventLoop>
 #include <QAbstractNativeEventFilter>
+#include <QMutexLocker>
 
 //Linux specific stuff
 #if __linux__
@@ -41,6 +42,7 @@ public slots:
     void onLeftMouseButtonReleasedSlot();
 
 private:
+    mutable QMutex m_Mutex;
     Qt::DropActions m_Action;
     QString m_TempFilePath;
     mutable QList<QUrl> m_LocalUrls;

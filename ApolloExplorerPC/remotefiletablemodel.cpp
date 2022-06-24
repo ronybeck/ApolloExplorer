@@ -54,11 +54,11 @@ static inline QString prettyFileSize( qint32 size )
 
     if( size > GigaByte )
     {
-        return QString( QString::number( size / GigaByte, 10 ) + QString( " GBytes" ) );
+        return QString( QString::number( size / GigaByte, 10 ) + "." + QString::number( size%GigaByte/MegaByte/100,10 ) + QString( " GBytes" ) );
     }
     if( size > MegaByte )
     {        
-        return QString( QString::number( size / MegaByte, 10 ) + QString( " MBytes" ) );
+        return QString( QString::number( size / MegaByte, 10 ) + "." + QString::number( size%MegaByte/KiloByte/100 ) + QString( " MBytes" ) );
     }
     if( size > KiloByte )
     {

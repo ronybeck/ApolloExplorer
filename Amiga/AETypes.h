@@ -11,9 +11,9 @@
 typedef enum
 {
 	AEM_NewClient,
-	AEM_ClientThreadTerminating,
 	AEM_KillClient,
 	AEM_Shutdown,
+	AEM_ClientList,
 	AEM_None
 } AEMessgeType_t;
 
@@ -21,8 +21,17 @@ typedef enum
 struct AEMessage
 {
 	struct Message msg;
-	unsigned short port;
 	AEMessgeType_t messageType;
+	unsigned short port;
+};
+
+struct AEClientList
+{
+	struct Message msg;
+	AEMessgeType_t messageType;
+	char clientCount;
+	char ipAddress[21];
+	short port;
 };
 
 

@@ -1,16 +1,35 @@
 /*
- * VNetServerThread.h
+ * AEClientThread.h
  *
  *  Created on: May 16, 2021
  *      Author: rony
  */
 
-#ifndef VNETSERVERTHREAD_H_
-#define VNETSERVERTHREAD_H_
+#ifndef AECLIENTTHREAD_H_
+#define AECLIENTTHREAD_H_
 
 #include "protocol.h"
 
-void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOCKET clientSocket );
-//void startDiscoveryThread();
+typedef struct clientThread
+{
+	struct clientThread *next;
+	struct clientThread *previous;
+	struct Process *process;
+	struct MsgPort *messagePort;
+	char ip[4];
+	UWORD port;
+} ClientThread_t;
 
-#endif /* VNETSERVERTHREAD_H_ */
+void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOCKET clientSocket );
+
+void addClientThreadToList( ClientThread_t *client );
+void removeClientThreadFromList( ClientThread_t *client );
+ClientThread_t *getClientThreadList();
+void initialiseClientThreadList();
+void freeClientThreadList( ClientThread_t *list );
+void lockClientThreadList();
+void unlockClientThreadList();
+UBYTE getClientListSize();
+void getIPFromClient( ClientThread_t *client, char ipAddress[ 21 ] );
+
+#endif /* AECLIENTTHREAD_H_ */

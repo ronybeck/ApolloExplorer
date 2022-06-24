@@ -71,6 +71,7 @@ signals:
     void disconnectedFromHostSignal();
     void outgoingByteCountSignal( quint32 bytes );
     void incomingByteCountSignal( quint32 bytes );
+    void serverClosedConnectionSignal( QString reason );
 
     //Protocol messages
     void serverVersionSignal( quint8 major, quint8 minor, quint8 revision );
@@ -95,7 +96,7 @@ signals:
     void rawOutgoingBytesSignal( QByteArray bytes );
 
 private:
-    AEConnection m_VNetConnection;
+    AEConnection m_AEConnection;
     QHostAddress m_ServerAddress;
     quint16 m_ServerPort;
 

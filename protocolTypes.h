@@ -8,9 +8,9 @@
 #ifndef PROTOCOLTYPES_H_
 #define PROTOCOLTYPES_H_
 
-#define VERSION_MAJOR 0
+#define VERSION_MAJOR 1
 #define VERSION_MINOR 0
-#define VERSION_REVISION 6
+#define VERSION_REVISION 8
 #define MAIN_LISTEN_PORTNUMBER 30302
 #define BROADCAST_PORTNUMBER 30301
 
@@ -37,6 +37,7 @@ typedef enum
     PMT_ACK                 = 0x00000005,
     PMT_CANCEL_OPERATION    = 0x00000006,
 	PMT_FAILED				= 0x00000007,
+	PMT_CLOSING				= 0x00000008,
 
 	//File operations
     PMT_START_OF_SEND_FILE  = 0x00000010,
@@ -82,6 +83,12 @@ typedef struct
 	ProtocolMessage_t header;
 	unsigned short port;			//The new port for this client.
 } ProtocolMessageNewClientPort_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	char message[128];
+} ProtocolMessageDisconnect_t;
 
 
 typedef enum
@@ -207,7 +214,7 @@ typedef struct
 	ProtocolMessage_t header;
     char name[32];
     char osName[32];
-	char osVersion[8];
+	char osVersion[32];
     char hardware[32];
 } ProtocolMessage_DeviceAnnouncement_t;
 

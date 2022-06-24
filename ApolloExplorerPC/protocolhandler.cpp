@@ -7,25 +7,25 @@
 
 ProtocolHandler::ProtocolHandler(QObject *parent) :
     QObject(parent),
-    m_VNetConnection( this ),
+    m_AEConnection( this ),
     m_ServerAddress( ),
     m_ServerPort( 30202 ),
     m_ConnectionPhase( CP_DISCONNECTED )
 {
     //setup signal slots
-    connect( &m_VNetConnection, &AEConnection::connectedToHostSignal, this, &ProtocolHandler::onConnectedSlot );
-    connect( &m_VNetConnection, &AEConnection::disconnectedFromHostSignal, this, &ProtocolHandler::onDisconnectedSlot );
-    connect( &m_VNetConnection, &AEConnection::newMessageReceived, this, &ProtocolHandler::onMessageReceivedSlot );
-    connect( this, &ProtocolHandler::connectToHostSignal, &m_VNetConnection, &AEConnection::onConnectToHostRequestedSlot );
-    connect( this, &ProtocolHandler::disconnectFromHostSignal, &m_VNetConnection, &AEConnection::onDisconnectFromhostRequestedSlot );
+    connect( &m_AEConnection, &AEConnection::connectedToHostSignal, this, &ProtocolHandler::onConnectedSlot );
+    connect( &m_AEConnection, &AEConnection::disconnectedFromHostSignal, this, &ProtocolHandler::onDisconnectedSlot );
+    connect( &m_AEConnection, &AEConnection::newMessageReceived, this, &ProtocolHandler::onMessageReceivedSlot );
+    connect( this, &ProtocolHandler::connectToHostSignal, &m_AEConnection, &AEConnection::onConnectToHostRequestedSlot );
+    connect( this, &ProtocolHandler::disconnectFromHostSignal, &m_AEConnection, &AEConnection::onDisconnectFromhostRequestedSlot );
 
     //Through put signals
-    connect( &m_VNetConnection, &AEConnection::outgoingByteCountSignal, this, &ProtocolHandler::outgoingByteCountSignal );
-    connect( &m_VNetConnection, &AEConnection::incomingByteCountSignal, this, &ProtocolHandler::incomingByteCountSignal );
+    connect( &m_AEConnection, &AEConnection::outgoingByteCountSignal, this, &ProtocolHandler::outgoingByteCountSignal );
+    connect( &m_AEConnection, &AEConnection::incomingByteCountSignal, this, &ProtocolHandler::incomingByteCountSignal );
 
     //Raw Socket
-    connect( this, &ProtocolHandler::rawOutgoingBytesSignal, &m_VNetConnection, &AEConnection::onRawOutgoingBytesSlot );
-    connect( &m_VNetConnection, &AEConnection::rawIncomingBytesSignal, this, &ProtocolHandler::onRawIncomingBytesSlot );
+    connect( this, &ProtocolHandler::rawOutgoingBytesSignal, &m_AEConnection, &AEConnection::onRawOutgoingBytesSlot );
+    connect( &m_AEConnection, &AEConnection::rawIncomingBytesSignal, this, &ProtocolHandler::onRawIncomingBytesSlot );
 }
 
 void ProtocolHandler::onConnectToHostRequestedSlot( QHostAddress serverAddress, quint16 port )
@@ -48,12 +48,12 @@ void ProtocolHandler::onDisconnectFromHostRequestedSlot()
 
 void ProtocolHandler::onSendMessageSlot( ProtocolMessage_t *message )
 {
-    m_VNetConnection.onSendMessage( message );
+    m_AEConnection.onSendMessage( message );
 }
 
 void ProtocolHandler::onSendAndReleaseMessageSlot( ProtocolMessage_t *message )
 {
-    m_VNetConnection.onSendMessage( message );
+    m_AEConnection.onSendMessage( message );
     ReleaseMessage( message );
 }
 
@@ -67,7 +67,7 @@ void ProtocolHandler::onRunCMDSlot(QString command, QString workingDirectroy)
     strncpy( runMessage->command, command.toStdString().c_str(), command.length() + 1 );
 
     //Send the message
-    m_VNetConnection.sendMessage( runMessage );
+    m_AEConnection.sendMessage( runMessage );
 
     //Free Message
     ReleaseMessage( runMessage );
@@ -99,7 +99,7 @@ void ProtocolHandler::onGetDirectorySlot( QString remoteDirectory )
         getDirMsg->length = qToBigEndian<unsigned int>( getDirMsg->length );
 
         //Send the message
-        m_VNetConnection.sendMessage( getDirMsg );
+        m_AEConnection.sendMessage( getDirMsg );
 
         //Free the message
         ReleaseMessage( getDirMsg );
@@ -120,7 +120,7 @@ void ProtocolHandler::onMKDirSlot( QString remoteDirectory )
     strncpy( mkdirMessage->filePath, encodedPath, strlen( encodedPath ) + 1 );
 
     //Send the message
-    m_VNetConnection.sendMessage( mkdirMessage );
+    m_AEConnection.sendMessage( mkdirMessage );
     ReleaseMessage( mkdirMessage );
 }
 
@@ -138,7 +138,7 @@ bool ProtocolHandler::deleteFile( QString remoteFilePath, QString &error )
     strncpy( deletePathMessage->filePath, encodedPath, strlen( encodedPath ) + 1 );
 
     //Send the message
-    m_VNetConnection.sendMessage( deletePathMessage );
+    m_AEConnection.sendMessage( deletePathMessage );
     ReleaseMessage( deletePathMessage );
 
     //We want to wait for the OK or error message
@@ -190,7 +190,7 @@ void ProtocolHandler::onConnectedSlot()
                 versionQuery->token = MAGIC_TOKEN;
                 versionQuery->type = PMT_GET_VERSION;
                 versionQuery->length = sizeof( ProtocolMessage_t );
-                m_VNetConnection.sendMessage( versionQuery );
+                m_AEConnection.sendMessage( versionQuery );
                 ReleaseMessage( versionQuery );
         }
     }
@@ -223,8 +223,8 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             m_ConnectionPhase = CP_RECONNECTING;
 
             //start the reconnection
-            m_VNetConnection.onDisconnectFromhostRequestedSlot();
-            m_VNetConnection.onConnectToHostRequestedSlot( m_ServerAddress, m_ServerPort );
+            m_AEConnection.onDisconnectFromhostRequestedSlot();
+            m_AEConnection.onConnectToHostRequestedSlot( m_ServerAddress, m_ServerPort );
             break;
         }
         case PMT_VERSION:
@@ -324,6 +324,17 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             emit volumeListSignal( volumes );
 
             break;
+        }
+        case PMT_CLOSING:
+        {
+            ProtocolMessageDisconnect_t *disconnectMessage = reinterpret_cast<ProtocolMessageDisconnect_t*>( newMessage );
+            QString message( disconnectMessage->message );
+
+            //Shutdown the client connection
+            //m_AEConnection.onDisconnectFromhostRequestedSlot();
+
+            //Inform others what happened
+            emit serverClosedConnectionSignal( message );
         }
         default:
             qDebug() << "Unsupported message type " << newMessage->type;

@@ -78,6 +78,7 @@ public slots:
     //Network slots
     void onConnectedToHostSlot();
     void onDisconnectedFromHostSlot();
+    void onServerClosedConnectionSlot( QString message );
     void onIncomingByteCountUpdateSlot( quint32 bytes );
     void onOutgoingByteCountUpdateSlot( quint32 bytes );
 

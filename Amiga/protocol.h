@@ -19,7 +19,7 @@
 
 #endif
 
-#define MASTER_MSGPORT_NAME "VNetServerMaster"
+#define MASTER_MSGPORT_NAME "AEServerMaster"
 
 typedef int SOCKET;
 
@@ -28,9 +28,11 @@ typedef int SOCKET;
 #define INVALID_MESSAGE_TYPE -2
 #define INVALID_MESSAGE_SIZE -3
 #define SOCKET_ERROR -4
+#define TIMEOUT -5
 
 int sendMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage_t *message );
 int getMessage( struct Library *SocketBase, SOCKET socket, ProtocolMessage_t *message, unsigned int maxMessageLength );
+//int getMessageNB( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage_t *message, unsigned int maxMessageLength, fd_set *fdset, struct timeval timeout );
 
 #endif /* AMIGA_PROTOCOL_H_ */
 

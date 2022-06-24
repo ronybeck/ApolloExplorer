@@ -122,6 +122,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( this, &MainWindow::createRemoteDirectorySignal, &m_ProtocolHandler, &ProtocolHandler::onMKDirSlot );
     connect( &m_ProtocolHandler, &ProtocolHandler::acknowledgeWithCodeSignal, this, &MainWindow::onAcknowledgeSlot );
     //connect( this, &MainWindow::deleteRemoteDirectorySignal, &m_ProtocolHandler, &ProtocolHandler::onDeleteFileSlot );
+    connect( &m_ProtocolHandler, &ProtocolHandler::serverClosedConnectionSignal, this, &MainWindow::onServerClosedConnectionSlot );
 
     //Setup GUI signals and slots
     connect( ui->pushButtonConnect, &QPushButton::released, this, &MainWindow::onConnectButtonReleasedSlot );
@@ -1003,6 +1004,13 @@ void MainWindow::onDisconnectedFromHostSlot()
     m_FileTableView->setEnabled( false );
     ui->listWidgetDrives->setEnabled( false );
     ui->lineEditPath->setEnabled( false );
+}
+
+void MainWindow::onServerClosedConnectionSlot(QString message)
+{
+    QMessageBox errorBox( QMessageBox::Critical, "Server disconnected.", "The server disconnected with reason: " + message, QMessageBox::Ok );
+    errorBox.exec();
+    onDisconnectedFromHostSlot();
 }
 
 void MainWindow::onIncomingByteCountUpdateSlot( quint32 bytes )

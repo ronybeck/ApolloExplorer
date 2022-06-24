@@ -1,5 +1,5 @@
 /*
- * VNetDiscoveryThread.c
+ * AEDiscoveryThread.c
  *
  *  Created on: Jul 10, 2021
  *      Author: rony
@@ -23,6 +23,8 @@
 
 #include "protocol.h"
 #include "AEUtil.h"
+#include "AETypes.h"
+#include "AEDiscoveryThread.h"
 
 #define VREG_BOARD_Unknown      0x00      // Unknown
 #define VREG_BOARD_V600         0x01      // V600
@@ -38,6 +40,7 @@
 #define VREG_BOARD              0xDFF3FC  // [16-bits] BoardID [HIGH-Byte: MODEL, LOW-Byte: xFREQ]
 
 extern char g_KeepServerRunning;
+STRPTR g_DiscoveryMessagePortName = DISCOVERY_MESSAGE_PORT_NAME;
 
 static void discoveryThread();
 
@@ -181,7 +184,6 @@ static void getOSVersion( char *version, LONG len )
 static void getOSName( char *name, LONG len )
 {
 	struct Library *ExecLibrary = NULL;
-	UBYTE min=0, maj=0, rev=0;
 
 	//Did we get the DOSBase
 	dbglog( "[getOSName] Opening Exec Library.\n" );
@@ -262,7 +264,7 @@ void startDiscoveryThread()
 		//Start a client thread
 		struct TagItem tags[] = {
 				{ NP_StackSize,		8192 },
-				{ NP_Name,			(ULONG)"VNetDiscoveryThread" },
+				{ NP_Name,			(ULONG)"AEDiscoveryThread" },
 				{ NP_Entry,			(ULONG)discoveryThread },
 				//{ NP_Output,		(ULONG)consoleHandle },
 				{ NP_Synchronous, 	FALSE },
@@ -280,6 +282,7 @@ void startDiscoveryThread()
 	}
 }
 
+#if 0
 static void printInterfaceDebug()
 {
 	dbglog( "[discoveryThread] Searching for network interfaces.\n" );
@@ -308,27 +311,19 @@ static void printInterfaceDebug()
 	dbglog( "[discoveryThread] Network interface discovery completed.\n" );
 	ReleaseInterfaceList( interfaceList );
 }
+#endif
 
 #define ENABLE_DISCOVERY_REPLY 1
 static void discoveryThread()
 {
 	dbglog( "[discoveryThread] Client thread started.\n" );
 
-	struct Library *DOSBase = NULL;
 	struct Library *SocketBase = NULL;
 	int returnCode = 0;
 	int yes = 1;
-	char *osVersion[8];
-	char *osName[8];
-	char *hardwareName[8];
-
-	//Did we get the DOSBase
-	DOSBase = OpenLibrary( "dos.library", 0 );
-	if( DOSBase == NULL )
-	{
-		dbglog( "[discoveryThread] Failed to get DOSBase.\n" );
-		return;
-	}
+	char osVersion[32];
+	char osName[32];
+	char hardwareName[32];
 
 	//Open the BSD Socket library
 	dbglog( "[discoveryThread] Opening bsdsocket.library.\n" );
@@ -473,7 +468,7 @@ static void discoveryThread()
 
 	//Let's see what is in the tool types
 	dbglog( "[discoverySocket] Opening disk object\n" );
-	struct DiskObject *diskObject = GetDiskObject( "ApolloExplorerServerAmiga" );
+	struct DiskObject *diskObject = GetDiskObject( "ApolloExplorerSrv" );
 	if( diskObject )
 	{
 		dbglog( "[discoverySocket] Opened disk object\n" );
@@ -545,12 +540,47 @@ static void discoveryThread()
 	//Addressing information
 	struct sockaddr *requestorAddress = AllocVec( sizeof( *requestorAddress ), MEMF_FAST|MEMF_CLEAR );
 
+	//Setup a message port so we can get kill messages and the like
+	dbglog( "[discoverySocket] Creating message port %s.\n", DISCOVERY_MESSAGE_PORT_NAME );
+	struct MsgPort *messagePort = CreateMsgPort();
+	if( messagePort == NULL )
+	{
+		dbglog( "Failed to create message port.\n" );
+		goto shutdown;
+	}
+	messagePort->mp_Node.ln_Name = g_DiscoveryMessagePortName;
+	messagePort->mp_Node.ln_Pri = 0;
+	AddPort( messagePort );
+	dbglog( "[discoverySocket] Master Message Port: 0x%08x\n", (unsigned int)messagePort );
+
 	//Start reading all in-bound messages
 	int bytesRead = 0;
 	int bytesSent = 0;
 	char keepThisConnectionRunning = 1;
 	while( g_KeepServerRunning && keepThisConnectionRunning )
 	{
+		//Check if we got an exit message
+		struct Message *newMessage = GetMsg( messagePort );
+		if( newMessage != NULL )
+		{
+			struct AEMessage *aeMsg = (struct AEMessage *)newMessage;
+			if( aeMsg->messageType == AEM_Shutdown )
+			{
+				dbglog( "[discovery] Got the shutdown command. Shutting down.\n" );
+				
+				//Send a reply
+				dbglog( "[discovery] Acknowledging master's request.\n" );
+				ReplyMsg( newMessage );
+
+				//Now get out of here
+				dbglog( "[discovery] Now initiating a shutdown.\n" );
+				goto shutdown; 
+			}else
+			{
+				dbglog( "[discovery] Got some unknown message.\n" );
+			}
+		}
+
 #if ENABLE_DISCOVERY_REPLY
 		socklen_t requestorAddressLen = sizeof( *requestorAddress );
 		memset( requestorAddress, 0, requestorAddressLen );
@@ -597,8 +627,22 @@ static void discoveryThread()
 		Delay( 100 );
 	}
 
-	//exit_discovery:
+	shutdown:
+	dbglog( "[discovery] Shutting down.\n" );
+	Delay( 100 );
+
+	//Clear out and then free the message port
+	dbglog( "[discovery] Removing message port.\n" );
+	struct Message *newMessage = GetMsg( messagePort );
+	while( newMessage )
+	{
+		newMessage = GetMsg( messagePort );
+	}
+	RemPort( messagePort );
+	DeleteMsgPort( messagePort );
+
 	//Free our messagebuffer
+	dbglog( "[discovery] Freeing memory.\n" );
 	FreeVec( discoveryMessage );
 	FreeVec( announceMessage );
 	FreeVec( requestorAddress );
@@ -612,7 +656,7 @@ static void discoveryThread()
 	dbglog( "[discoverySocket] Closing client thread for socket 0x%08x.\n", broadcastSocket );
 	CloseSocket( broadcastSocket );
 
-	CloseLibrary( DOSBase );
+	dbglog( "[discovery] Closing socket base.\n" );
 	CloseLibrary( SocketBase );
 
 	return;

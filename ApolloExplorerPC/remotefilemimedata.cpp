@@ -8,7 +8,14 @@
 
 #include <QApplication>
 
+
+#define LOCK QMutexLocker locker( &m_Mutex )
+#define UNLOCK locker.unlock()
+#define RELOCK locker.relock();
+
+
 RemoteFileMimeData::RemoteFileMimeData() :
+    m_Mutex( QMutex::Recursive ),
     m_Action( Qt::IgnoreAction ),
     m_TempFilePath( QDir::tempPath() + "/ApolloExplorer/" ),
     m_LocalUrls( ),

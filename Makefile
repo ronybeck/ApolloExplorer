@@ -1,13 +1,11 @@
 CC=/opt/amiga/bin/m68k-amigaos-gcc
-CFLAGS=-std=c99 -O0
-#works
 AE_CC=/opt/amiga/bin/m68k-amigaos-gcc
-AE_CFLAGS=-std=c99 -O0 -Wall -fstack-protector-all -Wno-pointer-sign
+AE_CFLAGS=-std=c99 -O2 -g -Wall -fstack-protector-all -Wno-pointer-sign
 AE_Includes=-I/opt/amiga/m68k-amigaos/ndk-include/
 
-TARGET=ApolloExplorerServerAmiga
-AMIGA_SRC=	Amiga/ApolloExplorerServerAmiga.c \
-			Amiga/AEServerThread.c \
+ApolloExplorerServer=ApolloExplorerSrv
+ApolloExplorerServer_SRC=	Amiga/ApolloExplorerServerAmiga.c \
+			Amiga/AEClientThread.c \
 			Amiga/AEDiscoveryThread.c \
 			Amiga/AEUtil.c \
 			Amiga/protocol.c \
@@ -16,11 +14,16 @@ AMIGA_SRC=	Amiga/ApolloExplorerServerAmiga.c \
 			Amiga/ReceiveFile.c \
 			Amiga/MakeDir.c \
 			Amiga/VolumeList.c
+ApolloExplorerTool=ApolloExplorerTool
+ApolloExplorerTool_SRC = Amiga/ApolloExplorerTool.c
 
-${TARGET}: 
-	$(AE_CC) ${AE_CFLAGS} ${AE_Includes} -I./Amiga/ -I. ${AMIGA_SRC} -lamiga -o ${TARGET}
+${ApolloExplorerServer}: 
+	$(AE_CC) ${AE_CFLAGS} ${AE_Includes} -I./Amiga/ -I. ${ApolloExplorerServer_SRC} -lamiga -o ${ApolloExplorerServer}
 	
-all: clean ${}
+${ApolloExplorerTool}:
+	$(AE_CC) ${AE_CFLAGS} ${AE_Includes} -I./Amiga/ -I. ${ApolloExplorerTool_SRC} -lamiga -o ${ApolloExplorerTool}
+	
+all: clean ${ApolloExplorerServer} ${ApolloExplorerTool}
 	
 clean:
-	rm -f ${TARGET}
+	rm -f ${ApolloExplorerServer} ${ApolloExplorerTool}

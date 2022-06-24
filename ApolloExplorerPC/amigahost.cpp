@@ -8,7 +8,7 @@ AmigaHost::AmigaHost( QString name, QString osName, QString osVersion, QString h
     m_Hardware( hardware ),
     m_Address( address )
 {
-    m_TimeoutTime = QTime::currentTime().addSecs( 10 );
+    m_TimeoutTime = QTime::currentTime().addSecs( 20 );
 }
 
 bool AmigaHost::operator ==( const AmigaHost &rhs )
