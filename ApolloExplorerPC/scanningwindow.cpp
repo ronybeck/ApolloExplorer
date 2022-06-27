@@ -52,7 +52,9 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::ScanningWindow),
     m_Settings( new QSettings( "ApolloTeam", "ApolloExplorer" ) ),
-    m_SystemTrayIcon( QPixmap( ":/browser/icons/VampireHW.png" ) )
+    m_DeviceDiscovery( m_Settings ),
+    m_SystemTrayIcon( QPixmap( ":/browser/icons/VampireHW.png" ) ),
+    m_DialogPreferences( m_Settings, this )
 {
     ui->setupUi(this);
     setWindowTitle( "ApolloExplorer Scanner" );
@@ -64,6 +66,7 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     connect( ui->listWidget, &QListWidget::itemClicked, this, &ScanningWindow::onHostIconClickedSlot );
     connect( ui->checkBoxOpenAutomatically, &QCheckBox::released, this, &ScanningWindow::onAutoConnectCheckboxToggledSlot );
     connect( ui->pushButton, &QPushButton::released, this, &ScanningWindow::onConnectButtonReleasedSlot );
+    connect( ui->pushButtonSettings, &QPushButton::released, &m_DialogPreferences, &DialogPreferences::show );
 
     //Show the system try
     m_SystemTrayIcon.show();

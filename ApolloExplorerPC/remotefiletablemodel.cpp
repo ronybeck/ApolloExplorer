@@ -194,7 +194,10 @@ QVariant RemoteFileTableModel::headerData(int section, Qt::Orientation orientati
             break;
         }
         case Qt::SizeHintRole:
-
+//            if( section == 2 || section == 1 )
+//            {
+//                return QSize( 10, 20 );
+//            }
         break;
         case Qt::DecorationRole:
         {

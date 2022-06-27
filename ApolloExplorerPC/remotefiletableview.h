@@ -36,6 +36,7 @@ public slots:
 private:
     QSharedPointer<DialogDownloadFile> m_DownloadDialog;
     QSharedPointer<DialogUploadFile> m_UploadDialog;
+    QList<QDrag*> m_QDragList;
 };
 
 #endif // REMOTEFILETABLEVIEW_H

@@ -32,6 +32,7 @@ SOURCES += \
     messagepool.cpp \
     mouseeventfilter.cpp \
     protocolhandler.cpp \
+    qdragremote.cpp \
     remotefilemimedata.cpp \
     remotefiletablemodel.cpp \
     remotefiletableview.cpp \
@@ -55,6 +56,7 @@ HEADERS += \
     messagepool.h \
     mouseeventfilter.h \
     protocolhandler.h \
+    qdragremote.h \
     remotefilemimedata.h \
     remotefiletablemodel.h \
     remotefiletableview.h \
@@ -86,7 +88,8 @@ DISTFILES += \
     icons/Computer_Linux.png \
     icons/Computer_MacOS.png \
     icons/directory.png \
-    icons/file.png
+    icons/file.png \
+    icons/go-up.png
 
 RESOURCES += \
     Fonts.qrc \

@@ -398,8 +398,8 @@ QMenu::indicator:checked {
               <string>up</string>
              </property>
              <property name="icon">
-              <iconset theme="go-up">
-               <normaloff>.</normaloff>.</iconset>
+              <iconset resource="icons.qrc">
+               <normaloff>:/browser/icons/go-up.png</normaloff>:/browser/icons/go-up.png</iconset>
              </property>
             </widget>
            </item>
@@ -409,8 +409,8 @@ QMenu::indicator:checked {
               <string>Refresh</string>
              </property>
              <property name="icon">
-              <iconset theme="view-refresh">
-               <normaloff>.</normaloff>.</iconset>
+              <iconset resource="icons.qrc">
+               <normaloff>:/browser/icons/refresh.png</normaloff>:/browser/icons/refresh.png</iconset>
              </property>
             </widget>
            </item>
@@ -527,7 +527,7 @@ QMenu::indicator:checked {
      <x>0</x>
      <y>0</y>
      <width>774</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

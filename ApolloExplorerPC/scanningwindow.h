@@ -16,6 +16,8 @@
 #include <QResizeEvent>
 #include <QMoveEvent>
 
+#include "dialogpreferences.h"
+
 namespace Ui {
 class ScanningWindow;
 }
@@ -59,6 +61,7 @@ private:
     QMenu m_SystemTrayMenu;
     QMenu m_SystemTrayHostsMenu;
     QSharedPointer<AmigaHost> m_SelectedHost;
+    DialogPreferences m_DialogPreferences;
 };
 
 #endif // SCANNINGWINDOW_H

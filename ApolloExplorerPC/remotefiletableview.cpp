@@ -1,5 +1,6 @@
 #include "remotefiletableview.h"
 #include "remotefiletablemodel.h"
+#include "qdragremote.h"
 
 #include <QDrag>
 #include <QDragLeaveEvent>
@@ -23,9 +24,18 @@ RemoteFileTableView::RemoteFileTableView()
     //Signals and slots
     connect( this, &RemoteFileTableView::doubleClicked, this, &RemoteFileTableView::onItemDoubleClicked );
 
+    //Create a dummy model so we can at least set the header width
+    QSharedPointer<DirectoryListing> directoryListing( new DirectoryListing() );
+    directoryListing->setName( "Waiting for server.");
+    RemoteFileTableModel *temporaryModel = new RemoteFileTableModel( directoryListing );
+    this->setModel( temporaryModel );
+
     verticalHeader()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
     verticalHeader()->setSizeAdjustPolicy( AdjustToContents );
-    horizontalHeader()->setSectionResizeMode( QHeaderView::Stretch );
+    //horizontalHeader()->setSectionResizeMode( QHeaderView::Stretch );
+    this->horizontalHeader()->setSectionResizeMode(0,QHeaderView::ResizeMode::Stretch);
+    this->horizontalHeader()->setSectionResizeMode(1,QHeaderView::ResizeMode::ResizeToContents );
+    this->horizontalHeader()->setSectionResizeMode(2,QHeaderView::ResizeMode::ResizeToContents );
     this->verticalHeader()->setEnabled( false );
     this->verticalHeader()->setVisible( false );
     setSizeAdjustPolicy( QAbstractScrollArea::AdjustToContents );
@@ -142,9 +152,11 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
     }
 
     //Create the new drag action
-    QDrag *drag = new QDrag(this);
+    QDragRemote *drag = new QDragRemote( this );
     drag->setMimeData( newMimeData );
     drag->exec( Qt::MoveAction|Qt::CopyAction, Qt::MoveAction );
+    m_QDragList.append( drag );
+    DBGLOG <<"Currentl drage queue is: " << m_QDragList.size();
 #endif
 }
 

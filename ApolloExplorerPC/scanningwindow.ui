@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>842</width>
-    <height>349</height>
+    <width>764</width>
+    <height>353</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -277,6 +277,13 @@ QListView::item
          </property>
          <property name="viewMode">
           <enum>QListView::IconMode</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButtonSettings">
+         <property name="text">
+          <string>settings</string>
          </property>
         </widget>
        </item>

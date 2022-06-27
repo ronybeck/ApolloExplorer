@@ -11,6 +11,8 @@
         <file>icons/VampireHW.png</file>
         <file>icons/FirebirdHW.png</file>
         <file>icons/IcedrakeHW.png</file>
+        <file>icons/go-up.png</file>
+        <file>icons/refresh.png</file>
     </qresource>
     <qresource prefix="/"/>
 </RCC>

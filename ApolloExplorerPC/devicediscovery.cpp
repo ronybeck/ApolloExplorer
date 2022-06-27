@@ -5,12 +5,13 @@
 #define UNLOCK locker.unlock()
 #define RELOCK locker.lock()
 
-DeviceDiscovery::DeviceDiscovery(QObject *parent) :
+DeviceDiscovery::DeviceDiscovery(QSharedPointer<QSettings> settings, QObject *parent) :
     QObject(parent),
     m_ScanTimer( ),
     m_Socket( ),
     m_HostList( ),
-    m_Mutex( QMutex::Recursive )
+    m_Mutex( QMutex::Recursive ),
+    m_Settings( settings )
 {
     //Signal SLots
     connect( &m_ScanTimer, &QTimer::timeout, this, &DeviceDiscovery::onScanTimerTimeoutSlot );
@@ -111,7 +112,7 @@ void DeviceDiscovery::onSocketReadReadySlot()
     if( !m_HostList.contains( senderAddressString ) )
     {
         //add this to the list
-        AmigaHost *host = new AmigaHost( name, osName, osVersion, hardware, sender, this );
+        AmigaHost *host = new AmigaHost( m_Settings, name, osName, osVersion, hardware, sender, this );
         m_HostList[ senderAddressString ] = QSharedPointer<AmigaHost>( host );
 
         //Tell the world about this

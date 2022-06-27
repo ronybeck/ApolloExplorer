@@ -21,6 +21,7 @@ public:
 
     void onDoubleClickComboBoxChanged( const QString selection );
     void onDelayBetweenDeletesChangedSlot( int newValue );
+    void onHelloTimeoutChangedSlot( int newValue );
 
 private:
     Ui::DialogPreferences *ui;

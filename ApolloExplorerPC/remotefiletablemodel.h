@@ -41,6 +41,9 @@ public:
 public slots:
     void onHeaderSectionClicked( int section );
 
+signals:
+    void modelUpdatedSignal();
+
 private:
     QMutex *m_Mutex;
     QStringList m_HeaderNames;

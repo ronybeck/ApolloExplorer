@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QHostAddress>
 #include <QTime>
+#include <QSharedPointer>
+#include <QSettings>
 
 Q_DECLARE_METATYPE(QHostAddress)
 
@@ -11,7 +13,7 @@ class AmigaHost : public QObject
 {
     Q_OBJECT
 public:
-    explicit AmigaHost( QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent = nullptr );
+    explicit AmigaHost( QSharedPointer<QSettings> settings, QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent = nullptr );
     bool operator == ( const AmigaHost &rhs );
 
     bool hasTimedOut();
@@ -37,6 +39,7 @@ private:
     QHostAddress m_Address;
     QTime m_TimeoutTime;
     QTime m_LastRepsonseTime;
+    QSharedPointer<QSettings> m_Settings;
 };
 
 #endif // AMIGAHOST_H

@@ -1,12 +1,14 @@
 #include "amigahost.h"
+#include "AEUtils.h"
 
-AmigaHost::AmigaHost( QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent ) :
+AmigaHost::AmigaHost( QSharedPointer<QSettings> settings, QString name, QString osName, QString osVersion, QString hardware, QHostAddress address, QObject *parent ) :
     QObject(parent),
     m_Name( name ),
     m_OsName( osName ),
     m_OsVersion( osVersion ),
     m_Hardware( hardware ),
-    m_Address( address )
+    m_Address( address ),
+    m_Settings( settings )
 {
     m_TimeoutTime = QTime::currentTime().addSecs( 20 );
 }
@@ -31,7 +33,12 @@ bool AmigaHost::hasTimedOut()
 
 void AmigaHost::setHostRespondedNow()
 {
-    m_TimeoutTime = QTime::currentTime().addSecs( 4 );
+    //Quickly check the settings for a timeout value
+    m_Settings->beginGroup( SETTINGS_GENERAL );
+    int timeoutPeriod = m_Settings->value( SETTINGS_HELLO_TIMEOUT, 10 ).toInt();
+    m_Settings->endGroup();
+
+    m_TimeoutTime = QTime::currentTime().addSecs( timeoutPeriod );
 }
 
 const QString &AmigaHost::Name() const

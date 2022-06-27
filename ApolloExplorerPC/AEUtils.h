@@ -17,6 +17,8 @@ void convertFromUTF8ToAmigaTextEncoding( QString utf8Text, char *encodedText, qu
 
 #define SETTINGS_HOSTS "hosts"
 #define SETTINGS_BROWSER "Browser"
+#define SETTINGS_GENERAL "General"
+#define SETTINGS_HELLO_TIMEOUT "HelloTimeout"
 #define SETTINGS_BROWSER_DOUBLECLICK_ACTION "DoubleClickAction"
 #define SETTINGS_BROWSER_DELAY_BETWEEN_DELETES "DelayBetweenDeletes"
 #define SETTINGS_SCANNING_WINDOW "ScanningWindow"

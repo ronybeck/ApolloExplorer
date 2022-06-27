@@ -18,6 +18,7 @@ DialogPreferences::DialogPreferences( QSharedPointer<QSettings> settings, QWidge
     //Signals and Slots
     connect( ui->comboBox, &QComboBox::currentTextChanged, this, &DialogPreferences::onDoubleClickComboBoxChanged );
     connect( ui->spinBoxDeleteDelay, QOverload<int>::of(&QSpinBox::valueChanged), this, &DialogPreferences::onDelayBetweenDeletesChangedSlot );
+    connect( ui->spinBoxHelloTimeout, QOverload<int>::of(&QSpinBox::valueChanged), this, &DialogPreferences::onHelloTimeoutChangedSlot );
 }
 
 DialogPreferences::~DialogPreferences()
@@ -39,6 +40,15 @@ void DialogPreferences::onDelayBetweenDeletesChangedSlot( int newValue )
     DBGLOG << "Delay between deletes set to " << newValue;
     m_Settings->beginGroup( SETTINGS_BROWSER );
     m_Settings->setValue( SETTINGS_BROWSER_DELAY_BETWEEN_DELETES, newValue );
+    m_Settings->endGroup();
+    m_Settings->sync();
+}
+
+void DialogPreferences::onHelloTimeoutChangedSlot(int newValue)
+{
+    DBGLOG << "Hello timeout set to " << newValue;
+    m_Settings->beginGroup( SETTINGS_GENERAL );
+    m_Settings->setValue( SETTINGS_HELLO_TIMEOUT, newValue );
     m_Settings->endGroup();
     m_Settings->sync();
 }
