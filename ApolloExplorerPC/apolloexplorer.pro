@@ -1,8 +1,8 @@
 QT       += core gui network
 TARGET=ApolloExplorer
 
-unix: QT += x11extras
-unix: LIBS += -lX11
+linux: QT += x11extras
+linux: LIBS += -lX11
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 

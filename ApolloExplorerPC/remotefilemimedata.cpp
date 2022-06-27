@@ -189,32 +189,6 @@ void RemoteFileMimeData::setDownloadDialog(QSharedPointer<DialogDownloadFile> di
 
 bool RemoteFileMimeData::isLeftMouseButtonDown() const
 {
-#if __linux__
-    /*
-    struct input_event ie;
-    while(read(fd, &ie, sizeof(struct input_event)))
-    {
-        if (ie.type == 1)
-        {
-          if (ie.code == 272 )
-          {
-            printf("Mouse button ");
-            if (ie.value == 0)
-            {
-              printf("released!!\n");
-            }
-            if (ie.value == 1)
-            {
-              printf("pressed!!\n");
-            }
-        } else {
-            printf("time %ld.%06ld\ttype %d\tcode %d\tvalue %d\n",
-                ie.time.tv_sec, ie.time.tv_usec, ie.type, ie.code, ie.value);
-        }
-      }
-    }
-*/
-#endif
     return m_LeftMouseButtonDown;
 }
 
