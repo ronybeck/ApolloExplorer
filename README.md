@@ -10,4 +10,4 @@ This is released und the MIT license.
 
 ![Linux Client](/Screenshots/ApolloExplorer_Linux.png)
 
-![Windows Client](/Screenshots/VNetClient_Windows.png)
+![Windows Client](/Screenshots/ApolloExplorer_Windows.png)
