@@ -8,6 +8,6 @@ This is released und the MIT license.
 
 # Screen Shots
 
-![Linux Client](/Screenshots/VNetClient_Linux.png)
+![Linux Client](/Screenshots/ApolloExplorer_Linux.png)
 
 ![Windows Client](/Screenshots/VNetClient_Windows.png)
