@@ -74,6 +74,30 @@ bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *mess
             break;
         }
     }
+#elif __APPLE__
+#warning testing
+    Q_UNUSED(eventType) Q_UNUSED(result)
+            NSEvent * event = (NSEvent*)message;
+            switch ([event type]) {
+            case NSLeftMouseDown:
+                DBGLOG << "Left mouse button down";
+            break;
+            case NSLeftMouseUp:
+                DBGLOG << "Left mouse button up";
+            break;
+            case NSRightMouseDown:
+                DBGLOG << "Rv"; break;
+            case NSRightMouseUp:
+                DBGLOG << "R^"; break;
+            case NSOtherMouseDown:
+                DBGLOG << [event buttonNumber] << "v"; break;
+            case NSOtherMouseUp:
+                DBGLOG << [event buttonNumber] << "^"; break;
+            default:
+                return false;
+            }
+            out << endl;
+            return false;
 #else
     Q_UNUSED( eventType )
     Q_UNUSED( message )

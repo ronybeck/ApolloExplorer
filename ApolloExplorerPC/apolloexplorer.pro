@@ -3,6 +3,7 @@ TARGET=ApolloExplorer
 
 linux: QT += x11extras
 linux: LIBS += -lX11
+macos: LIBS += -framework AppKit
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -30,7 +31,6 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     messagepool.cpp \
-    mouseeventfilter.cpp \
     protocolhandler.cpp \
     qdragremote.cpp \
     remotefilemimedata.cpp \
@@ -38,6 +38,10 @@ SOURCES += \
     remotefiletableview.cpp \
     scanningwindow.cpp \
     uploadthread.cpp
+
+linux:    SOURCES += mouseeventfilter.cpp
+win:    SOURCES += mouseeventfilter.cpp
+macos:  SOURCES += macos_mouseeventfilter.mm
 
 HEADERS += \
     ../protocolTypes.h \
@@ -54,14 +58,16 @@ HEADERS += \
     downloadthread.h \
     mainwindow.h \
     messagepool.h \
-    mouseeventfilter.h \
     protocolhandler.h \
     qdragremote.h \
     remotefilemimedata.h \
     remotefiletablemodel.h \
     remotefiletableview.h \
     scanningwindow.h \
-    uploadthread.h
+    uploadthread.h \
+    mouseeventfilter.h
+
+
 
 FORMS += \
     dialogconsole.ui \
