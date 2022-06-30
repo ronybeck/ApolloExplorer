@@ -13,9 +13,10 @@
 #define DEBUG 1
 #include "AEUtils.h"
 
-RemoteFileTableView::RemoteFileTableView()
+RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
+    QTableView( parent )
 {
-    QTableView( nullptr );
+    //QTableView( parent );
 
     this->setDragEnabled( true );
     //this->setDragDropMode( DragDrop );
@@ -32,6 +33,11 @@ RemoteFileTableView::RemoteFileTableView()
 
     verticalHeader()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
     verticalHeader()->setSizeAdjustPolicy( AdjustToContents );
+    //For some reason, the stylesheet isn't propogated here in the DEB package.
+    DBGLOG << "Header Style: " << horizontalHeader()->styleSheet();
+//    this->setStyleSheet( "QHeaderView::section { background-color: red;}");
+//    this->horizontalHeader()->setStyleSheet( "background-color: red;" );
+    DBGLOG << "Header Style: " << this->styleSheet();
     //horizontalHeader()->setSectionResizeMode( QHeaderView::Stretch );
     this->horizontalHeader()->setSectionResizeMode(0,QHeaderView::ResizeMode::Stretch);
     this->horizontalHeader()->setSectionResizeMode(1,QHeaderView::ResizeMode::ResizeToContents );
@@ -127,6 +133,7 @@ void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
 
 void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
 {
+    Q_UNUSED( supportedActions )
     DBGLOG << "Something happened.";
 
 #if 1
@@ -219,6 +226,7 @@ void RemoteFileTableView::setUploadDialog(QSharedPointer<DialogUploadFile> dialo
 
 void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )
 {
+    Q_UNUSED( index)
     //Get the list of selected items
     QList<QSharedPointer<DirectoryListing>> selectedDirectoryListings;
     auto selectedItems = this->selectedIndexes();

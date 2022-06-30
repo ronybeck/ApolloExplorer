@@ -100,7 +100,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     m_DialogUploadFile = QSharedPointer<DialogUploadFile>( new DialogUploadFile() );
 
     //Setup the custom views
-    m_FileTableView = new RemoteFileTableView();
+    m_FileTableView = new RemoteFileTableView( this );
     m_FileTableView->setDownloadDialog( m_DialogDownloadFile );
     m_FileTableView->setUploadDialog( m_DialogUploadFile );
     ui->verticalLayoutFileBrowser->addWidget( m_FileTableView );
@@ -300,11 +300,13 @@ void MainWindow::dropEvent(QDropEvent *e)
 
 void MainWindow::dragLeaveEvent(QDragLeaveEvent *e)
 {
+    Q_UNUSED( e )
     //qDebug() << "DragLeaveEvent";
 }
 
 void MainWindow::dragMoveEvent(QDragMoveEvent *e)
 {
+    Q_UNUSED( e )
     //qDebug() << "Drag move event";
 }
 
@@ -335,6 +337,7 @@ void MainWindow::onShowDrivesToggledSlot(bool enabled)
 
 void MainWindow::onListModeToggledSlot(bool enabled)
 {
+    Q_UNUSED( enabled )
     m_ViewType = VIEW_LIST;
     if( m_ViewType == VIEW_LIST )
     {

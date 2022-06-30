@@ -357,6 +357,9 @@ void RemoteFileTableModel::sortEntries()
         QModelIndex nameIndex = createIndex( m_RowCount, 0 );
         QModelIndex typeIndex = createIndex( m_RowCount, 1 );
         QModelIndex sizeIndex = createIndex( m_RowCount, 2 );
+        Q_UNUSED( nameIndex )
+        Q_UNUSED( typeIndex )
+        Q_UNUSED( sizeIndex )
         m_RowCount++;
     }
     endInsertRows();

@@ -246,6 +246,7 @@ void DialogUploadFile::onAbortedSlot( QString reason )
 
 void DialogUploadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)
 {
+    Q_UNUSED( bytes )
     ui->labelSpeed->setText( "speed: " + QString::number( throughput/1024 ) + "kb/s" );
     ui->progressBar->setValue( procent );
 }

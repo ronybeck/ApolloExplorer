@@ -64,6 +64,11 @@ QGroupBox::Title
     subcontrol-position: top center;
 }
 
+QTableView
+{
+	background-color: #444444;
+}
+
 QHeaderView::section
 {
 	margin: 2px;
@@ -71,6 +76,16 @@ QHeaderView::section
 	background-color: #444444;
 }
 
+
+QMenuBar::item
+{
+	background-color: 444444;
+}
+
+QMenu
+{
+	background-color: #444444;
+}
 QMenu::indicator {
 	border: 1px solid rgb(136, 138, 133);
     border-radius: 2px;

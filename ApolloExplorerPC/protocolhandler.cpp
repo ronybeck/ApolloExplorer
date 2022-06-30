@@ -59,6 +59,7 @@ void ProtocolHandler::onSendAndReleaseMessageSlot( ProtocolMessage_t *message )
 
 void ProtocolHandler::onRunCMDSlot(QString command, QString workingDirectroy)
 {
+    Q_UNUSED( workingDirectroy )
     //Create the command message
     ProtocolMessage_Run_t *runMessage = AllocMessage<ProtocolMessage_Run_t>();
     runMessage->header.token = MAGIC_TOKEN;
@@ -335,6 +336,7 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
 
             //Inform others what happened
             emit serverClosedConnectionSignal( message );
+            break;
         }
         default:
             qDebug() << "Unsupported message type " << newMessage->type;

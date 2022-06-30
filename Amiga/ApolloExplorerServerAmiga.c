@@ -12,7 +12,7 @@
 #include "AEClientThread.h"
 #include "AEDiscoveryThread.h"
 
-UBYTE *ver = "\0$VER: ApolloExplorer 1.0.8";
+UBYTE *ver = "\0$VER: ApolloExplorerSrv 1.0.8";
 
 struct Library *SocketBase = NULL;
 

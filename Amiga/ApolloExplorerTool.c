@@ -12,6 +12,8 @@
 #include <clib/exec_protos.h>
 #include <clib/dos_protos.h>
 
+UBYTE *ver = "\0$VER: ApolloExplorerTool 1.0.8";
+
 typedef enum
 {
 	OP_LIST,

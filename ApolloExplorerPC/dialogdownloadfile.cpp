@@ -249,6 +249,7 @@ void DialogDownloadFile::onAllFileDownloadsCompletedSlot()
 
 void DialogDownloadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)
 {
+    Q_UNUSED( bytes )
     LOCK;
 
     //Update the gui

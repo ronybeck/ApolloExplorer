@@ -7,6 +7,7 @@
 
 
 #include <unistd.h>
+#include <sys/filio.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
 #include <dos/dostags.h>
@@ -43,6 +44,16 @@ extern char g_KeepServerRunning;
 STRPTR g_DiscoveryMessagePortName = DISCOVERY_MESSAGE_PORT_NAME;
 
 static void discoveryThread();
+
+static void readApolloOSVer( char *version, LONG len )
+{
+	BPTR versionFileHandle = Open( "ENV:VBLVERSION", MODE_OLDFILE );
+	if( versionFileHandle != 0 )
+	{
+		FGets( versionFileHandle, version, len );
+		Close( versionFileHandle );
+	}
+}
 
 static void ExecVersionToKickstartVersion( UBYTE execVersion, UBYTE *major, UBYTE *minor, UBYTE *rev )
 {
@@ -165,11 +176,11 @@ static void getOSVersion( char *version, LONG len )
 		//Lets translate that to a kickstart version
 		ExecVersionToKickstartVersion( ExecLibrary->lib_Version, &maj, &min, &rev );
 
-		//Apollo OS doesn't have a version that can be read yet.   This will change soon
-		//According to WillemDrijver: Next release will have ENV:APOLLOVERSION with R8.1 inside to mark version
+		//ApolloOS stores the version number in ENV
 		if( ExecLibrary->lib_Version == 51 )
 		{
 			//Nothing to do here yet
+			readApolloOSVer( version, len );
 		}else
 		{
 			//set the version string
@@ -373,7 +384,7 @@ static void discoveryThread()
 	if(returnCode != 0 )
 	{
 		dbglog( "[discoverySocket] Unable to bind to port %d. Error Code: %d\n", BROADCAST_PORTNUMBER, returnCode );
-		switch( returnCode )
+		switch( errno )
 		{
 			case EBADF:
 				dbglog( "[discoverySocket] Not a valid descriptor.\n" );
@@ -401,7 +412,7 @@ static void discoveryThread()
 				break;
 		}
 		CloseSocket( discoverySocket );
-		return;
+		//return;
 	}
 	dbglog( "[discoverySocket] Bound to port %d\n", BROADCAST_PORTNUMBER );
 #endif
@@ -459,6 +470,7 @@ static void discoveryThread()
 	announceMessage->header.token = MAGIC_TOKEN;
 	announceMessage->header.type = PMT_DEVICE_ANNOUNCE;
 	announceMessage->header.length = sizeof( ProtocolMessage_DeviceAnnouncement_t );
+	dbglog( "[discovery] Announcement message length is %u\n", announceMessage->header.length );
 
 	//Add default Values
 	strncpy( announceMessage->name, "Unnamed", sizeof( announceMessage->name ) );
@@ -557,6 +569,7 @@ static void discoveryThread()
 	int bytesRead = 0;
 	int bytesSent = 0;
 	char keepThisConnectionRunning = 1;
+	LONG bytesAvailable = 0;
 	while( g_KeepServerRunning && keepThisConnectionRunning )
 	{
 		//Check if we got an exit message
@@ -584,47 +597,50 @@ static void discoveryThread()
 #if ENABLE_DISCOVERY_REPLY
 		socklen_t requestorAddressLen = sizeof( *requestorAddress );
 		memset( requestorAddress, 0, requestorAddressLen );
-		bytesRead = recvfrom( 	discoverySocket,
-								discoveryMessage,
-								sizeof( ProtocolMessage_DeviceDiscovery_t ),
-								0,
-								(struct sockaddr *)requestorAddress,
-								&requestorAddressLen );
-
-		//If the datagram isn't the right size, ignore it.
-		if( bytesRead != sizeof( ProtocolMessage_DeviceDiscovery_t ) )
+		IoctlSocket( discoverySocket,FIONREAD ,&bytesAvailable );
+		if( bytesAvailable != 0 )
 		{
-			dbglog( "[discoverySocket] Ignoring packet which was only %d bytes in size.\n", bytesRead );
-			continue;
+			bytesRead = recvfrom( 	discoverySocket,
+									discoveryMessage,
+									sizeof( ProtocolMessage_DeviceDiscovery_t ),
+									0,
+									(struct sockaddr *)requestorAddress,
+									&requestorAddressLen );
+
+			//If the datagram isn't the right size, ignore it.
+			if( bytesRead != sizeof( ProtocolMessage_DeviceDiscovery_t ) )
+			{
+				dbglog( "[discoverySocket] Ignoring packet which was only %d bytes in size.\n", bytesRead );
+				continue;
+			}
+
+			//Ignore invalid tokens
+			if( discoveryMessage->header.token != MAGIC_TOKEN )
+			{
+				dbglog( "[discoverySocket] Ignoring packet with invalid token 0x%08x.\n", discoveryMessage->header.token );
+				continue;
+			}
+
+			//Ignore invalid types
+			if( discoveryMessage->header.type != PMT_DEVICE_DISCOVERY )
+			{
+				dbglog( "[discoverySocket] Ignoring packet with invalid type 0x%08x.\n", discoveryMessage->header.type );
+				continue;
+			}
+
+			//If we got this far, then we should send the device info
+			//dbglog( "[discoverySocket] Sending reply to device discovery.\n" );
+			bytesSent = sendto( discoverySocket, announceMessage, announceMessage->header.length, 0, requestorAddress, requestorAddressLen );
 		}
-
-		//Ignore invalid tokens
-		if( discoveryMessage->header.token != MAGIC_TOKEN )
-		{
-			dbglog( "[discoverySocket] Ignoring packet with invalid token 0x%08x.\n", discoveryMessage->header.token );
-			continue;
-		}
-
-		//Ignore invalid types
-		if( discoveryMessage->header.type != PMT_DEVICE_DISCOVERY )
-		{
-			dbglog( "[discoverySocket] Ignoring packet with invalid type 0x%08x.\n", discoveryMessage->header.type );
-			continue;
-		}
-
-		//If we got this far, then we should send the device info
-		//dbglog( "[discoverySocket] Sending reply to device discovery.\n" );
-		bytesSent = sendto( discoverySocket, announceMessage, announceMessage->header.length, 0, requestorAddress, requestorAddressLen );
-
 #endif
 		//dbglog( "[discoverySocket] Sent %d bytes.\n", bytesSent );
 		bytesSent = sendto( broadcastSocket, announceMessage, announceMessage->header.length, 0, (struct sockaddr *)&broadcastAddr, sizeof( broadcastAddr ) );
-		//dbglog( "[discoverySocket] Sent %d bytes.\n", bytesSent );
+		dbglog( "[discoverySocket] Sent %d bytes.\n", bytesSent );
 		(void)bytesSent;
 
 
 		//To prevent overloading the amiga....
-		Delay( 100 );
+		Delay( 50 );
 	}
 
 	shutdown:

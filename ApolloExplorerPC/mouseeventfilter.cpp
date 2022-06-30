@@ -29,7 +29,7 @@ bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *mess
 #define MOUSE_BUTTON_MASK_DOWN 0x0400
 #define MOUSE_BUTTON_MASK_UP 0x0500
 
-
+    Q_UNUSED( result )
     if (eventType == "xcb_generic_event_t")
     {
         xcb_generic_event_t* event = static_cast<xcb_generic_event_t *>(message);
