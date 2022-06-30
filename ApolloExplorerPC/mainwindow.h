@@ -114,7 +114,6 @@ signals:
     void currentFileBeingDeleted( QString filepath );
     void deletionCompletedSignal();
 
-
 private:
     void updateFilebrowser();
     void updateDrivebrowser();

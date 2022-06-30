@@ -122,6 +122,7 @@ void DeviceDiscovery::onSocketReadReadySlot()
         return;
     }
 
-    //If this already exists, just update the timestampe
+    //Update the timestamp
     m_HostList[ senderAddressString ]->setHostRespondedNow();
 }
+
