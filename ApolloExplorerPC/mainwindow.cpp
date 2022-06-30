@@ -1019,7 +1019,7 @@ void MainWindow::onServerClosedConnectionSlot(QString message)
 void MainWindow::onIncomingByteCountUpdateSlot( quint32 bytes )
 {
     m_IncomingByteCount += bytes;
-    m_AmigaHost->setHostRespondedNow();
+    if( bytes > 0 ) m_AmigaHost->setHostRespondedNow();
 }
 
 void MainWindow::onOutgoingByteCountUpdateSlot( quint32 bytes )

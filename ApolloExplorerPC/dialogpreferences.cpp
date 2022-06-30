@@ -13,6 +13,9 @@ DialogPreferences::DialogPreferences( QSharedPointer<QSettings> settings, QWidge
     ui->comboBox->setCurrentText( m_Settings->value( SETTINGS_BROWSER_DOUBLECLICK_ACTION, SETTINGS_IGNORE ).toString() );
     ui->spinBoxDeleteDelay->setValue( m_Settings->value( SETTINGS_BROWSER_DELAY_BETWEEN_DELETES, 100 ).toInt() );
     m_Settings->endGroup();
+    m_Settings->beginGroup( SETTINGS_GENERAL );
+    ui->spinBoxHelloTimeout->setValue( m_Settings->value( SETTINGS_HELLO_TIMEOUT, 10 ).toInt() );
+    m_Settings->endGroup();
     m_Settings->sync();
 
     //Signals and Slots
