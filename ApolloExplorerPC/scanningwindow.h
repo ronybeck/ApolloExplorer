@@ -3,7 +3,6 @@
 
 #include "mainwindow.h"
 #include "devicediscovery.h"
-#include "AEUtils.h"
 
 #include <QMainWindow>
 #include <QMap>

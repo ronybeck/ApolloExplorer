@@ -6,7 +6,10 @@
 #include "dialoguploadfile.h"
 
 #include <QTableView>
+#include <QTimer>
 #include <QObject>
+#include <QSharedPointer>
+#include <QSettings>
 
 class RemoteFileTableView : public QTableView
 {
@@ -21,22 +24,30 @@ public:
     void startDrag(Qt::DropActions supportedActions) override;
     void mouseMoveEvent( QMouseEvent *e ) override;
     void mouseReleaseEvent(QMouseEvent *e) override;
+    //void leaveEvent( QEvent *event ) override;
+
 
     QList<QSharedPointer<DirectoryListing>> getSelectedItems();
 
     void setDownloadDialog( QSharedPointer<DialogDownloadFile> dialog );
     void setUploadDialog( QSharedPointer<DialogUploadFile> dialog );
+    void setSettings( QSharedPointer<QSettings> settings );
 
 signals:
     void itemsDoubleClicked( QList<QSharedPointer<DirectoryListing>> items );
+    void downloadViaDownloadDialogSignal();
 
 public slots:
     void onItemDoubleClicked( const QModelIndex &index );
+    void dropTimerTimeoutSlot();
 
 private:
     QSharedPointer<DialogDownloadFile> m_DownloadDialog;
     QSharedPointer<DialogUploadFile> m_UploadDialog;
     QList<QDrag*> m_QDragList;
+    QDrag *m_CurrentDrag;
+    QTimer m_DropTimer;
+    QSharedPointer<QSettings> m_Settings;
 };
 
 #endif // REMOTEFILETABLEVIEW_H

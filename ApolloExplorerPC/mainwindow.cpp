@@ -10,9 +10,13 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTableWidgetItem>
-#include  <QMenu>
+#include <QMenu>
 #include <QHeaderView>
+#include <QDialog>
+#include <QRegExp>
 #include "messagepool.h"
+
+#include "AEUtils.h"
 
 
 #define PATH_ROLE 1
@@ -23,32 +27,7 @@
 #define UNLOCK locker.unlock()
 #define RELOCK locker.relock()
 
-constexpr const quint64 GigaByte = 1024 * 1024 * 1024;
-constexpr const quint64 MegaByte = 1024 * 1024;
-constexpr const quint64 KiloByte = 1024;
-
 #define REPLACE_ME 0
-
-static QString getSizeAsFormatedString( quint64 size )
-{
-
-    if( size > GigaByte )
-    {
-        return QString( QString::number( size / GigaByte ) + " GBytes" );
-    }
-
-    if( size > MegaByte )
-    {
-        return QString( QString::number( size / MegaByte ) + " MBytes" );
-    }
-
-    if( size > KiloByte )
-    {
-        return QString( QString::number( size / KiloByte ) + " kBytes");
-    }
-
-    return QString( QString::number( size / KiloByte ) + " Bytes");
-}
 
 MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<AmigaHost> amigaHost, QWidget *parent)
     : QMainWindow(parent)
@@ -103,6 +82,8 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     m_FileTableView = new RemoteFileTableView( this );
     m_FileTableView->setDownloadDialog( m_DialogDownloadFile );
     m_FileTableView->setUploadDialog( m_DialogUploadFile );
+    m_FileTableView->setSettings( m_Settings );
+    m_FileTableView->setEnabled( false );
     ui->verticalLayoutFileBrowser->addWidget( m_FileTableView );
 
 
@@ -154,6 +135,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
 
     connect( ui->listWidgetFileBrowser, &QListWidget::customContextMenuRequested, this, &MainWindow::showContextMenu );
     connect( m_FileTableView, &QTableView::customContextMenuRequested, this, &MainWindow::showContextMenu );
+    connect( m_FileTableView, &RemoteFileTableView::downloadViaDownloadDialogSignal, this, &MainWindow::onDownloadSelectedSlot );
 
     //Setup the throughput timer
     connect( &m_ThroughputTimer, &QTimer::timeout, this, &MainWindow::onThroughputTimerExpired );
@@ -610,6 +592,7 @@ void MainWindow::showContextMenu(QPoint pos )
     myMenu.addAction( "Delete Files", this, &MainWindow::onDeleteSlot );
     myMenu.addSeparator();
     myMenu.addAction( "Make Directory", this, &MainWindow::onMkdirSlot );
+    myMenu.addAction( "Rename", this, &MainWindow::onRenameSlot );
     myMenu.addAction( "Download Files", this, &MainWindow::onDownloadSelectedSlot );
 
     //If we are currently downloading, we should turn these options off
@@ -814,7 +797,7 @@ void MainWindow::onDeleteSlot()
             if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
             {
                 qDebug() << "Failed to delete path " << directoryEntry->Path();
-                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + directoryEntry->Path(), QMessageBox::Ok );
+                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote path", "An error occurred while deleting remote directory" + directoryEntry->Path(), QMessageBox::Ok );
                 errorBox.exec();
                 return;
             }
@@ -830,6 +813,44 @@ void MainWindow::onDeleteSlot()
 
     //Hide the delete dialog
     m_DialogDelete.hide();
+}
+
+void MainWindow::onRenameSlot()
+{
+    LOCK;
+
+    //Get the list of files selected
+    QList<QSharedPointer<DirectoryListing>> directoryListing;
+    QString currentDir = ui->lineEditPath->text();
+    if( m_ViewType == VIEW_LIST )
+    {
+        directoryListing = m_FileTableView->getSelectedItems();
+        if( directoryListing.size() < 1 )   return;
+
+        QInputDialog renameDialog( this );
+        renameDialog.setInputMode( QInputDialog::TextInput );
+        renameDialog.setTextValue( directoryListing[ 0 ]->Name() );
+        renameDialog.setLabelText( "Enter a new name for the file." );
+        renameDialog.exec();
+
+        if( renameDialog.result() == QDialog::Accepted )
+        {
+            DBGLOG << "New name is " << renameDialog.textValue();
+            QString oldPathName = directoryListing[ 0 ]->Path();
+            directoryListing[ 0 ]->setName( renameDialog.textValue() );
+            QString newPathName = directoryListing[ 0 ]->Path();
+
+            //Tell the server to rename the
+            m_ProtocolHandler.onRenameFileSlot( oldPathName, newPathName );
+        }
+    }else
+    {
+//Replace this here for icon mode
+    }
+
+    //Refresh the view
+    emit getRemoteDirectorySignal( currentDir );
+
 }
 
 void MainWindow::onDownloadSelectedSlot()
@@ -1072,7 +1093,7 @@ void MainWindow::onDirectoryListingUpdateSlot( QSharedPointer<DirectoryListing> 
     }
 }
 
-void MainWindow::onVolumeListUpdateSlot( QStringList volumes )
+void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volumes )
 {
     m_Volumes = volumes;
     updateDrivebrowser();
@@ -1133,11 +1154,11 @@ void MainWindow::updateFilebrowser()
 
 
         //Go through the drives
-        QStringListIterator iter( m_Volumes );
+        QListIterator<QSharedPointer<DiskVolume>> iter( m_Volumes );
         while( iter.hasNext() )
         {
             //Get the next volume
-            QString volume = iter.next() + ":";
+            QSharedPointer<DiskVolume> volume = iter.next();
             QPixmap icon( ":/browser/icons/Harddisk_Amiga.png" );
 
             //Add this to the view
@@ -1156,10 +1177,10 @@ void MainWindow::updateFilebrowser()
             }else
             {
                 //Create the entry for our view
-                QListWidgetItem *item = new QListWidgetItem( volume );
+                QListWidgetItem *item = new QListWidgetItem( volume->getName() + ":" );
 
                 item->setIcon( icon );
-                item->setStatusTip( volume );
+                item->setStatusTip( volume->getName() + ":" );
 
                 ui->listWidgetFileBrowser->addItem( item );
             }
@@ -1189,29 +1210,11 @@ void MainWindow::updateFilebrowser()
 
     if( m_ViewType == VIEW_LIST )
     {
-#if 0
-        //First, create a new model
-        RemoteFileTableModel* newModel = new RemoteFileTableModel( m_DirectoryListings[ selectedPath ] );
-        newModel->showInfoFiles( !m_HideInfoFiles );
-        m_FileTableView->setModel( newModel );
-        connect( m_FileTableView->horizontalHeader(), &QHeaderView::sectionClicked, newModel, &RemoteFileTableModel::onHeaderSectionClicked  );
+        m_FileTableView->setEnabled( true );
         if( m_FileTableModel )
         {
-            //Get the sort order of the old (This code is confusing and could be cleaned up)
-            int sortColumn = 0;
-            bool sortReversed = false;
-            m_FileTableModel->getHeaderSelection( sortColumn, sortReversed );
-            newModel->onHeaderSectionClicked( sortColumn );
-            if( sortReversed ) newModel->onHeaderSectionClicked( sortColumn );
-            delete m_FileTableModel;
-        }else
-        {
-            newModel->sort( 2, Qt::DescendingOrder );
-        }
-        m_FileTableModel = newModel;
-#else
-        if( m_FileTableModel )
             m_FileTableModel->updateListing( m_DirectoryListings[ selectedPath ] );
+        }
         else
         {
             m_FileTableModel = new RemoteFileTableModel( m_DirectoryListings[ selectedPath ] );
@@ -1219,7 +1222,6 @@ void MainWindow::updateFilebrowser()
             m_FileTableView->setModel( m_FileTableModel );
             connect( m_FileTableView->horizontalHeader(), &QHeaderView::sectionClicked, m_FileTableModel, &RemoteFileTableModel::onHeaderSectionClicked  );
         }
-#endif
     }
 
     //List all the directories first
@@ -1279,7 +1281,7 @@ void MainWindow::updateFilebrowser()
             continue;
 
         //Create the entry for our view
-        QString fileSizeText = getSizeAsFormatedString( nextListEntry->Size() );
+        QString fileSizeText = prettyFileSize( nextListEntry->Size() );
         QString fileNameLabel = nextListEntry->Name();
         QString toolTip = nextListEntry->Name() + "\n" + fileSizeText;
 
@@ -1312,17 +1314,19 @@ void MainWindow::updateDrivebrowser()
     ui->listWidgetDrives->clear();
 
     //Go through the drives
-    QStringListIterator iter( m_Volumes );
+    QListIterator<QSharedPointer<DiskVolume>> iter( m_Volumes );
     while( iter.hasNext() )
     {
         //Get the next volume
-        QString volume = iter.next() + ":";
+        QSharedPointer<DiskVolume> volume = iter.next();
 
         //Create the entry for our view
-        QListWidgetItem *item = new QListWidgetItem( volume );
-        QPixmap icon( ":/browser/icons/Harddisk_Amiga.png" );
+        QListWidgetItem *item = new QListWidgetItem( volume->getName() + ":" );
+        QPixmap icon( volume->getPixmap() );
         item->setIcon( icon );
-        item->setStatusTip( volume );
+        item->setToolTip( volume->getName() + " - " +
+                          prettyFileSize( volume->getUsedInBytes() ) + "/" + prettyFileSize( volume->getSizeInBytes() ) +
+                          " used." );
 
 
         //Add this to the view

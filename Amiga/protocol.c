@@ -14,7 +14,11 @@
 #if DBGOUT
 #include <stdio.h>
 #endif
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/filio.h>
 #include <proto/exec.h>
+#include <clib/dos_protos.h>
 #define __BSDSOCKET_NOLIBBASE__
 #include <proto/bsdsocket.h>
 #endif
@@ -85,7 +89,7 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 	dbglog( "getMessage( socket(%d) 0x%08x, %d)\n", clientSocket, (unsigned int)message, maxMessageLength );
 	int totalBytesReceived = 0;
 	int bytesReceived = 0;
-	int retries = 10;
+	int retries = 50;
 	int totalBytesLeftToRead = 0;
 
 	//Clear out the message
@@ -93,8 +97,17 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 
 	//First get the magic token
 	dbglog( "[getMessage] Waiting on magic token bytes.\n" );
+	LONG bytesAvailable = 0;
 	while( retries > 0 )
 	{
+		IoctlSocket( clientSocket,FIONREAD ,&bytesAvailable );
+		if( bytesAvailable < sizeof( ProtocolMessage_t) )
+		{
+			Delay( 2 );
+			retries--;
+			continue;
+		}
+
 		dbglog( "[getMessage] Reading next bytes from socket.\n" );
 		bytesReceived = recv( clientSocket, &message->token, sizeof( message->token ), 0 );
 		dbglog( "[getMessage] Got %d bytes from socket: 0x%08x.\n", bytesReceived, clientSocket );

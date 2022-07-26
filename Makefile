@@ -1,6 +1,6 @@
 CC=/opt/amiga/bin/m68k-amigaos-gcc
 AE_CC=/opt/amiga/bin/m68k-amigaos-gcc
-AE_CFLAGS=-std=c99 -O2 -g -Wall -fstack-protector-all -Wno-pointer-sign
+AE_CFLAGS=-std=c99 -O0 -Wall -fstack-protector-all -Wno-pointer-sign
 AE_Includes=-I/opt/amiga/m68k-amigaos/ndk-include/
 
 ApolloExplorerServer=ApolloExplorerSrv

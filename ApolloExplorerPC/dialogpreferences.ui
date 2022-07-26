@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>461</width>
-    <height>212</height>
+    <width>708</width>
+    <height>225</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -228,6 +228,61 @@ QMenu::indicator:checked {
            </size>
           </property>
          </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The Qt Framework (which this is written in) provides a basic Drag-and-Drop mechanism.  This is troublesome for large files or directories.  On Linux, file transfers tend to timeout resulting in the downloaded files landing nowhere.  On windows, the desktop can freeze until the download is complete.  This allows the drag-and-drop operation to automatically open a download requestor if the files are too big hence avoiding this issue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Drag-n-Drop handling for files bigger than</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinBoxDNDSize">
+          <property name="toolTip">
+           <string>The Qt Framework (which this is written in) provides a basic Drag-and-Drop mechanism.  This is troublesome for large files or directories.  On Linux, file transfers tend to timeout resulting in the downloaded files landing nowhere.  On windows, the desktop can freeze until the download is complete.  This allows the drag-and-drop operation to automatically open a download requestor if the files are too big hence avoiding this issue.</string>
+          </property>
+          <property name="suffix">
+           <string>MB</string>
+          </property>
+          <property name="prefix">
+           <string/>
+          </property>
+          <property name="maximum">
+           <number>999999</number>
+          </property>
+          <property name="value">
+           <number>20</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="comboBoxDNDOperation">
+          <property name="toolTip">
+           <string>The Qt Framework (which this is written in) provides a basic Drag-and-Drop mechanism.  This is troublesome for large files or directories.  On Linux, file transfers tend to timeout resulting in the downloaded files landing nowhere.  On windows, the desktop can freeze until the download is complete.  This allows the drag-and-drop operation to automatically open a download requestor if the files are too big hence avoiding this issue.</string>
+          </property>
+          <item>
+           <property name="text">
+            <string>Drag and Drop</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Download Dialog</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Block</string>
+           </property>
+          </item>
+         </widget>
         </item>
        </layout>
       </item>

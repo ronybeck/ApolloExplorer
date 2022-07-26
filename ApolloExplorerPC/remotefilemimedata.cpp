@@ -2,7 +2,7 @@
 #ifdef __MINGW32__
 #include "windows.h"
 #endif
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 #include "mouseeventfilter.h"
 
@@ -22,8 +22,9 @@ RemoteFileMimeData::RemoteFileMimeData() :
     m_DownloadList( ),
     m_DownloadDialog( nullptr ),
     m_RemotePaths( ),
+    m_SendURLS( true ),
     m_LeftMouseButtonDown( true ),
-    m_DataRetreived( false )
+    m_DataRetrieved( false )
 {
 
 }
@@ -87,15 +88,25 @@ QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Typ
 #endif
 
     //if we already downloaded this, then we don't need to do anything more
-    if( m_DataRetreived )
+    if( m_DataRetrieved )
         return QMimeData::retrieveData( mimeType, type );
 
-    m_DataRetreived = true;
+    m_DataRetrieved = true;
+
+    //Ok, now the drop has really happened
+    emit dropHappenedSignal();
+
+    //If we are just indicating that the drop happened, exit here
+    if( m_SendURLS == false )
+    {
+        return QVariant();
+    }
 
     //Create the temporary directory
     QDir tmpDir( m_TempFilePath );
     tmpDir.mkdir( m_TempFilePath );
 
+#if 1
     //Start the download
     DBGLOG << "Starting download";
     QEventLoop loop;
@@ -103,6 +114,10 @@ QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Typ
     m_DownloadDialog->startDownload( m_RemotePaths, m_TempFilePath );
     loop.exec();
     DBGLOG << "Hopefully the download finished";
+#else
+    m_DownloadDialog->startDownload( m_RemotePaths, m_TempFilePath );
+    m_DownloadDialog->waitForDownloadToComplete();
+#endif
 
     return QMimeData::retrieveData( mimeType, type );
 }
@@ -190,6 +205,11 @@ void RemoteFileMimeData::setDownloadDialog(QSharedPointer<DialogDownloadFile> di
 bool RemoteFileMimeData::isLeftMouseButtonDown() const
 {
     return m_LeftMouseButtonDown;
+}
+
+void RemoteFileMimeData::setSendURLS(bool enabled)
+{
+    m_SendURLS = enabled;
 }
 
 void RemoteFileMimeData::onLeftMouseButtonPressedSlot()

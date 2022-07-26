@@ -10,7 +10,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0
-#define VERSION_REVISION 8
+#define VERSION_REVISION 9
 #define MAIN_LISTEN_PORTNUMBER 30302
 #define BROADCAST_PORTNUMBER 30301
 
@@ -51,6 +51,7 @@ typedef enum
 	PMT_DELETE_PATH			= 0x00000018,
 	PMT_GET_VOLUMES			= 0x00000019,
 	PMT_VOLUME_LIST			= 0x0000001A,
+	PMT_RENAME_FILE			= 0x0000001B,
 
 	//Device Discovery
 	PMT_DEVICE_DISCOVERY	= 0x00000020,
@@ -182,12 +183,28 @@ typedef struct
 typedef struct
 {
 	ProtocolMessage_t header;
+	unsigned short oldNameSize;
+	unsigned short newNameSize;
+	char filePaths[1];		//The old name shall be encoded first, then a NULL, then the new name and finally a NULL;
+} ProtocolMessage_RenamePath_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
 } ProtocolMessage_GetVolumeList_t;
 
 typedef struct
 {
 	unsigned int entrySize;
 	unsigned int diskType;
+	int id_NumSoftErrors;
+	int id_UnitNumber;
+	int id_DiskState;
+	int id_NumBlocks;
+	int id_NumBlocksUsed;
+	int id_BytesPerBlock;
+	int id_DiskType;
+	int id_InUse;
 	char name[1];
 } VolumeEntry_t;
 

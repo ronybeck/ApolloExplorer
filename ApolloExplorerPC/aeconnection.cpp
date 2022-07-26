@@ -100,8 +100,8 @@ void AEConnection::onSendMessage(ProtocolMessage_t *message )
         m_OutgoingByteCount += bytesSent;
 
         //Wait until the bytes are written
-        m_Socket.waitForBytesWritten( 10000 );
         m_Socket.flush();
+        m_Socket.waitForBytesWritten( 10000 );
 //        if( m_Socket.bytesToWrite() > 0 )
 //        {
 //            qDebug() << "We still have " << m_Socket.bytesToWrite() << " bytes left to write.";
@@ -167,7 +167,7 @@ void AEConnection::onReadReadySlot()
         {
             m_Socket.peek( reinterpret_cast<char*>( &m_IncomingMessageBuffer->token ), sizeof( m_IncomingMessageBuffer->token ) );
             m_IncomingMessageBuffer->token = qFromBigEndian<quint32>( m_IncomingMessageBuffer->token );
-            //qDebug() << "Searching for token: " << QByteArray( reinterpret_cast<char*>( &m_IncomingMessageBuffer->token), 4).toHex();
+
             if( m_IncomingMessageBuffer->token == MAGIC_TOKEN )
             {
 
@@ -239,13 +239,6 @@ void AEConnection::onReadReadySlot()
     //have we read all bytes?
     if( m_TotalBytesLeftToRead )
         return;     //Nope, we need more.
-
-    //Debug
-#if 0
-    qDebug() << "Message.header.token: " << QByteArray( reinterpret_cast<char*>( &m_IncomingMessageBuffer->token), 4).toHex();
-    qDebug() << "Message.header.type: " << QByteArray( reinterpret_cast<char*>( &m_IncomingMessageBuffer->type), 4).toHex();
-    qDebug() << "Message.header.length: " << m_IncomingMessageBuffer->length;
-#endif
 
     //If we have a completed message now, we should send that on
     emit newMessageReceived( m_IncomingMessageBuffer );

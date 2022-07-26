@@ -14,6 +14,7 @@
 
 QString convertFromAmigaTextEncoding( char *text );
 void convertFromUTF8ToAmigaTextEncoding( QString utf8Text, char *encodedText, quint64 encodedTextLength );
+QString prettyFileSize( quint64 size, bool withUnits = true );
 
 #define SETTINGS_HOSTS "hosts"
 #define SETTINGS_BROWSER "Browser"
@@ -21,6 +22,11 @@ void convertFromUTF8ToAmigaTextEncoding( QString utf8Text, char *encodedText, qu
 #define SETTINGS_HELLO_TIMEOUT "HelloTimeout"
 #define SETTINGS_BROWSER_DOUBLECLICK_ACTION "DoubleClickAction"
 #define SETTINGS_BROWSER_DELAY_BETWEEN_DELETES "DelayBetweenDeletes"
+#define SETTINGS_DND_SIZE "DNDSize"
+#define SETTINGS_DND_OPERATION "DNDOperation"
+#define SETTINGS_DND_OPERATION_BLOCK "Block"
+#define SETTINGS_DND_OPERATION_DOWNLOAD_DIALOG "Download Dialog"
+#define SETTINGS_DND_OPERATION_CONTINUE "Drag and Drop"
 #define SETTINGS_SCANNING_WINDOW "ScanningWindow"
 #define SETTINGS_WINDOW_WIDTH "WindowWidth"
 #define SETTINGS_WINDOW_HEIGHT "WindowHeight"

@@ -1,6 +1,8 @@
 #include "dialogpreferences.h"
 #include "ui_dialogpreferences.h"
 
+#include "AEUtils.h"
+
 DialogPreferences::DialogPreferences( QSharedPointer<QSettings> settings, QWidget *parent ) :
     QDialog(parent),
     ui(new Ui::DialogPreferences),
@@ -19,9 +21,11 @@ DialogPreferences::DialogPreferences( QSharedPointer<QSettings> settings, QWidge
     m_Settings->sync();
 
     //Signals and Slots
-    connect( ui->comboBox, &QComboBox::currentTextChanged, this, &DialogPreferences::onDoubleClickComboBoxChanged );
+    connect( ui->comboBox, &QComboBox::currentTextChanged, this, &DialogPreferences::onDoubleClickComboBoxChangedSlot );
     connect( ui->spinBoxDeleteDelay, QOverload<int>::of(&QSpinBox::valueChanged), this, &DialogPreferences::onDelayBetweenDeletesChangedSlot );
     connect( ui->spinBoxHelloTimeout, QOverload<int>::of(&QSpinBox::valueChanged), this, &DialogPreferences::onHelloTimeoutChangedSlot );
+    connect( ui->spinBoxDNDSize, QOverload<int>::of(&QSpinBox::valueChanged), this, &DialogPreferences::onDNDSizeChangedSlot );
+    connect( ui->comboBoxDNDOperation, &QComboBox::currentTextChanged, this, &DialogPreferences::onDNDOperationComboboxChangedSlot );
 }
 
 DialogPreferences::~DialogPreferences()
@@ -29,7 +33,7 @@ DialogPreferences::~DialogPreferences()
     delete ui;
 }
 
-void DialogPreferences::onDoubleClickComboBoxChanged( const QString selection )
+void DialogPreferences::onDoubleClickComboBoxChangedSlot( const QString selection )
 {
     DBGLOG << "Selected " << selection;
     m_Settings->beginGroup( SETTINGS_BROWSER );
@@ -52,6 +56,24 @@ void DialogPreferences::onHelloTimeoutChangedSlot(int newValue)
     DBGLOG << "Hello timeout set to " << newValue;
     m_Settings->beginGroup( SETTINGS_GENERAL );
     m_Settings->setValue( SETTINGS_HELLO_TIMEOUT, newValue );
+    m_Settings->endGroup();
+    m_Settings->sync();
+}
+
+void DialogPreferences::onDNDSizeChangedSlot(int newValue)
+{
+    DBGLOG << "DND Size set to " << newValue;
+    m_Settings->beginGroup( SETTINGS_GENERAL );
+    m_Settings->setValue( SETTINGS_DND_SIZE, newValue );
+    m_Settings->endGroup();
+    m_Settings->sync();
+}
+
+void DialogPreferences::onDNDOperationComboboxChangedSlot(const QString selection)
+{
+    DBGLOG << "DND Operations " << selection;
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    m_Settings->setValue( SETTINGS_DND_OPERATION, selection );
     m_Settings->endGroup();
     m_Settings->sync();
 }

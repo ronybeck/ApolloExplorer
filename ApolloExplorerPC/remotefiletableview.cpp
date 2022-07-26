@@ -1,7 +1,9 @@
 #include "remotefiletableview.h"
 #include "remotefiletablemodel.h"
 #include "qdragremote.h"
+#include "mouseeventfilter.h"
 
+#include <QApplication>
 #include <QDrag>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
@@ -21,9 +23,11 @@ RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
     this->setDragEnabled( true );
     //this->setDragDropMode( DragDrop );
     this->setAcceptDrops( true );
+    m_DropTimer.setSingleShot( false );
 
     //Signals and slots
     connect( this, &RemoteFileTableView::doubleClicked, this, &RemoteFileTableView::onItemDoubleClicked );
+    //connect( &m_DropTimer, &QTimer::timeout, this, &RemoteFileTableView::dropTimerTimeoutSlot );
 
     //Create a dummy model so we can at least set the header width
     QSharedPointer<DirectoryListing> directoryListing( new DirectoryListing() );
@@ -134,17 +138,17 @@ void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
 void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
 {
     Q_UNUSED( supportedActions )
-    DBGLOG << "Something happened.";
+    DBGLOG << "startDrag event.";
 
 #if 1
     //Set up the mimedata
     RemoteFileMimeData* newMimeData = new RemoteFileMimeData();
     newMimeData->setDownloadDialog( m_DownloadDialog );
-    //newMimeData->setTempFilePath( QDir::tempPath() + "/" );
     newMimeData->setAction( Qt::MoveAction );
 
     //Get the list of selected items
     auto selectedItems = this->selectedIndexes();
+    quint64 fileSize = 0;
     for( auto item = selectedItems.begin(); item != selectedItems.end(); item++ )
     {
         RemoteFileTableModel *model = dynamic_cast<RemoteFileTableModel*>( this->model() );
@@ -153,39 +157,86 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
         {
             DBGLOG << "Item at row " << item->row() << ": " << listing->Name();
             newMimeData->addRemotePath( listing );
+            fileSize+=listing->Size();
         }
         else
             DBGLOG << "Item at row " << item->row() << ": NONAME";
     }
 
-    //Create the new drag action
-    QDragRemote *drag = new QDragRemote( this );
-    drag->setMimeData( newMimeData );
-    drag->exec( Qt::MoveAction|Qt::CopyAction, Qt::MoveAction );
-    m_QDragList.append( drag );
-    DBGLOG <<"Currentl drage queue is: " << m_QDragList.size();
+    //Now check the file size and see if we need to block the DND or switch to a dialog
+    m_Settings->beginGroup( SETTINGS_GENERAL );
+    quint64 DNDSizeLimit = m_Settings->value( SETTINGS_DND_SIZE, 20 ).toInt() * 1024 *1024;
+    QString DNDOperation = m_Settings->value( SETTINGS_DND_OPERATION, SETTINGS_DND_OPERATION_DOWNLOAD_DIALOG ).toString();
+    m_Settings->endGroup();
+
+    //Can we continue with DND?
+    if(     DNDOperation == SETTINGS_DND_OPERATION_CONTINUE ||
+            fileSize <= DNDSizeLimit )
+    {
+        //Create the new drag action
+        QDragRemote *drag = new QDragRemote( this );
+        drag->setMimeData( newMimeData );
+        drag->exec( Qt::MoveAction, Qt::MoveAction );
+        m_QDragList.append( drag );
+        m_CurrentDrag = drag;
+        connect( drag, &QDrag::destroyed, [&]( QObject *object ){ Q_UNUSED( object); m_CurrentDrag = nullptr; } );
+
+    }else if( DNDOperation == SETTINGS_DND_OPERATION_DOWNLOAD_DIALOG )
+    {
+        connect( newMimeData, &RemoteFileMimeData::dropHappenedSignal, this, &RemoteFileTableView::downloadViaDownloadDialogSignal );
+        newMimeData->setSendURLS( false );
+
+        //Create the new drag action
+        QDragRemote *drag = new QDragRemote( this );
+        drag->setMimeData( newMimeData );
+        drag->exec( Qt::MoveAction, Qt::MoveAction );
+        m_QDragList.append( drag );
+        m_CurrentDrag = drag;
+        connect( drag, &QDrag::destroyed, [&]( QObject *object ){ Q_UNUSED( object); m_CurrentDrag = nullptr; } );
+
+        //emit downloadViaDownloadDialogSignal();
+    }
 #endif
 }
 
 void RemoteFileTableView::mouseMoveEvent(QMouseEvent *e)
 {
-    DBGLOG << "Mouse event: " << e->type();
+    DBGLOG << "MouseMoveEvent: " << e->type();
     if( ! (e->buttons() | Qt::LeftButton ) )
     {
         DBGLOG << "Mouse event: Left mouse button did something.";
+    }
+    if( !MouseEventFilterSingleton::getInstance()->isLeftMouseButtonDown() )
+    {
+        DBGLOG << "Mouse drop event outside of the application";
     }
     QTableView::mouseMoveEvent( e );
 }
 
 void RemoteFileTableView::mouseReleaseEvent(QMouseEvent *e )
 {
-    DBGLOG << "Mouse event: " << e->type();
+    DBGLOG << "MouseReleaseEvent: " << e->type();
     if( ! (e->buttons() | Qt::LeftButton ) )
     {
         DBGLOG << "Mouse event: Left mouse button did something.";
     }
     QTableView::mouseReleaseEvent( e );
 }
+
+//void RemoteFileTableView::leaveEvent(QEvent *event)
+//{
+//    DBGLOG << "Leave event.";
+
+//    //If the mouse button is down and an item is selected start the drag timer
+//    if( MouseEventFilterSingleton::getInstance()->isLeftMouseButtonDown() &&
+//            this->getSelectedItems().count() > 0 )
+//    {
+//        DBGLOG << "Drop timer started.";
+//        m_DropTimer.start( 10 );
+//    }
+
+//    QTableView::leaveEvent( event );
+//}
 
 QList<QSharedPointer<DirectoryListing> > RemoteFileTableView::getSelectedItems()
 {
@@ -224,6 +275,11 @@ void RemoteFileTableView::setUploadDialog(QSharedPointer<DialogUploadFile> dialo
     m_UploadDialog = dialog;
 }
 
+void RemoteFileTableView::setSettings(QSharedPointer<QSettings> settings)
+{
+    m_Settings = settings;
+}
+
 void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )
 {
     Q_UNUSED( index)
@@ -252,4 +308,90 @@ void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )
 
     //Now let the parent know what was selected
     emit itemsDoubleClicked( selectedDirectoryListings );
+}
+
+void RemoteFileTableView::dropTimerTimeoutSlot()
+{
+    //Check if the mouse has been released
+    if( !MouseEventFilterSingleton::getInstance()->isLeftMouseButtonDown() )
+    {
+        DBGLOG << "Drop has occurred";
+        m_DropTimer.stop();
+
+        //Get the temporary path
+        QString tempPath( QDir::tempPath().toLatin1() );
+        tempPath.append( "/ApolloExporer" );
+        QDir tempDir( tempPath );
+        if( !tempDir.exists() )
+        {
+            tempDir.mkpath( tempPath );
+        }
+
+        //Get the list of selected items
+        QList<QSharedPointer<DirectoryListing> > remotePaths;
+        auto selectedItems = this->selectedIndexes();
+        for( auto item = selectedItems.begin(); item != selectedItems.end(); item++ )
+        {
+            RemoteFileTableModel *model = dynamic_cast<RemoteFileTableModel*>( this->model() );
+            QSharedPointer<DirectoryListing> listing = model->getDirectoryListingForIndex( *item );
+            if( !listing.isNull() )
+            {
+                DBGLOG << "Item at row " << item->row() << ": " << listing->Name();
+                remotePaths.append( listing );
+            }
+            else
+                DBGLOG << "Item at row " << item->row() << ": NONAME";
+        }
+
+        DBGLOG << "Starting download";
+        QEventLoop loop;
+        connect( m_DownloadDialog.get(), &DialogDownloadFile::allFilesDownloaded, &loop, &QEventLoop::quit );
+        m_DownloadDialog->startDownload( remotePaths, tempPath );
+        this->setEnabled( false );
+        loop.exec();
+        this->setEnabled( true );
+        DBGLOG << "Hopefully the download finished";
+
+
+        //Create a new mimedata
+        QMimeData *mimeData = new QMimeData();
+
+        //Now we need to build a list of path pairs with a local destination for a remote path
+        QList<QUrl> urlList;
+        QListIterator<QSharedPointer<DirectoryListing>> iter( remotePaths );
+        while( iter.hasNext() )
+        {
+            auto entry = iter.next();
+            QString localPath = tempPath + "/" + entry->Name();
+            QString remotePath = entry->Path();
+            DBGLOG << "Will copy " << remotePath << " to " << localPath;
+
+            //If the requested data is a directory, we should create a temporary directory here
+            if( entry->Type() == DET_USERDIR )
+            {
+                QDir dir;
+                dir.mkdir( localPath );
+            }
+
+            //Now build the local file URL
+            QUrl url = QUrl::fromLocalFile( localPath );
+            if( !urlList.contains( url ) )
+            {
+                urlList.append( url );
+            }else
+            {
+                WARNLOG << "Duplicate entry " << entry->Path();
+            }
+        }
+        mimeData->setUrls( urlList );
+
+
+        //Create the new drag action
+        QDragRemote *drag = new QDragRemote( this );
+        drag->setMimeData( mimeData );
+        drag->exec( Qt::MoveAction );
+        QMouseEvent *mEvnRelease = new QMouseEvent(QEvent::MouseButtonRelease, QCursor::pos(), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent( this->parent() ,mEvnRelease);
+        DBGLOG <<"Currentl drag queue is: " << m_QDragList.size();
+    }
 }

@@ -41,11 +41,18 @@ public:
     bool operator>(const DirectoryListing &other );
     bool operator<(const DirectoryListing &other );
 
+    const QString &Parent() const;
+    void setParent(const QString &newParent);
+
+private:
+    void reformPath();
+
 signals:
 
 private:
     QString m_Name;
     QString m_Path;
+    QString m_Parent;
     quint32 m_Size;
     quint32 m_Type;
     QPixmap *m_Icon;

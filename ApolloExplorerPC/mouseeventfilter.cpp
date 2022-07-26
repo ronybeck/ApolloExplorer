@@ -1,6 +1,6 @@
 #include "mouseeventfilter.h"
 
-//#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 //Linux specific stuff
@@ -18,7 +18,6 @@ extern "C"
 MouseEventFilter::MouseEventFilter() :
     m_LeftMouseButtonDown( false )
 {
-
 }
 
 bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *result )
@@ -34,7 +33,16 @@ bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *mess
     {
         xcb_generic_event_t* event = static_cast<xcb_generic_event_t *>(message);
         uint8_t response_type = event->response_type & ~0x80;
-        if( response_type != 35) DBGLOG << "XCB Event type: " << response_type;
+        if( response_type != 35 && response_type != 85 && response_type != 28 )
+        {
+            DBGLOG << "XCB Event type (masked): " << response_type;
+            DBGLOG << "XCB Event type (unmasked): " << event->response_type;
+        }
+        //Block message type 161 (DND Timeout?)
+        if( event->response_type == 0xA1 )
+        {
+            return false;
+        }
         switch( response_type )
         {
             case 84:

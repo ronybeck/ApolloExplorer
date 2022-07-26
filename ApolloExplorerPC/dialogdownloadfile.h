@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QMutexLocker>
 #include <QThread>
+#include <QWaitCondition>
 #include <QAtomicInteger>
 
 #include "downloadthread.h"
@@ -33,6 +34,7 @@ public:
     void startDownload( QList<QSharedPointer<DirectoryListing>> remotePaths, QString localPath );
     void startDownloadAndOpen( QList<QSharedPointer<DirectoryListing>> remotePaths );
     bool isCurrentlyDownloading();
+    void waitForDownloadToComplete();
 
 public slots:
     //GUI Slots
@@ -60,6 +62,8 @@ private:
     DownloadThread m_DownloadThread;
     QList<QPair<QString, QString>> m_DownloadList;
     QMutex m_Mutex;
+    QMutex m_DownloadCompletionMutex;
+    QWaitCondition m_DownloadCompletionWaitCondition;
     QAtomicInteger<bool> m_DownloadActive;
     QStringList m_FilesToOpen;      //Which files are to be opened when the download is completed
 };

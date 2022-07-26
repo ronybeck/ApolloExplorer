@@ -9,8 +9,6 @@
 #include <QSharedPointer>
 #include <QSettings>
 
-#define DEBUG 1
-#include "AEUtils.h"
 #include "amigahost.h"
 #include "protocolhandler.h"
 #include "dialogdownloadfile.h"
@@ -20,6 +18,7 @@
 #include "dialogpreferences.h"
 #include "remotefiletableview.h"
 #include "remotefiletablemodel.h"
+#include "diskvolume.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -73,6 +72,7 @@ public slots:
     void onMkdirSlot();
     void onRebootSlot();
     void onDeleteSlot();
+    void onRenameSlot();
     void onDownloadSelectedSlot();
 
     //Network slots
@@ -89,7 +89,7 @@ public slots:
     //Protocol slots
     void onServerVersion( quint8 major, quint8 minor, quint8 revision );
     void onDirectoryListingUpdateSlot( QSharedPointer<DirectoryListing> newListing );
-    void onVolumeListUpdateSlot( QStringList volumes );
+    void onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volumes );
     void onAcknowledgeSlot( quint8 responseCode );
 
     //Timer slots
@@ -128,7 +128,7 @@ private:
     Ui::MainWindow *ui;
     ProtocolHandler m_ProtocolHandler;
     QMap<QString, QSharedPointer<DirectoryListing>> m_DirectoryListings;
-    QStringList m_Volumes;
+    QList<QSharedPointer<DiskVolume>> m_Volumes;
     ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     QTimer m_ReconnectTimer;
     QSharedPointer<AmigaHost> m_AmigaHost;

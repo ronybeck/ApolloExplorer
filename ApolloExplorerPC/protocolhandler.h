@@ -8,6 +8,7 @@
 #include "protocolTypes.h"
 #include "aeconnection.h"
 #include "directorylisting.h"
+#include "diskvolume.h"
 
 class ProtocolHandler : public QObject
 {
@@ -52,6 +53,7 @@ public slots:
     void onRunCMDSlot( QString command, QString workingDirectroy );
     void onGetDirectorySlot( QString remoteDirectory );
     void onMKDirSlot( QString remoteDirectory );
+    void onRenameFileSlot( QString oldPathName, QString newPathName );
     void onSendMessageSlot( ProtocolMessage_t *message );
     void onSendAndReleaseMessageSlot( ProtocolMessage_t *message );
 
@@ -82,7 +84,7 @@ signals:
     void failedSignal();
     void startOfFileSendSignal( quint64 fileSize, quint32 numberOfChunks, QString filename );
     void fileChunkSignal( quint32 chunkNumber, quint32 bytes, QByteArray chunk );
-    void volumeListSignal( QStringList volumes );
+    void volumeListSignal( QList<QSharedPointer<DiskVolume>> volumes );
 
 
     //Requests to the vconnection object

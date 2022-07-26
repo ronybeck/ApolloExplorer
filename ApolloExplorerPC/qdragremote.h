@@ -3,6 +3,7 @@
 
 #include <QDrag>
 #include <QObject>
+#include <QEvent>
 
 class QDragRemote : public QDrag
 {
@@ -11,7 +12,7 @@ public:
     QDragRemote( QObject *dragSource );
 
 public slots:
-    void deleteLater();
+    bool event( QEvent *e ) override;
 };
 
 #endif // QDRAGREMOTE_H

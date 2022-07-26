@@ -7,12 +7,10 @@
 
 #include "VolumeList.h"
 
-#define DBGOUT 0
+
 
 #ifdef __GNUC__
-#if DBGOUT
 #include <stdio.h>
-#endif
 #include <string.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
@@ -22,6 +20,7 @@
 
 #endif
 
+#define DBGOUT 1
 #include "AEUtil.h"
 
 
@@ -117,6 +116,33 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 			strncpy( volumeEntry->name, volumeName, volumeNameLength + 1 );
 			volumeEntry->name[ volumeNameLength ] = 0; //Don't trust that this won't be the case.
 			volumeEntry->diskType = dosList->dol_misc.dol_volume.dol_DiskType;
+
+			//Get a lock on the disk so we can read information out
+			char diskAsPath[64];
+			sprintf( diskAsPath, "%s:", volumeEntry->name );
+			BPTR diskLock = Lock( diskAsPath, ACCESS_READ );
+			if( diskLock )
+			{
+				struct InfoData *infoData = AllocMem( sizeof( struct InfoData ), MEMF_FAST|MEMF_CLEAR );
+				if( Info( diskLock, infoData ) )
+				{
+					dbglog( "[client] Disk unit: %ld\n", infoData->id_UnitNumber );
+					dbglog( "[client] Number of blocks: %ld\n", infoData->id_NumBlocks );
+					dbglog( "[client] Number of blocks used: %ld\n", infoData->id_NumBlocksUsed );
+					dbglog( "[client] Bytes per block: %ld\n", infoData->id_BytesPerBlock );
+
+					volumeEntry->id_NumSoftErrors = infoData->id_NumSoftErrors;
+					volumeEntry->id_UnitNumber = infoData->id_UnitNumber;
+					volumeEntry->id_DiskState = infoData->id_DiskState;
+					volumeEntry->id_NumBlocks = infoData->id_NumBlocks;
+					volumeEntry->id_NumBlocksUsed = infoData->id_NumBlocksUsed;
+					volumeEntry->id_BytesPerBlock = infoData->id_BytesPerBlock;
+					volumeEntry->diskType = infoData->id_DiskType;
+					volumeEntry->id_InUse = infoData->id_InUse;
+					FreeMem( infoData, sizeof( struct InfoData ) );
+				}
+				UnLock( diskLock );
+			}
 
 			//Prepare the next entry
 			dbglog( "[getVolumeList] Strlen is: %d.\n", volumeNameLength );

@@ -15,11 +15,6 @@
 #include <QAbstractNativeEventFilter>
 #include <QMutexLocker>
 
-//Linux specific stuff
-//#if __linux__
-//#include <QX11Info>
-//bool PeekerCallback( xcb_generic_event_t *event, void *peekerData );
-//#endif
 
 class RemoteFileMimeData : public QMimeData
 {
@@ -36,10 +31,14 @@ public:
     void addRemotePath( const QSharedPointer<DirectoryListing> remotePath );
     void setDownloadDialog( QSharedPointer<DialogDownloadFile> dialog );
     bool isLeftMouseButtonDown() const;
+    void setSendURLS( bool enabled );
 
 public slots:
     void onLeftMouseButtonPressedSlot();
     void onLeftMouseButtonReleasedSlot();
+
+signals:
+    void dropHappenedSignal() const;
 
 private:
     mutable QMutex m_Mutex;
@@ -49,15 +48,11 @@ private:
     QList<QPair<QString,QString>> m_DownloadList;
     QSharedPointer<DialogDownloadFile> m_DownloadDialog;
     QList<QSharedPointer<DirectoryListing>> m_RemotePaths;
+    bool m_SendURLS;
 
 protected:
     bool m_LeftMouseButtonDown;
-    mutable bool m_DataRetreived;
-
-//#if __linux__
-//    friend bool PeekerCallback( xcb_generic_event_t *event, void *peekerData );
-//    mutable int fd;
-//#endif
+    mutable bool m_DataRetrieved;
 };
 
 #endif // REMOTEFILEMIMEDATA_H

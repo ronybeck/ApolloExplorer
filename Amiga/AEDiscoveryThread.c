@@ -635,7 +635,7 @@ static void discoveryThread()
 #endif
 		//dbglog( "[discoverySocket] Sent %d bytes.\n", bytesSent );
 		bytesSent = sendto( broadcastSocket, announceMessage, announceMessage->header.length, 0, (struct sockaddr *)&broadcastAddr, sizeof( broadcastAddr ) );
-		dbglog( "[discoverySocket] Sent %d bytes.\n", bytesSent );
+		//dbglog( "[discoverySocket] Sent %d bytes.\n", bytesSent );
 		(void)bytesSent;
 
 

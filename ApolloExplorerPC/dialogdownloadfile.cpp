@@ -63,6 +63,7 @@ void DialogDownloadFile::disconnectFromhost()
 {
     LOCK;
     m_DownloadThread.onDisconnectFromHostRequestedSlot();
+    m_DownloadCompletionWaitCondition.wakeAll();
 }
 
 void DialogDownloadFile::startDownload(QList<QSharedPointer<DirectoryListing> > remotePaths, QString localPath)
@@ -149,7 +150,10 @@ void DialogDownloadFile::startDownload( QList<QPair<QString, QString> > files )
 
     //First check if there is already an operation underway
     if( !m_DownloadList.isEmpty() )
+    {
+        m_DownloadCompletionWaitCondition.notify_all();
         return;
+    }
 
     //Activate the download
     m_DownloadActive = true;
@@ -163,6 +167,7 @@ void DialogDownloadFile::startDownload( QList<QPair<QString, QString> > files )
     {
         resetDownloadDialog();
         emit singleFileDownloadCompletedSignal();
+        m_DownloadCompletionWaitCondition.notify_all();
         return;
     }
 
@@ -176,6 +181,13 @@ bool DialogDownloadFile::isCurrentlyDownloading()
     return m_DownloadActive;
 }
 
+void DialogDownloadFile::waitForDownloadToComplete()
+{
+    m_DownloadCompletionMutex.lock();
+    m_DownloadCompletionWaitCondition.wait( &m_DownloadCompletionMutex );
+    m_DownloadCompletionMutex.unlock();
+}
+
 void DialogDownloadFile::onCancelButtonReleasedSlot()
 {
     LOCK;
@@ -186,6 +198,7 @@ void DialogDownloadFile::onCancelButtonReleasedSlot()
     resetDownloadDialog();
     hide();
     m_DownloadThread.onCancelDownloadSlot();
+    m_DownloadCompletionWaitCondition.notify_all();
 
     emit allFilesDownloaded();
 }
@@ -198,6 +211,7 @@ void DialogDownloadFile::onAbortedSlot( QString reason )
     errorBox.exec();
     resetDownloadDialog();
     hide();
+    m_DownloadCompletionWaitCondition.notify_all();
     emit allFilesDownloaded();
 }
 
@@ -230,6 +244,9 @@ void DialogDownloadFile::onSingleFileDownloadCompletedSlot()
 
 void DialogDownloadFile::onAllFileDownloadsCompletedSlot()
 {
+    //Notify waiters
+    m_DownloadCompletionWaitCondition.notify_all();
+
     //Now check if we have some files to open
     if( m_FilesToOpen.size() == 0)  return;
 
@@ -353,6 +370,7 @@ void DialogDownloadFile::onConnectedToHostSlot()
 void DialogDownloadFile::onDisconnectedFromHostSlot()
 {
     LOCK;
+    m_DownloadCompletionWaitCondition.notify_all();
     if( m_DownloadList.count() )
     {
         QMessageBox errorBox( "Server Disconnected.", "The server disconnected with " + QString::number( m_DownloadList.count() ) + " files remaining.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );

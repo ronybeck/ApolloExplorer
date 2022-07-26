@@ -46,28 +46,6 @@ int RemoteFileTableModel::columnCount(const QModelIndex &parent) const
     return m_HeaderNames.size();
 }
 
-static inline QString prettyFileSize( qint32 size )
-{
-#define GigaByte (1024*1024*1024)
-#define MegaByte (1024*1024)
-#define KiloByte 1024
-
-    if( size > GigaByte )
-    {
-        return QString( QString::number( size / GigaByte, 10 ) + "." + QString::number( size%GigaByte/MegaByte/100,10 ) + QString( " GBytes" ) );
-    }
-    if( size > MegaByte )
-    {        
-        return QString( QString::number( size / MegaByte, 10 ) + "." + QString::number( size%MegaByte/KiloByte/100 ) + QString( " MBytes" ) );
-    }
-    if( size > KiloByte )
-    {
-        return QString( QString::number( size / KiloByte, 10 ) + QString( " KBytes" ) );
-    }
-
-    return QString( QString::number( size, 10 ) + QString( " Bytes" ) );
-}
-
 QVariant RemoteFileTableModel::data(const QModelIndex &index, int role) const
 {
     LOCK;

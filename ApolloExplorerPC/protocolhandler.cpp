@@ -125,6 +125,33 @@ void ProtocolHandler::onMKDirSlot( QString remoteDirectory )
     ReleaseMessage( mkdirMessage );
 }
 
+void ProtocolHandler::onRenameFileSlot(QString oldPathName, QString newPathName)
+{
+    //Convert the text encoding
+    char encodedOldName[ MAX_FILEPATH_LENGTH ];
+    char encodedNewName[ MAX_FILEPATH_LENGTH ];
+    convertFromUTF8ToAmigaTextEncoding( oldPathName, encodedOldName, sizeof( encodedOldName ) );
+    convertFromUTF8ToAmigaTextEncoding( newPathName, encodedNewName, sizeof( encodedNewName ) );
+
+    //Form the message
+    ProtocolMessage_RenamePath_t *renameMessage = AllocMessage<ProtocolMessage_RenamePath_t>();
+    renameMessage->header.token = MAGIC_TOKEN;
+    renameMessage->header.type = PMT_RENAME_FILE;
+    renameMessage->oldNameSize = oldPathName.length();
+    renameMessage->newNameSize = newPathName.length();
+    renameMessage->header.length = sizeof( ProtocolMessage_MakeDir_t ) + oldPathName.length() + newPathName.length() + 2;
+    strncpy( renameMessage->filePaths, encodedOldName, strlen( encodedOldName ) + 1 );
+    strncpy( renameMessage->filePaths + renameMessage->oldNameSize + 1, encodedNewName, strlen( encodedNewName ) + 1 );
+
+    //NOw we should endian convert the sizes
+    renameMessage->oldNameSize = qToBigEndian( renameMessage->oldNameSize );
+    renameMessage->newNameSize = qToBigEndian( renameMessage->newNameSize );
+
+    //Send the message
+    m_AEConnection.sendMessage( renameMessage );
+    ReleaseMessage( renameMessage );
+}
+
 bool ProtocolHandler::deleteFile( QString remoteFilePath, QString &error )
 {
     //Convert the text encoding
@@ -301,7 +328,7 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
         case PMT_VOLUME_LIST:
         {
             ProtocolMessage_VolumeList_t *volumeListMessage = reinterpret_cast<ProtocolMessage_VolumeList_t*>( newMessage );
-            QStringList volumes;
+            QList<QSharedPointer<DiskVolume>> volumes;
             quint32 volumeCount = 0;
 
             //Endian conversion
@@ -312,8 +339,8 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             while( volumeCount < volumeListMessage->volumeCount )
             {
                 //Get the name out
-                QString volume( static_cast<char*>( volumeEntry->name ) );
-                if( volume.length() ) volumes.push_back( volume );
+                QSharedPointer<DiskVolume> diskVolume( new DiskVolume( *volumeEntry ) );
+                volumes.push_back( diskVolume );
                 volumeCount++;
 
                 //Get the next entry

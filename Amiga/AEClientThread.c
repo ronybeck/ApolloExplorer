@@ -13,6 +13,8 @@
 #include <sys/filio.h>
 #include <proto/dos.h>
 #include <clib/exec_protos.h>
+//#include <clib/timer_protos.h>
+#include <inline/timer.h>
 #include <dos/dostags.h>
 #define __BSDSOCKET_NOLIBBASE__
 #include <proto/bsdsocket.h>
@@ -217,6 +219,7 @@ void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOC
 				{ NP_StackSize,		16384 },
 				{ NP_Name,			(ULONG)"AEClientThread" },
 				{ NP_Entry,			(ULONG)clientThread },
+				{ NP_Priority,		(ULONG)8 },
 				//{ NP_Output,		(ULONG)consoleHandle },
 				{ NP_Synchronous, 	FALSE },
 				{ TAG_DONE, 0UL }
@@ -466,6 +469,7 @@ static void clientThread()
 	int bytesRead = 0;
 	volatile char keepThisConnectionRunning = 1;
 	LONG bytesAvailable = 0;
+	LONG driveRefreshCounter = 200;
 	while( keepThisConnectionRunning )
 	{
 		IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
@@ -505,9 +509,32 @@ static void clientThread()
 					goto exit_child;
 				}
 			}
-			Delay( 2 );
+
+			//Is it time to refresh the drive list yet?
+			if( driveRefreshCounter-- == 0 )
+			{
+				dbglog( "[child] Refreshing the list of volumes.\n" );
+				ProtocolMessage_VolumeList_t *volumeListMessage = getVolumeList();
+				if( volumeListMessage == NULL )
+				{
+					dbglog( "[child] Unknown error in retreiving the list of volumes.\n" );
+					return;
+				}
+
+				//Send the list
+				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)volumeListMessage );
+				FreeVec( volumeListMessage );
+
+				//Reset the count
+				driveRefreshCounter = 50;
+			}
+
+			Delay( 5 );
 			continue;
 		}
+
+		//Reset the count
+		driveRefreshCounter = 200;
 
 		//Pull in the next message from the socket
 		//dbglog( "[child] Reading next network message.\n" );
@@ -746,12 +773,42 @@ static void clientThread()
 					break;
 				}
 
+				ProtocolMessage_Ack_t ackMessage;
+				ackMessage.header.length = sizeof( ackMessage );
+				ackMessage.header.token = MAGIC_TOKEN;
+				ackMessage.header.type = PMT_ACK;
+				ackMessage.response = 1;
+
 
 				//Now start pulling the file chunks
 				unsigned int chunksRemaining = startOfFileSend->numberOfFileChunks;
 				dbglog( "[child] Now just waiting for the file chunks to arrive.\n" );
 				do
 				{
+					//Let's give the client some time to send the next chunk, else we make a timeout
+					LONG bytesAvailable = 0;
+					LONG retryCount = 10;
+					while( bytesAvailable == 0 && retryCount-- > 0 )
+					{
+						IoctlSocket( newClientSocket, FIONREAD ,&bytesAvailable );
+						if( bytesAvailable != 0 )
+						{
+							break;
+						}
+						dbglog( "[child] Waiting on client to send bytes...... (waiting %ld)\n", retryCount );
+						Delay( 20 );
+					}
+
+					//Are there some bytes here now?
+					if( bytesAvailable == 0 )
+					{
+						//So a timeout occurred.  Close the connection and cleanup
+						dbglog( "[child] There was a timeout on recieving file chunks from the client.  Terminating the conection.\n" );
+						cleanupFileReceive();
+						keepThisConnectionRunning = 0;
+						goto exit_child;
+					}
+
 					//Get the next file chunk message
 					int bytesReceived = getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH );
 					dbglog( "[child] Got %d bytes waiting for the file chunk.\n", bytesReceived );
@@ -774,9 +831,11 @@ static void clientThread()
 
 					ProtocolMessage_FileChunk_t *fileChunkMessage = ( ProtocolMessage_FileChunk_t* )message;
 					chunksRemaining = putNextFileSendChunk( fileChunkMessage );
+					//sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );	//Send an ack back
 					dbglog( "[child] Got file chunk %d.  Chunks remaining: %d\n", fileChunkMessage->chunkNumber, chunksRemaining );
 
 				}while( chunksRemaining );
+				cleanupFileReceive();
 
 				//We are done
 				dbglog( "[child] File receive completed.\n" );
@@ -785,6 +844,7 @@ static void clientThread()
 			}
 			case PMT_DELETE_PATH:
 			{
+				driveRefreshCounter = 1000;
 				ProtocolMessage_DeletePath_t *deleteMessage = (ProtocolMessage_DeletePath_t*)message;
 				char dirPath[ MAX_FILEPATH_LENGTH * 2 ] = "";
 				memset( dirPath, 0, sizeof( dirPath ) );
@@ -796,6 +856,31 @@ static void clientThread()
 				{
 					//Probably this is a corrupt file name
 					dbglog( "[child] Requested to delete path which looks to be corrupt.  Ignoring\n" );
+
+					//Let's inform the client
+					char *errorString = "The file name supplied by the client looks corrupt.";
+					ULONG stringSize = strlen( errorString );
+
+					//Create an error message
+					ProtocolMessage_Failed_t *errorMessage = AllocVec( stringSize, MEMF_FAST|MEMF_CLEAR );
+
+					if( errorMessage == NULL )
+					{
+						//Well this is embarrassing.  No memory allocated.
+						dbglog( "[child] unable to allocate error message for failed delete operation.\n" );
+						break;
+					}
+
+					errorMessage->header.token = MAGIC_TOKEN;
+					errorMessage->header.length = sizeof( *errorMessage ) + stringSize;
+					errorMessage->header.type = PMT_FAILED;
+					snprintf( errorMessage->message, stringSize + 1, "%s", errorString );
+
+					//send the message back to the server
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)errorMessage );
+
+					//Free the message
+					FreeVec( errorMessage );
 					break;
 				}
 
@@ -830,7 +915,7 @@ static void clientThread()
 				{
 					//Test that the file is gone
 					BPTR fileLock = 1;
-					int retries = 10;
+					int retries = 30;
 					while( fileLock != 0 && retries--!=0 )
 					{
 						Delay( 10 );		//Wait a bit.  Perhaps it is done after this wait
@@ -873,17 +958,28 @@ static void clientThread()
 					}
 
 					//Send an ACK
-					ProtocolMessage_Ack_t message;
-					message.header.token = MAGIC_TOKEN;
-					message.header.length = sizeof( message );
-					message.header.type = PMT_ACK;
-					message.response = 1;
+					ProtocolMessage_Ack_t ackMessage;
+					ackMessage.header.token = MAGIC_TOKEN;
+					ackMessage.header.length = sizeof( message );
+					ackMessage.header.type = PMT_ACK;
+					ackMessage.response = 1;
 
 					//send the message back to the server
-					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&message );
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
 				}
 
 				break;
+			}
+			case PMT_RENAME_FILE:
+			{
+				dbglog( "[child] Rename of a file requested.\n" );
+				ProtocolMessage_RenamePath_t *renameMessage = ( ProtocolMessage_RenamePath_t *)message;
+				char *oldName = renameMessage->filePaths;
+				char *newName = renameMessage->filePaths + renameMessage->oldNameSize + 1;
+				
+				//Perform the rename
+				Rename( (STRPTR)oldName, (STRPTR)newName );
+				dbglog( "[child] Renamed '%s' to '%s'.\n", oldName, newName );
 			}
 			case PMT_MKDIR:
 			{
@@ -929,6 +1025,7 @@ static void clientThread()
 
 				//Send the list
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)volumeListMessage );
+				FreeVec( volumeListMessage );
 				break;
 			}
 			case PMT_RUN:

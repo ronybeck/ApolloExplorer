@@ -3,6 +3,8 @@
 #include <QPixmap>
 #include <QWindow>
 
+#include "AEUtils.h"
+
 static QPixmap getPixmap( QSharedPointer<AmigaHost> host )
 {
     if( host->Hardware().contains( "V2", Qt::CaseInsensitive ) ||

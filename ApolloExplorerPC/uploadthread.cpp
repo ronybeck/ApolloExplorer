@@ -349,6 +349,10 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
         return;
     }
 
+    //Ignore possitive acknowledtements if we are already uploading
+    if( m_FileToUpload && responseCode == 1 )
+        return;
+
     //Send the start of file send request
     ProtocolMessage_StartOfFileSend_t *startOfFileSendMessage = AllocMessage<ProtocolMessage_StartOfFileSend_t>();
     startOfFileSendMessage->header.token = MAGIC_TOKEN;

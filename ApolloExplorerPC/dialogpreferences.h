@@ -1,8 +1,6 @@
 #ifndef DIALOGPREFERENCES_H
 #define DIALOGPREFERENCES_H
 
-#include "AEUtils.h"
-
 #include <QDialog>
 #include <QSharedPointer>
 #include <QSettings>
@@ -19,9 +17,12 @@ public:
     explicit DialogPreferences( QSharedPointer<QSettings> settings, QWidget *parent = nullptr);
     ~DialogPreferences();
 
-    void onDoubleClickComboBoxChanged( const QString selection );
+    public slots:
+    void onDoubleClickComboBoxChangedSlot( const QString selection );
     void onDelayBetweenDeletesChangedSlot( int newValue );
     void onHelloTimeoutChangedSlot( int newValue );
+    void onDNDSizeChangedSlot( int newValue );
+    void onDNDOperationComboboxChangedSlot( const QString selection );
 
 private:
     Ui::DialogPreferences *ui;

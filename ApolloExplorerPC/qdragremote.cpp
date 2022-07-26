@@ -7,7 +7,14 @@ QDragRemote::QDragRemote( QObject *dragSource ) :
 
 }
 
-void QDragRemote::deleteLater()
+bool QDragRemote::event(QEvent *e)
 {
-    DBGLOG << "Ignoring delete";
+    switch( e->type() )
+    {
+        case QEvent::DeferredDelete:
+            return true;
+        default:
+            return QObject::event( e );
+        break;
+    }
 }

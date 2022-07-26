@@ -69,6 +69,12 @@ QTableView
 	background-color: #444444;
 }
 
+QListView
+{
+	margin: 2px;
+	padding: 2px;
+}
+
 QHeaderView::section
 {
 	margin: 2px;
@@ -250,7 +256,7 @@ QMenu::indicator:checked {
            </property>
            <property name="maximumSize">
             <size>
-             <width>100</width>
+             <width>120</width>
              <height>16777215</height>
             </size>
            </property>

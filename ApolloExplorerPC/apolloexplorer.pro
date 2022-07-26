@@ -7,7 +7,7 @@ linux: LIBS += -lX11
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-QMAKE_CXXFLAGS += -O0 -g3
+QMAKE_CXXFLAGS += -O0 -g
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -26,6 +26,7 @@ SOURCES += \
     dialogpreferences.cpp \
     dialoguploadfile.cpp \
     directorylisting.cpp \
+    diskvolume.cpp \
     downloadthread.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -51,6 +52,7 @@ HEADERS += \
     dialogpreferences.h \
     dialoguploadfile.h \
     directorylisting.h \
+    diskvolume.h \
     downloadthread.h \
     mainwindow.h \
     messagepool.h \
