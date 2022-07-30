@@ -6,9 +6,27 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>708</width>
-    <height>274</height>
+    <width>720</width>
+    <height>360</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>720</width>
+    <height>360</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>720</width>
+    <height>360</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Apollo Explorer Settings</string>
@@ -24,18 +42,17 @@
    <string notr="true">QWidget
 {	
 	background-color: #444444;
-	font: bold 12px;
 	color:  white;
 	font: 700 10pt &quot;Comfortaa&quot;;
-}
-QLabel{
-	padding-left: 3px;
-	padding-right: 3px;
+	padding: 1px;
+	margin: 1px;
 }
 
-QLineEdit
+QCSpinBox
 {
-border: 1px solid rgb(136, 138, 133);
+	background-color: #444444;
+	color:  white;
+	margin: 0px;
 }
 
 QPushButton
@@ -54,9 +71,10 @@ QPushButton::hover
 {
 	border: 1px solid #aaaaaa;
 }
+
 QGroupBox
 {
-	padding: 2px;
+	padding: 5px;
 	border: 1px solid  rgb(136, 138, 133);
 	margin: 2px;
 	border-radius: 2px;
@@ -65,45 +83,9 @@ QGroupBox::Title
 {
 	subcontrol-origin: margin;
     subcontrol-position: top center;
+	margin: 0px;
 }
-
-QTableView
-{
-	background-color: #444444;
-}
-
-QListView
-{
-	margin: 2px;
-	padding: 2px;
-}
-
-QHeaderView::section
-{
-	margin: 2px;
-	padding: 2px;
-	background-color: #444444;
-}
-
-
-QMenuBar::item
-{
-	background-color: 444444;
-}
-
-QMenu
-{
-	background-color: #444444;
-}
-QMenu::indicator {
-	border: 1px solid rgb(136, 138, 133);
-    border-radius: 2px;
-	width: 20px;
-}
-QMenu::indicator:checked {
-    border: 1px inset white;
-	background: red;
-}</string>
+</string>
   </property>
   <property name="sizeGripEnabled">
    <bool>false</bool>
@@ -118,6 +100,22 @@ QMenu::indicator:checked {
       <string>Settings</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <spacer name="verticalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
