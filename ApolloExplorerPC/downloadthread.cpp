@@ -195,6 +195,7 @@ void DownloadThread::onIncomingBytesUpdateSlot(quint32 bytes)
 {
     LOCK;
     m_BytesReceivedThisSecond += bytes;
+    emit incomingBytesSignal( bytes );
 }
 
 void DownloadThread::onOutgoingBytesUpdateSlot(quint32 bytes)

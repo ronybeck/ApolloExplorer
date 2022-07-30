@@ -93,7 +93,7 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 	int totalBytesLeftToRead = 0;
 
 	//Clear out the message
-	memset( message, 0, maxMessageLength );
+	memset( message, 0, sizeof( ProtocolMessage_t ) );
 
 	//First get the magic token
 	dbglog( "[getMessage] Waiting on magic token bytes.\n" );
@@ -101,55 +101,42 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 	while( retries > 0 )
 	{
 		IoctlSocket( clientSocket,FIONREAD ,&bytesAvailable );
-		if( bytesAvailable < sizeof( ProtocolMessage_t) )
+		if( bytesAvailable < sizeof( ProtocolMessage_t ) )
 		{
-			Delay( 2 );
+			Delay( 1 );
 			retries--;
 			continue;
 		}
 
-		dbglog( "[getMessage] Reading next bytes from socket.\n" );
-		bytesReceived = recv( clientSocket, &message->token, sizeof( message->token ), 0 );
-		dbglog( "[getMessage] Got %d bytes from socket: 0x%08x.\n", bytesReceived, clientSocket );
-		dbglog( "[getMessage] Current token value: 0x%08x.\n", message->token );
-		if( bytesReceived < sizeof( message->token ) )
+		dbglog( "[getMessage] Reading next bytes (up to %ld ) from socket.\n", bytesAvailable );
+		bytesReceived = recv( clientSocket, &message->token, sizeof( ProtocolMessage_t ), MSG_WAITALL );
+		if( bytesReceived < sizeof( ProtocolMessage_t ) )
 		{
-			dbglog( "[getMessage] Socket error while reading magic token.\n" );
-			return SOCKET_ERROR;
+			dbglog( "[getMessage] Failed to read all of the message header.\n" );
+			return SOCKET_ERROR;	
+		}else
+		{
+			break;
 		}
-		if( message->token == MAGIC_TOKEN ) break;
-		else retries--;
 	}
-	if( message->token != MAGIC_TOKEN && retries < 1 )
+	dbglog( "[getMessage] Got message Token 0x%08x.\n", message->token );
+	dbglog( "[getMessage] Got message Type 0x%08x.\n", message->type );
+	dbglog( "[getMessage] Got message Length %d.\n", message->length );
+
+	//Did we fail to read any bytes?
+	if( bytesReceived < sizeof( ProtocolMessage_t ) )
+	{
+		dbglog( "[getMessage] Failed to read all of the message header.\n" );
+		return SOCKET_ERROR;	
+	}
+
+	//Now check that we got a magic token.
+	if( message->token != MAGIC_TOKEN )
 	{
 		dbglog( "[getMessage] Didn't get magic token.\n" );
 		return MAGIC_TOKEN_MISSING;
 	}
 	totalBytesReceived += bytesReceived;
-	dbglog( "[getMessage] Got magic token.\n" );
-
-
-	//Next get the message type
-	dbglog( "[getMessage] Getting message type and size.\n" );
-	bytesReceived = recv( clientSocket, &message->type, sizeof( message->type ), 0 );
-	if( bytesReceived < sizeof( message->type ) )
-	{
-		dbglog( "[getMessage] Socket error while reading message type.\n" );
-		return SOCKET_ERROR;
-	}
-	totalBytesReceived += bytesReceived;
-
-	//Now get the message size
-	bytesReceived = recv( clientSocket, &message->length, sizeof( message->length ), 0 );
-	if( bytesReceived < sizeof( message->length ) )
-	{
-		dbglog( "[getMessage] Socket error while reading message type.\n" );
-		return SOCKET_ERROR;
-	}
-	totalBytesReceived += bytesReceived;
-
-	dbglog( "[getMessage] Got message Type 0x%08x.\n", message->type );
-	dbglog( "[getMessage] Got message Length %d.\n", message->length );
 
 	//sanity check
 	if( message->type >= PMT_INVALID )
@@ -159,10 +146,13 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 
 	//Keep pulling bytes until we are done or there is an error
 	totalBytesLeftToRead = message->length - totalBytesReceived;
+	ULONG bytesToRead = 0;
+	ULONG readChunkSize = 4096;
 	while( totalBytesLeftToRead > 0 )
  	{
 		dbglog( "[getMessage] %d bytes left of %d to read.\n", totalBytesLeftToRead, message->length );
-		bytesReceived = recv( clientSocket, (char*)message + totalBytesReceived, totalBytesLeftToRead, 0);
+		bytesToRead = readChunkSize < totalBytesLeftToRead ? readChunkSize : totalBytesLeftToRead;
+		bytesReceived = recv( clientSocket, (char*)message + totalBytesReceived, bytesToRead, 0 );
 		if( bytesReceived == -1 )
 			return SOCKET_ERROR;
 

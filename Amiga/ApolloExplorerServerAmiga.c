@@ -142,26 +142,24 @@ int main(int argc, char *argv[])
 		//Wait on the network first
 		int waitRC = WaitSelect( serverSocket+1,&networkReadSet, NULL, NULL, &timeOut, NULL );
 
-		//Any new client connection?
-		if( waitRC > 0 || FD_ISSET( serverSocket, &networkReadSet ) )
+		if( waitRC > 0 )
 		{
-
-			while( TRUE )
+			//Any new client connection?
+			socklen_t addrLen = sizeof( addr );
+			SOCKET newClientSocket = (SOCKET)accept(serverSocket, (struct sockaddr *)&addr, &addrLen);
+			if( newClientSocket < 0 )
 			{
-				socklen_t addrLen = sizeof( addr );
-				SOCKET newClientSocket = (SOCKET)accept(serverSocket, (struct sockaddr *)&addr, &addrLen);
-				if( newClientSocket < 0 )
-				{
-					dbglog( "accept error %d \"%s\"\n", errno, strerror( errno ) );
-					break;
-				}
-
+				dbglog( "accept error %d \"%s\"\n", errno, strerror( errno ) );
+				continue;
+			}else
+			{
 				//Now spawn a client thread
 				dbglog( "[master] Starting client thread for new socket 0x%08x\n", newClientSocket );
 				startClientThread( SocketBase, g_AEServerMessagePort, newClientSocket );
 				dbglog( "[master] New client connection.\n" );
 			}
 		}
+
 
 		//Anything on the message port waiting?
 		//dbglog( "Checking message port.\n" );

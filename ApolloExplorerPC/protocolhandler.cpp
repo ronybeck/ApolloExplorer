@@ -170,7 +170,7 @@ bool ProtocolHandler::deleteFile( QString remoteFilePath, QString &error )
     ReleaseMessage( deletePathMessage );
 
     //We want to wait for the OK or error message
-    quint32 waitTime = 1000;
+    quint32 waitTime = 5000;
     QTimer timer;
     timer.setSingleShot(true);
     QEventLoop loop;
@@ -178,8 +178,18 @@ bool ProtocolHandler::deleteFile( QString remoteFilePath, QString &error )
     static bool deleteCompleted = false;
     connect( this, &ProtocolHandler::acknowledgeSignal, &loop, &QEventLoop::quit );
     connect( this, &ProtocolHandler::failedSignal, &loop, &QEventLoop::quit );
-    connect( this, &ProtocolHandler::acknowledgeSignal, [&](){ succeeded = true; deleteCompleted = true; } );
-    connect( this, &ProtocolHandler::failedSignal, [&]{ succeeded = false; deleteCompleted = true; } );
+    connect( this, &ProtocolHandler::acknowledgeSignal, [&]()
+            {
+                succeeded = true;
+                deleteCompleted = true;
+            }
+            );
+    connect( this, &ProtocolHandler::failedSignal, [&]()
+            {
+                succeeded = false;
+                deleteCompleted = true;
+            }
+            );
     connect( &timer, &QTimer::timeout, &loop, &QEventLoop::quit );
     timer.start( waitTime );
 
@@ -194,7 +204,7 @@ bool ProtocolHandler::deleteFile( QString remoteFilePath, QString &error )
     //Did we timeout?
     if( !timer.isActive() )
     {
-        error = "Operation Timedout";
+        error = "Operation Timed out";
         return false;
     }
     timer.stop();

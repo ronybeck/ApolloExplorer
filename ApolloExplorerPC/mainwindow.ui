@@ -53,9 +53,9 @@ QPushButton::hover
 }
 QGroupBox
 {
-	padding: 1px;
+	padding: 2px;
 	border: 1px solid  rgb(136, 138, 133);
-	margin: 1px;
+	margin: 2px;
 	border-radius: 2px;
 }
 QGroupBox::Title
@@ -285,10 +285,10 @@ QMenu::indicator:checked {
             <bool>false</bool>
            </property>
            <property name="dragDropMode">
-            <enum>QAbstractItemView::DragDrop</enum>
+            <enum>QAbstractItemView::NoDragDrop</enum>
            </property>
            <property name="defaultDropAction">
-            <enum>Qt::CopyAction</enum>
+            <enum>Qt::IgnoreAction</enum>
            </property>
            <property name="selectionMode">
             <enum>QAbstractItemView::SingleSelection</enum>

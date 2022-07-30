@@ -6,6 +6,7 @@
  */
 
 
+#include <stdio.h>
 #include <unistd.h>
 #include <sys/filio.h>
 #include <proto/dos.h>
@@ -20,7 +21,7 @@
 #define __BSDSOCKET_NOLIBBASE__
 #include <proto/bsdsocket.h>
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #include "protocol.h"
 #include "AEUtil.h"

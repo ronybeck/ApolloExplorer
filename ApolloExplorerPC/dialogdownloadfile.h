@@ -52,6 +52,7 @@ signals:
     void singleFileDownloadCompletedSignal();
     void allFilesDownloaded();
     void startDownloadSignal( QString localFilePath, QString remoteFilePath );
+    void incomingBytesSignal( quint32 bytesReceived );
 
 private:
     void resetDownloadDialog();

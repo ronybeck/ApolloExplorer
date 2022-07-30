@@ -47,6 +47,7 @@ private:
 signals:
     void downloadCompletedSignal();
     void downloadProgressSignal( quint8 percentPercent, quint64 progressBytes, quint64 thoughput );
+    void incomingBytesSignal( quint32 bytesReceived );
     void disconnectedFromServerSignal();
     void connectedToServerSignal();
     void abortedSignal( QString message );

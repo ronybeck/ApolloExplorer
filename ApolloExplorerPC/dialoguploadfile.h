@@ -45,6 +45,7 @@ signals:
     void uploadCompletedSignal();
     void allFilesUploadedSignal();
     void startupUploadSignal( QString localFilePath, QString remoteFilePath );
+    void outgoingBytesSignal( quint32 bytesSent );
 
 private:
     Ui::DialogUploadFile *ui;

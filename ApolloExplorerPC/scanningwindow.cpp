@@ -59,7 +59,6 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     m_DialogPreferences( m_Settings, this )
 {
     ui->setupUi(this);
-    setWindowTitle( "ApolloExplorer Scanner" );
 
     //Signal Slots
     connect( &m_DeviceDiscovery, &DeviceDiscovery::hostAliveSignal, this, &ScanningWindow::onNewDeviceDiscoveredSlot );

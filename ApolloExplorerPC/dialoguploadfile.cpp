@@ -29,6 +29,7 @@ DialogUploadFile::DialogUploadFile(QWidget *parent) :
     connect( &m_UploadThread, &UploadThread::disconnectedFromServerSignal, this, &DialogUploadFile::onDisconnectedFromHostSlot );
     connect( &m_UploadThread, &UploadThread::uploadCompletedSignal, this, &DialogUploadFile::onUploadCompletedSlot );
     connect( &m_UploadThread, &UploadThread::uploadProgressSignal, this, &DialogUploadFile::onProgressUpdate );
+    connect( &m_UploadThread, &UploadThread::outgoingBytesSignal, this, &DialogUploadFile::outgoingBytesSignal );
 
     //Gui signal slots
     connect( ui->buttonBoxCancel, &QDialogButtonBox::rejected, this, &DialogUploadFile::onCancelButtonReleasedSlot );
@@ -247,7 +248,7 @@ void DialogUploadFile::onAbortedSlot( QString reason )
 void DialogUploadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)
 {
     Q_UNUSED( bytes )
-    ui->labelSpeed->setText( "speed: " + QString::number( throughput/1024 ) + "kb/s" );
+    ui->labelSpeed->setText( "speed: " + QString::number( throughput/1024 ) + "KB/s" );
     ui->progressBar->setValue( procent );
 }
 

@@ -34,6 +34,7 @@ DialogDownloadFile::DialogDownloadFile(QWidget *parent) :
     connect( &m_DownloadThread, &DownloadThread::downloadCompletedSignal, this, &DialogDownloadFile::onSingleFileDownloadCompletedSlot );
     connect( &m_DownloadThread, &DownloadThread::downloadProgressSignal, this, &DialogDownloadFile::onProgressUpdate );
     connect( this, &DialogDownloadFile::allFilesDownloaded, this, &DialogDownloadFile::onAllFileDownloadsCompletedSlot );
+    connect( &m_DownloadThread, &DownloadThread::incomingBytesSignal, this, &DialogDownloadFile::incomingBytesSignal );
 
     //Gui signal slots
     connect( ui->buttonBox, &QDialogButtonBox::rejected, this, &DialogDownloadFile::onCancelButtonReleasedSlot );
@@ -271,7 +272,7 @@ void DialogDownloadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64
 
     //Update the gui
     ui->progressBar->setValue( procent );
-    ui->labelSpeed->setText( "Speed: " + QString::number( throughput / 1024 ) + "kb/s" );
+    ui->labelSpeed->setText( "Speed: " + QString::number( throughput / 1024 ) + "KB/s" );
 }
 
 void DialogDownloadFile::resetDownloadDialog()

@@ -53,6 +53,7 @@ private:
 signals:
     void uploadCompletedSignal();
     void uploadProgressSignal( quint8 percentPercent, quint64 progressBytes, quint64 thoughput );
+    void outgoingBytesSignal( quint32 bytesSent );
     void disconnectedFromServerSignal();
     void connectedToServerSignal();
     void abortedSignal( QString message );

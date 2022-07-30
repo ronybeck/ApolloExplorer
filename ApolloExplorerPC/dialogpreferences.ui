@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>708</width>
-    <height>225</height>
+    <height>274</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -56,18 +56,49 @@ QPushButton::hover
 }
 QGroupBox
 {
-	padding-top: 15px;
-	margin: 1px;
+	padding: 2px;
+	border: 1px solid  rgb(136, 138, 133);
+	margin: 2px;
+	border-radius: 2px;
+}
+QGroupBox::Title
+{
+	subcontrol-origin: margin;
+    subcontrol-position: top center;
+}
+
+QTableView
+{
+	background-color: #444444;
+}
+
+QListView
+{
+	margin: 2px;
+	padding: 2px;
 }
 
 QHeaderView::section
 {
 	margin: 2px;
 	padding: 2px;
+	background-color: #444444;
 }
 
+
+QMenuBar::item
+{
+	background-color: 444444;
+}
+
+QMenu
+{
+	background-color: #444444;
+}
 QMenu::indicator {
-    border: 1px inset white;
+	border: 1px solid rgb(136, 138, 133);
+    border-radius: 2px;
+	width: 20px;
 }
 QMenu::indicator:checked {
     border: 1px inset white;

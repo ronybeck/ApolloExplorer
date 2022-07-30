@@ -121,6 +121,8 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
 
     //Upload download slots
     connect( m_DialogUploadFile.get(), &DialogUploadFile::allFilesUploadedSignal, this, &MainWindow::onRefreshButtonReleasedSlot );
+    connect( m_DialogDownloadFile.get(), &DialogDownloadFile::incomingBytesSignal, this, &MainWindow::onIncomingByteCountUpdateSlot );
+    connect( m_DialogUploadFile.get(), &DialogUploadFile::outgoingBytesSignal, this, &MainWindow::onOutgoingByteCountUpdateSlot );
 
     //Deletion dialog
     connect( &m_DialogDelete, &DialogDelete::cancelDeletionSignal, this, &MainWindow::onAbortDeletionRequestedSlot );
@@ -797,7 +799,11 @@ void MainWindow::onDeleteSlot()
             if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
             {
                 qDebug() << "Failed to delete path " << directoryEntry->Path();
-                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote path", "An error occurred while deleting remote directory" + directoryEntry->Path(), QMessageBox::Ok );
+                QMessageBox errorBox( QMessageBox::Critical,
+                                      "Failed to delete remote path",
+                                      "An error occurred while deleting remote directory" + directoryEntry->Path() +
+                                      ":" + errorMessage,
+                                      QMessageBox::Ok );
                 errorBox.exec();
                 return;
             }
@@ -1040,7 +1046,7 @@ void MainWindow::onServerClosedConnectionSlot(QString message)
 void MainWindow::onIncomingByteCountUpdateSlot( quint32 bytes )
 {
     m_IncomingByteCount += bytes;
-    m_AmigaHost->setHostRespondedNow();
+    if( bytes > 0 ) m_AmigaHost->setHostRespondedNow();
 }
 
 void MainWindow::onOutgoingByteCountUpdateSlot( quint32 bytes )
@@ -1255,7 +1261,7 @@ void MainWindow::updateFilebrowser()
         }else
         {
             //Create the entry for our view
-            QString label = nextListEntry->Name() + "\n(" + QString::number( nextListEntry->Size()/1024 ) + "Kb)";
+            QString label = nextListEntry->Name() + "\n(" + QString::number( nextListEntry->Size()/1024 ) + "KB)";
             QListWidgetItem *item = new QListWidgetItem( nextListEntry->Name() );
             item->setIcon( *nextListEntry->Icon() );
             item->setToolTip( label );

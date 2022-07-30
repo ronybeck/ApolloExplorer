@@ -5,7 +5,7 @@
  *      Author: rony
  */
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #ifdef __GNUC__
 #include <stdio.h>
@@ -469,7 +469,7 @@ static void clientThread()
 	int bytesRead = 0;
 	volatile char keepThisConnectionRunning = 1;
 	LONG bytesAvailable = 0;
-	LONG driveRefreshCounter = 200;
+	LONG driveRefreshCounter = 2000;
 	while( keepThisConnectionRunning )
 	{
 		IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
@@ -526,7 +526,7 @@ static void clientThread()
 				FreeVec( volumeListMessage );
 
 				//Reset the count
-				driveRefreshCounter = 50;
+				driveRefreshCounter = 1000;
 			}
 
 			Delay( 5 );
@@ -534,7 +534,7 @@ static void clientThread()
 		}
 
 		//Reset the count
-		driveRefreshCounter = 200;
+		driveRefreshCounter = 1000;
 
 		//Pull in the next message from the socket
 		//dbglog( "[child] Reading next network message.\n" );
@@ -913,6 +913,7 @@ static void clientThread()
 					FreeVec( errorMessage );
 				}else
 				{
+					dbglog( "[child] Checking if  %s is deleted.\n", dirPath );
 					//Test that the file is gone
 					BPTR fileLock = 1;
 					int retries = 30;
@@ -929,6 +930,8 @@ static void clientThread()
 					//Check that the file was really deleted
 					if( fileLock != 0 )
 					{
+						dbglog( "[child] Path %s is NOT deleted.\n", dirPath );
+
 						//Somehow the delete failed or timedout
 						char *errorString = "Deletion timed-out.";
 						ULONG stringSize = strlen( errorString );
@@ -957,10 +960,12 @@ static void clientThread()
 
 					}
 
+					dbglog( "[child] Path %s is deleted.\n", dirPath );
+
 					//Send an ACK
 					ProtocolMessage_Ack_t ackMessage;
 					ackMessage.header.token = MAGIC_TOKEN;
-					ackMessage.header.length = sizeof( message );
+					ackMessage.header.length = sizeof( ackMessage );
 					ackMessage.header.type = PMT_ACK;
 					ackMessage.response = 1;
 

@@ -20,7 +20,7 @@
    <enum>Qt::NoContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>ApolloExplorer Scanner</string>
   </property>
   <property name="windowIcon">
    <iconset resource="icons.qrc">
@@ -83,8 +83,11 @@ QListView::item
 	padding: 10px;
 }</string>
   </property>
-  <property name="unifiedTitleAndToolBarOnMac">
+  <property name="documentMode">
    <bool>false</bool>
+  </property>
+  <property name="unifiedTitleAndToolBarOnMac">
+   <bool>true</bool>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">

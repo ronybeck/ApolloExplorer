@@ -91,7 +91,11 @@ DISTFILES += \
     icons/Computer_MacOS.png \
     icons/directory.png \
     icons/file.png \
-    icons/go-up.png
+    icons/go-up.png \
+    icons/refresh.png \
+    icons/VampireHW.png \
+    icons/IcedrakeHW.png \
+    icons/FirebirdHW.png
 
 RESOURCES += \
     Fonts.qrc \
