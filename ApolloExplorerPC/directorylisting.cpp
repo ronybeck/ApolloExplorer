@@ -5,7 +5,7 @@
 #include <QtEndian>
 #include <algorithm>
 
-
+#define DEBUG 1
 #include "AEUtils.h"
 
 
@@ -22,7 +22,7 @@ DirectoryListing::DirectoryListing(QObject *parent) :
 
 DirectoryListing::~DirectoryListing()
 {
-    DBGLOG << "Deleting point " << this;
+    //DBGLOG << "Deleting point " << this;
     if( m_Icon )    delete m_Icon;
     m_Icon = nullptr;
 }
@@ -47,14 +47,12 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
         entry->type = qFromBigEndian<quint32>( entry->type );
         entry->entrySize = qFromBigEndian<quint32>( entry->entrySize );
         QString convertedName = convertFromAmigaTextEncoding( entry->filename );
-        //qDebug() << "Converted text: " << entry->filename << " -----> " << convertedName;
         QFileInfo fileInfo( convertedName );
 
-#if 0
+#if 1
         //Debug
-        qDebug() << "New Entry";
+        qDebug() << "New Entry " << index;
         qDebug() << "Filename: " << static_cast<char*>( entry->filename );
-        //qDebug() << "Filename Length: " << entry->filenameLength;
         qDebug() << "File type: " << QByteArray( entry->type, 4).toHex();
         qDebug() << "File size: " << entry->size;
         qDebug() << "EntrySize: " << entry->entrySize;
@@ -97,35 +95,11 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
 
         //Store the resulting entry in our list
         QSharedPointer<DirectoryListing> newEntry( dirList );
-#if 1
         m_Entries.push_back( newEntry );
-#else
-        if( m_Entries.empty())
-        {
-            m_Entries.push_back( newEntry );
-        }else
-        {
-            int listSize = m_Entries.size();
-            bool inserted = false;
-            for( int i=0; i < listSize; i++ )
-            {
-                //Get the next entry in the list
-                QSharedPointer<DirectoryListing> nextEntry = m_Entries[ i ];
 
-                //Is this name before our name?
-                if( newEntry->Name() <= nextEntry->Name() )
-                {
-                    m_Entries.insert( i, newEntry );
-                    inserted = true;
-                    break;
-                }
-            }
-
-            //If we didn't get to insert it then we need to push it to the back
-            if( !inserted)  m_Entries.push_back( newEntry );
-        }
-#endif
         //Calculate the pointer for the next entry
+        DBGLOG << "Entry Size: " << entry->entrySize;
+        DBGLOG << "Entry Count: " << m_Entries.size();
         entry = reinterpret_cast<ProtocolMessage_DirEntry_t*>( ((char*)entry) + entry->entrySize );
     }
 }

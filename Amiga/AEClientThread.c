@@ -5,7 +5,7 @@
  *      Author: rony
  */
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #include <stdio.h>
@@ -513,17 +513,17 @@ static void clientThread()
 			//Is it time to refresh the drive list yet?
 			if( driveRefreshCounter-- == 0 )
 			{
-				dbglog( "[child] Refreshing the list of volumes.\n" );
-				ProtocolMessage_VolumeList_t *volumeListMessage = getVolumeList();
-				if( volumeListMessage == NULL )
-				{
-					dbglog( "[child] Unknown error in retreiving the list of volumes.\n" );
-					return;
-				}
+				// dbglog( "[child] Refreshing the list of volumes.\n" );
+				// ProtocolMessage_VolumeList_t *volumeListMessage = getVolumeList();
+				// if( volumeListMessage == NULL )
+				// {
+				// 	dbglog( "[child] Unknown error in retreiving the list of volumes.\n" );
+				// 	return;
+				// }
 
-				//Send the list
-				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)volumeListMessage );
-				FreeVec( volumeListMessage );
+				// //Send the list
+				// sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)volumeListMessage );
+				// FreeVec( volumeListMessage );
 
 				//Reset the count
 				driveRefreshCounter = 1000;
@@ -703,7 +703,16 @@ static void clientThread()
 				{
 					bytesAvailable = 0;
 					dbglog( "[child] Sending the next chunk %d of %d.\n", nextFileChunk->chunkNumber, numberOfChunks );
-					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)nextFileChunk );
+					bytesSent = sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)nextFileChunk );
+					if( bytesSent < 0 )
+					{
+						dbglog( "[child] error sending file chunk (error %d).  Abondoning connection.\n", bytesSent )
+						{
+							cleanupFileReceive();
+							keepThisConnectionRunning = FALSE;
+							break;
+						}
+					}
 
 					//Check for an incoming message (e.g. an abort request)
 					IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
@@ -750,11 +759,22 @@ static void clientThread()
 				dbglog( "[child] It seems file '%s' can be uploaded.\n", filePath );
 
 				//Now we expect the startoffilesend message
+				IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
+				int retries = 50;
+				while( bytesAvailable < sizeof( ProtocolMessage_t ) && retries > 0 )
+				{
+					dbglog( "[child] Waiting for start-of-file-send message (retries remaining %d)\n", retries );
+					retries--;
+					Delay( 5 );
+					IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
+				}
+
 				dbglog( "[child] Now just waiting for the start-of-filesend message.\n" );
 				if( getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH ) < sizeof( ProtocolMessage_StartOfFileSend_t ) ||
 						message->type != PMT_START_OF_SEND_FILE )
 				{
 					dbglog( "[child] Expected a Start-of-Filesend message.  But that didn't arrive.  Aborting.\n" );
+					dbglog( "[child] Token 0x%08x Type 0x%08x Length %04u\n", message->token, message->type, message->length );
 					cleanupFileReceive();
 					break;
 				}

@@ -152,6 +152,8 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 			dbglog( "[getVolumeList] ================================================================\n" );
 		}
 
+		dbglog( "[getVolumeList] There are %d volumes listed.\n", vlistMessage->volumeCount );
+
 		//Get the next from the dosList
 		dosList = NextDosEntry( dosList, LDF_VOLUMES );
 	}

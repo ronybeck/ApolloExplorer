@@ -8,7 +8,7 @@
 #include "DirectoryList.h"
 
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #if DBGOUT
@@ -93,7 +93,7 @@ static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameB
 					break;
 			}
 			*filenameBufferLen += (unsigned int)strlen( (char*)currentEntry->ed_Name );
-			dbglog( "Found file '%s'.\n", (char*)currentEntry->ed_Name );
+			//dbglog( "Found file '%s'.\n", (char*)currentEntry->ed_Name );
 			currentEntry = currentEntry->ed_Next;
 		}
 	}while( more );
@@ -209,7 +209,7 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 		more = ExAll( dirLock, buffer, bufferLen, ED_COMMENT, control );
 		if ((!more) && (IoErr() != ERROR_NO_MORE_ENTRIES))
 		{
-			dbglog( "[getDirectoryList] No more entries.\n" );
+			//dbglog( "[getDirectoryList] No more entries.\n" );
 			break;
 		}
 		if( control->eac_Entries == 0 )	continue;
@@ -218,35 +218,31 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 		currentEntry = buffer;
 		while( currentEntry )
 		{
-			dbglog( "[getDirectoryList] Found " );
+			//dbglog( "[getDirectoryList] Found " );
 			switch( currentEntry->ed_Type )
 			{
 				case ST_FILE:
-					dbglog( "file " );
-					directoryListSize++;
+					//dbglog( "file " );
 					entry->type = DET_FILE;
 					break;
 				case ST_USERDIR:
-					dbglog( "dir " );
-					directoryListSize++;
+					//dbglog( "dir " );
 					entry->type = DET_USERDIR;
 					break;
 				case ST_ROOT:
-					dbglog( "root " );
-					directoryListSize++;
+					//dbglog( "root " );
 					entry->type = DET_ROOT;
 					break;
 				case ST_SOFTLINK:
-					dbglog( "softlink " );
-					directoryListSize++;
+					//dbglog( "softlink " );
 					entry->type = DET_SOFTLINK;
 					break;
 				default:
-					dbglog( "unknown type " );
+					//dbglog( "unknown type " );
 					break;
 			}
 
-			dbglog( "[getDirectoryList] '%s' which is %ld bytes in size.\n", currentEntry->ed_Name, currentEntry->ed_Size );
+			//dbglog( "[getDirectoryList] '%s' which is %ld bytes in size.\n", currentEntry->ed_Name, currentEntry->ed_Size );
 
 			//Now add this as an entry in our list message
 			//entry->filenameLength = strlen( currentEntry->ed_Name );
@@ -259,24 +255,19 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 			entry->size = currentEntry->ed_Size;
 			strncpy( entry->filename, currentEntry->ed_Name, strlen( (const char *)currentEntry->ed_Name ) + 1 );
 			entry->filename[ strlen( currentEntry->ed_Name ) ] = 0;	//Make sure we get the terminating NULL there
-			dbglog( "[getDirectoryList] entry->filename: %s\n", entry->filename );
-			dbglog( "[getDirectoryList] entry->entrySize: %d\n", entry->entrySize );
-			//dbglog( "[getDirectoryList] dirListMsg->header.token: 0x%08x\n", dirListMsg->header.token );
-
 
 			//Now let's move onto the next one
+			dbglog( "[getDirectoryList] name: %30s entrySize: %03d entryAdr 0x%08x ", entry->filename, entry->entrySize, (unsigned int)entry  );
 			entry = (ProtocolMessage_DirEntry_t*)((char*)entry + entry->entrySize );
-			dbglog( "[getDirectoryList] Next entry address: 0x%08x\n", (unsigned int)entry );
+			dbglog( "NxEntryAdr 0x%08x\n", (unsigned int)entry );
 			currentEntry = currentEntry->ed_Next;
 		}
 	}while( more );
 	FreeDosObject( DOS_EXALLCONTROL, control );
 	FreeVec( buffer );
+	UnLock( dirLock );
 
 	dbglog( "[getDirectoryList] There are %d entries in '%s'.\n", directoryListSize, path );
-	dbglog( "[getDirectoryList] Unlocking directory.\n" );
-	UnLock( dirLock );
-	dbglog( "[getDirectoryList] Directory unlocked.\n" );
 	dbglog( "[getDirectoryList] Returning directory listing message of size %d bytes.\n", messageSize );
 
 

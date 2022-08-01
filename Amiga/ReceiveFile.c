@@ -7,7 +7,7 @@
 
 #include "ReceiveFile.h"
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #if DBGOUT
@@ -77,13 +77,12 @@ void putStartOfFileReceive( ProtocolMessage_StartOfFileSend_t *startOfFilesendMe
 	g_TotalChunks = startOfFilesendMessage->numberOfFileChunks;
 	g_FileSize = startOfFilesendMessage->fileSize;
 
-	dbglog( "[putStartOfFileReceive] The file contains %d chunks and is %d bytes in size.\n", g_TotalChunks, g_FileSize );
+	dbglog( "[putStartOfFileReceive] The file contains %lu chunks and is %lu bytes in size.\n", g_TotalChunks, g_FileSize );
 }
 
 int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 {
-	dbglog( "[putNextFileSendChunk] filechunk number: %d\n", fileChunkMessage->chunkNumber );
-	dbglog( "[putNextFileSendChunk] filechunk bytesContained: %d\n", fileChunkMessage->bytesContained );
+	dbglog( "[putNextFileSendChunk] filechunk number: %d bytesContained: %d\n", fileChunkMessage->chunkNumber, fileChunkMessage->bytesContained );
 
 	//Now check that we really have bytes to write
 	if( fileChunkMessage->bytesContained == 0 )
@@ -98,8 +97,9 @@ int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 	g_CurrentChunk = fileChunkMessage->chunkNumber;
 
 	//Write the contents to the disk
-	dbglog( "[putNextFileSendChunk] Got file chunk %d.  Writing to file.\n", g_CurrentChunk );
-	Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );
+	LONG bytesWriten = 0;
+	bytesWriten = Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );
+	dbglog( "[putNextFileSendChunk] Wrote %ld bytes to file.\n", bytesWriten );
 
 	//If this is the last chunk, close the file
 	if( g_CurrentChunk == ( g_TotalChunks - 1 ) )
@@ -110,7 +110,7 @@ int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 	}
 
 	//We should return the number of chunks we are still expecting
-	dbglog( "[putNextFileSendChunk] Current chunk %d.  Total chunks %d.  Chunks remaining %d\n", g_CurrentChunk, g_TotalChunks, g_TotalChunks - g_CurrentChunk -1 );
+	dbglog( "[putNextFileSendChunk] Current chunk %lu.  Total chunks %lu.  Chunks remaining %lu\n", g_CurrentChunk, g_TotalChunks, g_TotalChunks - g_CurrentChunk -1 );
 	return g_TotalChunks - g_CurrentChunk -1;
 }
 

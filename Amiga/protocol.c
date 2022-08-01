@@ -31,14 +31,7 @@
 
 int sendMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage_t *message )
 {
-	dbglog( "[sendMessage] Sending message 0x%08x with size %d bytes.\n", (unsigned int)message, message->length );
-	dbglog( "[sendMessage] Message token: 0x%08x\n", message->token );
-	dbglog( "[sendMessage] Message type: 0x%08x\n", message->type );
-	dbglog( "[sendMessage] Message length: %d\n", message->length );
-
-	unsigned int bytesLeftToSend = message->length;
-	int bytesSent = 0;
-	int bytesSentSoFar = 0;
+	dbglog( "[sendMessage] Message: token 0x%08x type 0x%08x length %d address 0x%08x\n", message->token, message->type, message->length, (unsigned int)message );
 
 	//Sanity check
 	if( message == NULL )
@@ -66,9 +59,18 @@ int sendMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessag
 	}
 
 	//start sending the data
+	unsigned int bytesLeftToSend = message->length;
+	int bytesSent = 0;
+	int bytesSentSoFar = 0;
+	int chunkSize=512;
+	int bytesToSend=0;
+	char *sendBufferPosition = (char*)message;
 	while( bytesLeftToSend > 0 )
 	{
-		bytesSent = send( clientSocket, message + bytesSentSoFar, bytesLeftToSend, 0 );
+		bytesToSend = chunkSize < bytesLeftToSend ? chunkSize : bytesLeftToSend;
+		bytesSent = send( clientSocket, sendBufferPosition, bytesToSend, 0 );
+		sendBufferPosition += bytesSent;
+		dbglog( "[sendMessage] Sent %d of %d bytes from address 0x%08x.\r", bytesSent, message->length, (unsigned int)sendBufferPosition );
 		if( bytesSent < 0 )
 		{
 			dbglog( "[sendMessage] Socket error on socket %d while sending.  Only %d bytes sent.\n", clientSocket, bytesSentSoFar );
@@ -79,37 +81,35 @@ int sendMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessag
 		bytesSentSoFar += bytesSent;
 		bytesLeftToSend -= bytesSent;
 	}
-
+	dbglog( "[sendMessage] Sent %d of %d bytes.\n", bytesSentSoFar, message->length );
 	return bytesSentSoFar;
 }
 
 
 int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage_t *message, unsigned int maxMessageLength )
 {
-	dbglog( "getMessage( socket(%d) 0x%08x, %d)\n", clientSocket, (unsigned int)message, maxMessageLength );
-	int totalBytesReceived = 0;
-	int bytesReceived = 0;
 	int retries = 50;
-	int totalBytesLeftToRead = 0;
+	int bytesReceived = 0;
+	int totalBytesReceived = 0;
 
 	//Clear out the message
 	memset( message, 0, sizeof( ProtocolMessage_t ) );
 
 	//First get the magic token
-	dbglog( "[getMessage] Waiting on magic token bytes.\n" );
+	//dbglog( "[getMessage] Waiting on magic token bytes.\n" );
 	LONG bytesAvailable = 0;
 	while( retries > 0 )
 	{
 		IoctlSocket( clientSocket,FIONREAD ,&bytesAvailable );
 		if( bytesAvailable < sizeof( ProtocolMessage_t ) )
 		{
-			Delay( 1 );
+			//Delay( 1 );
 			retries--;
 			continue;
 		}
 
 		dbglog( "[getMessage] Reading next bytes (up to %ld ) from socket.\n", bytesAvailable );
-		bytesReceived = recv( clientSocket, &message->token, sizeof( ProtocolMessage_t ), MSG_WAITALL );
+		bytesReceived = recv( clientSocket, &message->token, sizeof( ProtocolMessage_t ), 0 );
 		if( bytesReceived < sizeof( ProtocolMessage_t ) )
 		{
 			dbglog( "[getMessage] Failed to read all of the message header.\n" );
@@ -119,9 +119,7 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 			break;
 		}
 	}
-	dbglog( "[getMessage] Got message Token 0x%08x.\n", message->token );
-	dbglog( "[getMessage] Got message Type 0x%08x.\n", message->type );
-	dbglog( "[getMessage] Got message Length %d.\n", message->length );
+	dbglog( "[getMessage] Got message: Token 0x%08x   Type 0x%08x    Length %d.\n", message->token, message->type, message->length );
 
 	//Did we fail to read any bytes?
 	if( bytesReceived < sizeof( ProtocolMessage_t ) )
@@ -136,7 +134,7 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 		dbglog( "[getMessage] Didn't get magic token.\n" );
 		return MAGIC_TOKEN_MISSING;
 	}
-	totalBytesReceived += bytesReceived;
+	totalBytesReceived = bytesReceived;
 
 	//sanity check
 	if( message->type >= PMT_INVALID )
@@ -145,20 +143,23 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 		return INVALID_MESSAGE_SIZE;
 
 	//Keep pulling bytes until we are done or there is an error
-	totalBytesLeftToRead = message->length - totalBytesReceived;
+	int totalBytesLeftToRead = message->length - totalBytesReceived;
 	ULONG bytesToRead = 0;
-	ULONG readChunkSize = 4096;
+	ULONG readChunkSize = 512;
+	char *receiveBufferPosition = (char*)message + totalBytesReceived;
 	while( totalBytesLeftToRead > 0 )
  	{
-		dbglog( "[getMessage] %d bytes left of %d to read.\n", totalBytesLeftToRead, message->length );
 		bytesToRead = readChunkSize < totalBytesLeftToRead ? readChunkSize : totalBytesLeftToRead;
-		bytesReceived = recv( clientSocket, (char*)message + totalBytesReceived, bytesToRead, 0 );
+		dbglog( "[getMessage] Reading up to %04lu of %04d bytes, %04u bytes remaining (Adr: 0x%08x).\r", bytesToRead, totalBytesLeftToRead, message->length, (unsigned int)receiveBufferPosition );
+		bytesReceived = recv( clientSocket, receiveBufferPosition, bytesToRead, MSG_WAITALL );
+		receiveBufferPosition += bytesReceived;
 		if( bytesReceived == -1 )
 			return SOCKET_ERROR;
 
 		totalBytesReceived += bytesReceived;
 		totalBytesLeftToRead -= bytesReceived;
 	}
+	dbglog( "[getMessage] %d bytes of %d to read.\n", totalBytesLeftToRead, message->length );
 	return totalBytesReceived;
 }
 
