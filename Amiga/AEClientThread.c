@@ -469,7 +469,6 @@ static void clientThread()
 	int bytesRead = 0;
 	volatile char keepThisConnectionRunning = 1;
 	LONG bytesAvailable = 0;
-	LONG driveRefreshCounter = 2000;
 	while( keepThisConnectionRunning )
 	{
 		IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
@@ -510,31 +509,9 @@ static void clientThread()
 				}
 			}
 
-			//Is it time to refresh the drive list yet?
-			if( driveRefreshCounter-- == 0 )
-			{
-				// dbglog( "[child] Refreshing the list of volumes.\n" );
-				// ProtocolMessage_VolumeList_t *volumeListMessage = getVolumeList();
-				// if( volumeListMessage == NULL )
-				// {
-				// 	dbglog( "[child] Unknown error in retreiving the list of volumes.\n" );
-				// 	return;
-				// }
-
-				// //Send the list
-				// sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)volumeListMessage );
-				// FreeVec( volumeListMessage );
-
-				//Reset the count
-				driveRefreshCounter = 1000;
-			}
-
 			Delay( 5 );
 			continue;
 		}
-
-		//Reset the count
-		driveRefreshCounter = 1000;
 
 		//Pull in the next message from the socket
 		//dbglog( "[child] Reading next network message.\n" );
@@ -864,7 +841,6 @@ static void clientThread()
 			}
 			case PMT_DELETE_PATH:
 			{
-				driveRefreshCounter = 1000;
 				ProtocolMessage_DeletePath_t *deleteMessage = (ProtocolMessage_DeletePath_t*)message;
 				char dirPath[ MAX_FILEPATH_LENGTH * 2 ] = "";
 				memset( dirPath, 0, sizeof( dirPath ) );

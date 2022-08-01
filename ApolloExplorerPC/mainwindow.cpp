@@ -37,6 +37,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
       m_Volumes( ),
       m_AcknowledgeState( ProtocolHandler::AS_Unknown ),
       m_ReconnectTimer( this ),
+      m_VolumeRefreshTimer( this ),
       m_AmigaHost( amigaHost ),
       m_FileTableView( nullptr ),
       m_FileTableModel( nullptr ),
@@ -149,6 +150,11 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( &m_ReconnectTimer, &QTimer::timeout, this, &MainWindow::onReconnectTimerExpired );
     m_ReconnectTimer.setSingleShot( false );
     m_ReconnectTimer.setInterval( 10000 );
+
+    //Volume Refresh timer
+    connect( &m_VolumeRefreshTimer, &QTimer::timeout, this, &MainWindow::onRefreshVolumesTimerExpired );
+    m_VolumeRefreshTimer.setSingleShot( false );
+    m_VolumeRefreshTimer.start( 10000 );
 
     //Disable the list view
     if( m_ViewType == VIEW_LIST )
@@ -1139,6 +1145,20 @@ void MainWindow::onThroughputTimerExpired()
 void MainWindow::onReconnectTimerExpired()
 {
     this->onConnectButtonReleasedSlot();
+}
+
+void MainWindow::onRefreshVolumesTimerExpired()
+{
+    ProtocolMessage_t *getVolumeList = NewMessage();
+    if( getVolumeList )
+    {
+            //Send the query
+            getVolumeList->token = MAGIC_TOKEN;
+            getVolumeList->type = PMT_GET_VOLUMES;
+            getVolumeList->length = sizeof( ProtocolMessage_t );
+            m_ProtocolHandler.onSendMessageSlot( getVolumeList );
+            FreeMessage( getVolumeList );
+    }
 }
 
 void MainWindow::updateFilebrowser()

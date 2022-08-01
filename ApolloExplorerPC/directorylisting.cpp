@@ -49,7 +49,7 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
         QString convertedName = convertFromAmigaTextEncoding( entry->filename );
         QFileInfo fileInfo( convertedName );
 
-#if 1
+#if 0
         //Debug
         qDebug() << "New Entry " << index;
         qDebug() << "Filename: " << static_cast<char*>( entry->filename );

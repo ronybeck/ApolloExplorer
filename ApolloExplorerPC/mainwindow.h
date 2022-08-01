@@ -95,6 +95,7 @@ public slots:
     //Timer slots
     void onThroughputTimerExpired();
     void onReconnectTimerExpired();
+    void onRefreshVolumesTimerExpired();
 
     //Drag and Drop
     void dragEnterEvent(QDragEnterEvent *e) override;
@@ -131,6 +132,7 @@ private:
     QList<QSharedPointer<DiskVolume>> m_Volumes;
     ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     QTimer m_ReconnectTimer;
+    QTimer m_VolumeRefreshTimer;
     QSharedPointer<AmigaHost> m_AmigaHost;
 
     //Custom Views

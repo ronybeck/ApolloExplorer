@@ -62,7 +62,7 @@ int sendMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessag
 	unsigned int bytesLeftToSend = message->length;
 	int bytesSent = 0;
 	int bytesSentSoFar = 0;
-	int chunkSize=512;
+	int chunkSize=4096;
 	int bytesToSend=0;
 	char *sendBufferPosition = (char*)message;
 	while( bytesLeftToSend > 0 )
@@ -145,7 +145,7 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 	//Keep pulling bytes until we are done or there is an error
 	int totalBytesLeftToRead = message->length - totalBytesReceived;
 	ULONG bytesToRead = 0;
-	ULONG readChunkSize = 512;
+	ULONG readChunkSize = 4096;
 	char *receiveBufferPosition = (char*)message + totalBytesReceived;
 	while( totalBytesLeftToRead > 0 )
  	{

@@ -7,7 +7,7 @@
 
 #include "ReceiveFile.h"
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #ifdef __GNUC__
 #if DBGOUT
@@ -97,7 +97,7 @@ int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 	g_CurrentChunk = fileChunkMessage->chunkNumber;
 
 	//Write the contents to the disk
-	LONG bytesWriten = 0;
+	LONG bytesWriten = 0; (void)bytesWriten;
 	bytesWriten = Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );
 	dbglog( "[putNextFileSendChunk] Wrote %ld bytes to file.\n", bytesWriten );
 
