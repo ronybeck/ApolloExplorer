@@ -5,7 +5,7 @@
  *      Author: rony
  */
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #ifdef __GNUC__
 #include <stdio.h>
@@ -462,6 +462,27 @@ static void clientThread()
 	//Start the listen loop
 	dbglog( "[child] Accepting client connection from handle %d.\n", newClientSocket );
 
+
+	//Get current buffer sizes
+	ULONG sendBufferSize = 0;
+	ULONG receiveBufferSize = 0;
+	ULONG varLen = sizeof( sendBufferSize );
+	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, &varLen );
+	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, &varLen );
+	dbglog( "[child] Buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
+
+	//Set new buffer sizes
+	sendBufferSize = 0x000020000;
+	receiveBufferSize = 0x00020000;
+	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, varLen );
+	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, varLen );
+
+	//Check that they took hold
+	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, &varLen );
+	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, &varLen );
+	dbglog( "[child] Adjusted buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
+
+
 	//Let's reserve some memory for each of the messages
 	ProtocolMessage_t *message = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
 
@@ -679,7 +700,7 @@ static void clientThread()
 				while( ( nextFileChunk = getNextFileSendChunk( filePath ) ) )
 				{
 					bytesAvailable = 0;
-					dbglog( "[child] Sending the next chunk %d of %d.\n", nextFileChunk->chunkNumber, numberOfChunks );
+					dbglog( "[child] Sending the next chunk %d of %d\n", nextFileChunk->chunkNumber, numberOfChunks );
 					bytesSent = sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)nextFileChunk );
 					if( bytesSent < 0 )
 					{
@@ -691,16 +712,25 @@ static void clientThread()
 						}
 					}
 
-					//Check for an incoming message (e.g. an abort request)
-					IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
-					if( bytesAvailable )
+					//Check occassionally for  an abort request
+					if( nextFileChunk->chunkNumber%10 == 0 )
 					{
-						bytesRead = getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH );
-						if( message->type == PMT_CANCEL_OPERATION )
+						dbglog( "[child] Checking for cancel message......" );
+						IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
+						if( bytesAvailable )
 						{
-							dbglog( "[child] SGot a request to abort the file download.  Cleaning up and stopping.\n" );
-							cleanupFileSend();
-							break;
+							bytesRead = getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH );
+							if( message->type == PMT_CANCEL_OPERATION )
+							{
+								dbglog( "found!\n");
+								dbglog( "[child] Got a request to abort the file download.  Cleaning up and stopping.\n" );
+								cleanupFileSend();
+								break;
+							}
+						}
+						else
+						{
+							dbglog( "not found!\n" );
 						}
 					}
 				}
@@ -755,11 +785,9 @@ static void clientThread()
 					cleanupFileReceive();
 					break;
 				}
-				dbglog( "[child] Got the start-of-filesend message.\n" );
+				
 				ProtocolMessage_StartOfFileSend_t *startOfFileSend = ( ProtocolMessage_StartOfFileSend_t* )message;
-				dbglog( "[child] PutStartOfFileReceive address: 0x%08x.\n", (unsigned int)startOfFileSend );
-				dbglog( "[child] PutStartOfFileReceive number of chunks: %d.\n", startOfFileSend->numberOfFileChunks );
-				dbglog( "[child] PutStartOfFileReceive number of filesize: %d.\n", startOfFileSend->fileSize );
+				dbglog( "[child] PutStartOfFileReceive address: 0x%08x ChunkCount %d Filesize %d\n", (unsigned int)startOfFileSend, startOfFileSend->numberOfFileChunks, startOfFileSend->fileSize );
 				putStartOfFileReceive( startOfFileSend );
 
 				//Special Case.  If the file is zero bytes
