@@ -17,6 +17,7 @@ DialogUploadFile::DialogUploadFile(QWidget *parent) :
     ui(new Ui::DialogUploadFile),
     m_UploadThread( this ),
     m_UploadList( ),
+    m_UploadRetryList( ),
     m_CurrentLocalFilePath( "" ),
     m_CurrentRemoteFilePath( "" )
 {
@@ -61,9 +62,14 @@ void DialogUploadFile::disconnectFromhost()
 
 void DialogUploadFile::startUpload(QList<QPair<QString, QString> > files)
 {
+    show();
     //Clear out the old list
     if( !m_UploadList.isEmpty() )
         return; //No new uploads while this one is in progress
+
+    //Set the window title and retry count
+    m_RetryCount = RETRY_COUNT;
+    this->setWindowTitle( "Uploading...." );
 
     //Set the new list
     m_UploadList.append( files );
@@ -74,6 +80,14 @@ void DialogUploadFile::startUpload(QList<QPair<QString, QString> > files)
 
 void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath, QStringList localPaths)
 {
+    if( m_UploadList.size() > 0 )
+        return; //Sorry, but we are already uploading
+
+    //Set the window title and retry count
+    m_RetryCount = RETRY_COUNT;
+    this->setWindowTitle( "Uploading...." );
+
+    show();
     //we need to parse list of local paths and check for directories
     QStringListIterator localPathIter( localPaths );
     QList<QPair<QString,QString>> uploadList;
@@ -212,10 +226,20 @@ void DialogUploadFile::onUploadCompletedSlot()
     //Do we have any files to upload?
     if( m_UploadList.count() == 0 )
     {
-        //We are done
-        hide();
-        emit allFilesUploadedSignal();
-        return;
+        //Should we do the retry list now?
+        if( m_RetryCount>0 && m_UploadRetryList.size() > 0 )
+        {
+            this->setWindowTitle( "Re-sending failed files." );
+            m_UploadList.append( m_UploadRetryList );
+            m_UploadRetryList.clear();
+            m_RetryCount--;
+        }else
+        {
+            //We are done
+            hide();
+            emit allFilesUploadedSignal();
+            return;
+        }
     }
 
     //Show the GUI
@@ -236,13 +260,29 @@ void DialogUploadFile::onUploadCompletedSlot()
     emit startupUploadSignal( m_CurrentLocalFilePath, m_CurrentRemoteFilePath );
 }
 
+void DialogUploadFile::onUploadFailedSlot( UploadThread::UploadFailureType type )
+{
+    //Now we should reschedule the upload
+    m_UploadRetryList.append( QPair<QString,QString>( m_CurrentLocalFilePath, m_CurrentRemoteFilePath ) );
+    DBGLOG << "Adding file " << m_CurrentLocalFilePath << " to the retry list.";
+    onUploadCompletedSlot();
+}
+
 void DialogUploadFile::onAbortedSlot( QString reason )
 {
+
+#if 1
+    m_UploadRetryList.append( QPair<QString,QString>(m_CurrentLocalFilePath,m_CurrentRemoteFilePath) );
+    onUploadCompletedSlot();
+#else
     //Clear out our list
     m_UploadList.clear();
 
     QMessageBox errorBox( "Error uploading file", "The local file couldn't be uploaded because: " + reason, QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
     errorBox.exec();
+
+    hide();
+#endif
 }
 
 void DialogUploadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)

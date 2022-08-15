@@ -31,6 +31,7 @@ static BPTR g_FileHandle = (BPTR)NULL;
 static ULONG g_CurrentChunk = 0;
 static ULONG g_TotalChunks = 0;
 static ULONG g_FileSize = 0;
+static unsigned int g_BytesWrittenToFile = 0;
 static char g_FilePath[ MAX_FILEPATH_LENGTH ];
 
 //So we don't waste to much time (re)allocating for messages we will (re)use often, we create them once
@@ -40,6 +41,7 @@ static ProtocolMessage_Ack_t *g_AcknowledgeMessage = NULL;
 ProtocolMessage_Ack_t *requestFileReceive( char *path )
 {
 	dbglog( "[requestFileReceive] We've been asked to recieve file '%s'\n", path );
+	g_BytesWrittenToFile = 0;
 	//If this is the first time we are calling this, then we need to allocate the message
 	if( g_AcknowledgeMessage == NULL )
 	{
@@ -98,20 +100,34 @@ int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 
 	//Write the contents to the disk
 	LONG bytesWriten = 0; (void)bytesWriten;
-	bytesWriten = Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );
-	dbglog( "[putNextFileSendChunk] Wrote %ld bytes to file.\n", bytesWriten );
+	LONG totalBytesWriten = 0;
+	LONG bytesRemaining = fileChunkMessage->bytesContained;
+	while( bytesRemaining > 0 )
+	{
+		bytesWriten = Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );
+		totalBytesWriten += bytesWriten;
+		bytesRemaining -= bytesWriten;
+		g_BytesWrittenToFile += bytesWriten;
+		dbglog( "[putNextFileSendChunk] Wrote %ld bytes to file.\r", totalBytesWriten );
+	}
+	dbglog( "\n" );
 
 	//If this is the last chunk, close the file
 	if( g_CurrentChunk == ( g_TotalChunks - 1 ) )
 	{
 		dbglog( "[putNextFileSendChunk] File '%s' now complete.  Closing.\n", g_FilePath );
-		cleanupFileReceive();
+		//cleanupFileReceive();
 		return 0;
 	}
 
 	//We should return the number of chunks we are still expecting
 	dbglog( "[putNextFileSendChunk] Current chunk %lu.  Total chunks %lu.  Chunks remaining %lu\n", g_CurrentChunk, g_TotalChunks, g_TotalChunks - g_CurrentChunk -1 );
 	return g_TotalChunks - g_CurrentChunk -1;
+}
+
+unsigned int getBytesWritenToFile()
+{
+	return g_BytesWrittenToFile;
 }
 
 void cleanupFileReceive()

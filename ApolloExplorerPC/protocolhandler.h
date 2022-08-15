@@ -56,6 +56,9 @@ public slots:
     void onRenameFileSlot( QString oldPathName, QString newPathName );
     void onSendMessageSlot( ProtocolMessage_t *message );
     void onSendAndReleaseMessageSlot( ProtocolMessage_t *message );
+    void onDeleteFileSlot( QString remotePath );
+    void onDeleteRecursiveSlot( QString remotePath );
+    void onCancelDeleteDirectorySlot();
 
     //Connection slots
     void onConnectedSlot();
@@ -85,6 +88,11 @@ signals:
     void startOfFileSendSignal( quint64 fileSize, quint32 numberOfChunks, QString filename );
     void fileChunkSignal( quint32 chunkNumber, quint32 bytes, QByteArray chunk );
     void volumeListSignal( QList<QSharedPointer<DiskVolume>> volumes );
+    void fileChunkReceivedSignal( quint32 chunkNumber );
+    void fileReceivedSignal( quint32 bytesWrittenToDisk );
+    void fileDeletedSignal( QString path );
+    void fileDeleteFailedSignal( QString path, DeleteFailureReason reasonCode );
+    void recursiveDeletionCompletedSignal();
 
 
     //Requests to the vconnection object

@@ -19,6 +19,7 @@ SOURCES += \
     AEUtils.cpp \
     aeconnection.cpp \
     amigahost.cpp \
+    deletionthread.cpp \
     devicediscovery.cpp \
     dialogconsole.cpp \
     dialogdelete.cpp \
@@ -45,6 +46,7 @@ HEADERS += \
     AEUtils.h \
     aeconnection.h \
     amigahost.h \
+    deletionthread.h \
     devicediscovery.h \
     dialogconsole.h \
     dialogdelete.h \

@@ -13,7 +13,8 @@ ApolloExplorerServer_SRC=	Amiga/ApolloExplorerServerAmiga.c \
 			Amiga/SendFile.c \
 			Amiga/ReceiveFile.c \
 			Amiga/MakeDir.c \
-			Amiga/VolumeList.c
+			Amiga/VolumeList.c \
+			Amiga/DeletePath.c
 ApolloExplorerTool=ApolloExplorerTool
 ApolloExplorerTool_SRC = Amiga/ApolloExplorerTool.c
 

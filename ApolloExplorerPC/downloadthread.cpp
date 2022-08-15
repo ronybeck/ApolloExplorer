@@ -15,7 +15,7 @@
 DownloadThread::DownloadThread(QObject *parent) :
     QThread(parent),
     m_Mutex( QMutex::Recursive ),
-    m_ThroughPutTimer( this ),
+    m_ThroughPutTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
     m_Connected( false ),
     m_FileToDownload( false ),
@@ -31,12 +31,6 @@ DownloadThread::DownloadThread(QObject *parent) :
     m_BytesReceivedThisSecond( 0 ),
     m_ThroughPut( 0 )
 {
-    //Setup the throughput timer
-    m_ThroughPutTimer.setInterval( 1000 );
-    m_ThroughPutTimer.setSingleShot( false );
-    m_ThroughPutTimer.start();
-
-    connect( &m_ThroughPutTimer, &QTimer::timeout, this, &DownloadThread::onThroughputTimerExpiredSlot );
 }
 
 void DownloadThread::run()
@@ -60,6 +54,15 @@ void DownloadThread::run()
     connect( this, &DownloadThread::disconnectFromHostSignal, m_ProtocolHandler, &ProtocolHandler::onDisconnectFromHostRequestedSlot );
     connect( this, &DownloadThread::getRemoteDirectorySignal, m_ProtocolHandler, &ProtocolHandler::onGetDirectorySlot );
 
+    //Setup the throughput timer
+    m_ThroughPutTimer = new QTimer();
+    m_ThroughPutTimer->setTimerType( Qt::PreciseTimer );
+    m_ThroughPutTimer->setInterval( 1000 );
+    m_ThroughPutTimer->setSingleShot( false );
+    m_ThroughPutTimer->start();
+
+    connect( m_ThroughPutTimer, &QTimer::timeout, this, &DownloadThread::onThroughputTimerExpiredSlot );
+
     //Start the loop thread
     UNLOCK;
     while( 1 )
@@ -82,6 +85,8 @@ void DownloadThread::run()
 
     //cleanup
     RELOCK;
+    delete m_ThroughPutTimer;
+    m_ThroughPutTimer = nullptr;
     delete m_ProtocolHandler;
     m_ProtocolHandler = nullptr;
 }

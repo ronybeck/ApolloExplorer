@@ -17,13 +17,25 @@ class UploadThread : public QThread
 {
     Q_OBJECT
 
+private:
     typedef enum
     {
         JT_NONE,
         JT_UPLOAD,
+        JT_UPLOAD_INIT,
+        JT_UPLOAD_WAIT_ACK,
         JT_MKDIR,
         JT_UNKNOWN
     } JobType;
+
+public:
+    typedef enum
+    {
+        UF_NONE,
+        UF_SIZE_MISMATCH,
+        UF_CHECKSUM_MISMATCH,
+        UF_UNKNOWN
+    } UploadFailureType;
 
 
 public:
@@ -38,6 +50,8 @@ public slots:
     void onDisconnectFromHostRequestedSlot();
     void onStartFileSlot( QString localFilePath, QString remoteFilePath );
     void onCancelUploadSlot();
+    void onFileChunkReceivedSlot( quint32 chunkNumber );
+    void onFilePutConfirmedSlot( quint32 sizeWritten );
 
     //Internally used slots
     void onConnectedToHostSlot();
@@ -52,6 +66,7 @@ private:
 
 signals:
     void uploadCompletedSignal();
+    void uploadFailedSignal( UploadFailureType failure );
     void uploadProgressSignal( quint8 percentPercent, quint64 progressBytes, quint64 thoughput );
     void outgoingBytesSignal( quint32 bytesSent );
     void disconnectedFromServerSignal();
@@ -67,7 +82,7 @@ signals:
 
 private:
     QMutex m_Mutex;
-    QTimer m_ThroughPutTimer;
+    QTimer *m_ThroughPutTimer;
     ProtocolHandler *m_ProtocolHandler;
     ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     bool m_Connected;
@@ -84,6 +99,8 @@ private:
     QAtomicInteger<quint64> m_BytesSentThisSecond;
     QAtomicInteger<quint64> m_BytesReceivedThisSecond;
     QAtomicInteger<quint64> m_ThroughPut;
+    QList<quint32> m_InflightChunks;
+    quint32 m_MaxInflightChunks;
 };
 
 #endif // UPLOADTHREAD_H

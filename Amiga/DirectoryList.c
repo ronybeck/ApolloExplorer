@@ -28,78 +28,39 @@
 
 static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameBufferLen  )
 {
+	LONG returnCode = 0;
+	struct AnchorPath *ap = NULL;
 	unsigned int directoryListSize = 0;
 	*filenameBufferLen = 0;
 	dbglog( "[getDirectoryNumberOfEntries] Getting directory list for path %s.\n", path );
 
-	BPTR dirLock = 0;
-	struct FileInfoBlock fileInfoBlock;
-
-	//Let's see if we don't already have this directory
-	dirLock = Lock( path, ACCESS_READ );
-	if( !dirLock )
+	//Get the entries in this path
+	ap = AllocVec( sizeof( *ap ) + MAX_FILEPATH_LENGTH * 3, MEMF_FAST|MEMF_CLEAR );
+	ap->ap_Strlen = MAX_FILEPATH_LENGTH;
+	returnCode = MatchFirst( path, ap );
+	if( returnCode )
 	{
-		//This directory doesn't exist.  Send back an empty answer
-		dbglog( "[getDirectoryNumberOfEntries] The directory %s doesn't exist?\n", path );
-		return 0;
+		dbglog( "[getDirectoryNumberOfEntries] We couldn't find any files in path %s.\n", path );
+		MatchEnd(ap);
+    	FreeVec(ap);
+		return directoryListSize;
 	}
-
-	//Is this a directory?
-	if( !Examine( dirLock, &fileInfoBlock ) || fileInfoBlock.fib_DirEntryType < 1 )
+	ap->ap_Flags |= APF_DODIR;
+	returnCode = MatchNext( ap );
+	while( returnCode == 0 )
 	{
-		UnLock( dirLock );
-		dbglog( "[getDirectoryNumberOfEntries]The path '%s' is not a directory.", path );
-
-		return 0;
-	}
-
-	//Create an ExAllControl Object
-	struct ExAllControl *control = AllocDosObject(DOS_EXALLCONTROL,NULL);
-	if( !control )
-	{
-		UnLock( dirLock );
-		dbglog( "[getDirectoryNumberOfEntries] Unable to create a ExAllControl object.\n" );
-		return 0;
-	}
-
-	//Iterate through the entries until we are the end
-	ULONG bufferLen =  sizeof( struct ExAllData ) * 5;
-	struct ExAllData *buffer = AllocVec( bufferLen, MEMF_FAST|MEMF_CLEAR );
-	struct ExAllData *currentEntry = NULL;
-	BOOL more;
-	control->eac_LastKey = 0;
-	do
-	{
-		more = ExAll( dirLock, buffer, bufferLen, ED_COMMENT, control );
-		if ((!more) && (IoErr() != ERROR_NO_MORE_ENTRIES))
+		if( strlen( ap->ap_Info.fib_FileName ) > 0 && strcmp( path, ap->ap_Buf ) )
 		{
-			break;
+			dbglog( "[getDirectoryNumberOfEntries] Found file: %s.\n", ap->ap_Info.fib_FileName );
+			directoryListSize++;
+			*filenameBufferLen += strlen( ap->ap_Info.fib_FileName );
 		}
-		if( control->eac_Entries == 0 )	continue;
-
-		//Go through the current batch of entries
-		currentEntry = buffer;
-		while( currentEntry )
-		{
-			switch( currentEntry->ed_Type )
-			{
-				case ST_FILE:
-				case ST_USERDIR:
-				case ST_ROOT:
-				case ST_SOFTLINK:
-					directoryListSize++;
-					break;
-				default:
-					break;
-			}
-			*filenameBufferLen += (unsigned int)strlen( (char*)currentEntry->ed_Name );
-			//dbglog( "Found file '%s'.\n", (char*)currentEntry->ed_Name );
-			currentEntry = currentEntry->ed_Next;
-		}
-	}while( more );
-	FreeDosObject( DOS_EXALLCONTROL, control );
-	FreeVec( buffer );
-	UnLock( dirLock );
+		ap->ap_BreakBits = 0;
+		ap->ap_Flags = 0;
+		returnCode = MatchNext( ap );
+	}
+	MatchEnd(ap);
+    FreeVec(ap);
 
 	//Return our result
 	dbglog( "[getDirectoryNumberOfEntries] There are %d entries in '%s' and a buffer of %d bytes is needed for the names.\n", directoryListSize, path, *filenameBufferLen );
@@ -109,16 +70,16 @@ static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameB
 
 ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 {
-	BPTR dirLock = 0;
-	struct FileInfoBlock fileInfoBlock;
 	ProtocolMessageDirectoryList_t *dirListMsg= NULL;
 	unsigned int directoryListSize = 0;
 	unsigned int filenameBufferSize = 0;
 	char *currentPositionInMessage = 0;
 	char *endOfMessageMemory = 0;
 	unsigned int sizeOfCurrentMessage = 0;
+	LONG returnCode = 0;
+	struct AnchorPath *ap = NULL;
 
-	dbglog( "[getDirectoryList] Getting directory list for path %s.\n", path );
+	//dbglog( "[getDirectoryList] Getting directory list for path %s.\n", path );
 
 	//get the number of entries
 	directoryListSize = getDirectoryNumberOfEntries( path, &filenameBufferSize );
@@ -126,147 +87,83 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 
 	//The first entry we want to have contains the path we requested.  So increase our counts accordingly
 	directoryListSize++;
-	filenameBufferSize+=strlen( path ) + 1;
+	filenameBufferSize+=strlen( path );
 
 	//Allocate memory for the message
 	size_t messageSize = sizeof( ProtocolMessageDirectoryList_t ) + (sizeof( ProtocolMessage_DirEntry_t ) * directoryListSize ) + filenameBufferSize;
 	dirListMsg = ( ProtocolMessageDirectoryList_t* )AllocVec( messageSize, MEMF_FAST|MEMF_CLEAR );
 	endOfMessageMemory = ((char*)dirListMsg) + messageSize;
-	//dbglog( "[getDirectoryList] dirListMsg: 0x%08x\n", dirListMsg );
-	//dbglog( "[getDirectoryList] dirListMsg size: %d bytes\n", messageSize );
+	dbglog( "[getDirectoryList] dirListMsg: 0x%08x\n", (unsigned int)dirListMsg );
+	dbglog( "[getDirectoryList] dirListMsg size: %d bytes\n", messageSize );
 
 
 	//Let's set what we already know into the message
 	dirListMsg->header.token = MAGIC_TOKEN;
 	dirListMsg->header.type = PMT_DIR_LIST;
 	dirListMsg->header.length = messageSize;
-	dirListMsg->entryCount = directoryListSize;
+	dirListMsg->entryCount = 1;
 	currentPositionInMessage = (char*)&dirListMsg->entries[ 0 ];
-
-	//If the directory is empty, we can exit here
-	if( directoryListSize == 0 )
-	{
-		dbglog( "[getDirectoryList] Directory '%s' is empty.\n", path );
-		return dirListMsg;
-	}
 
 	//Set the starting memory pointer for our entries
 	ProtocolMessage_DirEntry_t *entry = (ProtocolMessage_DirEntry_t*)currentPositionInMessage;
 
 	//Let's create the first message for our current directory
 	entry->entrySize = sizeof( ProtocolMessage_DirEntry_t ) + strlen( path );
-	//entry->filenameLength = strlen( path ) + 1;
-	strncpy( entry->filename, path, strlen( path ) + 1 );
+	strncpy( entry->filename, path, strlen( path ) );
 	entry->size = 0;
-	entry->type = 0;
-	dbglog( "[getDirectoryList] entry->filename: %s\n", entry->filename );
-	dbglog( "[getDirectoryList] entry->entrySize: %d\n", entry->entrySize );
+	entry->type = DET_USERDIR;
+	dbglog( "[getDirectoryList] entry->filename: %-30s entry->entrySize: %9u\n", entry->filename, entry->entrySize );
 
 	//Now set the pointer for the next message
 	entry = (ProtocolMessage_DirEntry_t*)((char*)entry + entry->entrySize );
-	dbglog( "[getDirectoryList] entry address: 0x%08x\n", (unsigned int)entry );
-
-	//Let's see if we don't already have this directory
-	dirLock = Lock( path, ACCESS_READ );
-	if( !dirLock )
-	{
-		//This directory doesn't exist.  Send back an empty answer
-		dbglog( "[getDirectoryList] The directory %s doesn't exist?\n", path );
-		return dirListMsg;
-	}
-
-	//Is this a directory?
-	if( !Examine( dirLock, &fileInfoBlock ) || fileInfoBlock.fib_DirEntryType < 1 )
-	{
-		UnLock( dirLock );
-		dbglog( "[getDirectoryList]The path '%s' is not a directory.", path );
-
-		return dirListMsg;
-	}
-
-	//Create an ExAllControl Object
-	struct ExAllControl *control = AllocDosObject(DOS_EXALLCONTROL,NULL);
-	//char *matchString = "#?";
-	if( !control )
-	{
-		UnLock( dirLock );
-		dbglog( "[getDirectoryList] Unable to create a ExAllControl object.\n" );
-		return 0;
-	}
-
+	dbglog( "[getDirectoryList] Next entry address: 0x%08x\n", (unsigned int)entry );
 
 
 	//Iterate through the entries until we are the end
-	ULONG bufferLen =  sizeof( struct ExAllData ) * 5;
 	dbglog( "[getDirectoryList] Opening directory %s to scan\n", path );
-	struct ExAllData *buffer = AllocVec( bufferLen, MEMF_FAST|MEMF_CLEAR );
-	struct ExAllData *currentEntry = NULL;
-	//int debugLimit=20;
-	control->eac_LastKey = 0;
-	BOOL more;
-	do
+
+	ap = AllocVec( sizeof( *ap ) + MAX_FILEPATH_LENGTH * 3, MEMF_FAST|MEMF_CLEAR );
+	ap->ap_Strlen = MAX_FILEPATH_LENGTH;
+	returnCode = MatchFirst( path, ap );
+	if( returnCode )
 	{
-		more = ExAll( dirLock, buffer, bufferLen, ED_COMMENT, control );
-		if ((!more) && (IoErr() != ERROR_NO_MORE_ENTRIES))
+		dbglog( "[getDirectoryList] We couldn't find any files in path %s.\n", path );
+		FreeVec( dirListMsg );
+		FreeVec( ap );
+		return NULL;
+	}
+	ap->ap_Flags |= APF_DODIR;
+	returnCode = MatchNext( ap );
+	while( returnCode == 0 )
+	{
+		if( strlen( ap->ap_Info.fib_FileName ) > 0 && strcmp( path, ap->ap_Buf ) )
 		{
-			//dbglog( "[getDirectoryList] No more entries.\n" );
-			break;
-		}
-		if( control->eac_Entries == 0 )	continue;
-
-		//Go through the current batch of entries
-		currentEntry = buffer;
-		while( currentEntry )
-		{
-			//dbglog( "[getDirectoryList] Found " );
-			switch( currentEntry->ed_Type )
-			{
-				case ST_FILE:
-					//dbglog( "file " );
-					entry->type = DET_FILE;
-					break;
-				case ST_USERDIR:
-					//dbglog( "dir " );
-					entry->type = DET_USERDIR;
-					break;
-				case ST_ROOT:
-					//dbglog( "root " );
-					entry->type = DET_ROOT;
-					break;
-				case ST_SOFTLINK:
-					//dbglog( "softlink " );
-					entry->type = DET_SOFTLINK;
-					break;
-				default:
-					//dbglog( "unknown type " );
-					break;
-			}
-
-			//dbglog( "[getDirectoryList] '%s' which is %ld bytes in size.\n", currentEntry->ed_Name, currentEntry->ed_Size );
-
 			//Now add this as an entry in our list message
-			//entry->filenameLength = strlen( currentEntry->ed_Name );
-			entry->entrySize = sizeOfCurrentMessage = (unsigned int)sizeof( ProtocolMessage_DirEntry_t ) + strlen( currentEntry->ed_Name );	//Note: because of the char[1] member of the ProtocolMessage_DirEntry_t we don't need an extra byte for the'\0'
+			entry->size = ap->ap_Info.fib_Size;
+			entry->type = ap->ap_Info.fib_EntryType;
+			strncpy( entry->filename, ap->ap_Info.fib_FileName, strlen( (const char *)ap->ap_Info.fib_FileName ) );
+			entry->entrySize = sizeOfCurrentMessage = sizeof( ProtocolMessage_DirEntry_t ) + strlen( entry->filename );	//Note: because of the char[1] member of the ProtocolMessage_DirEntry_t we don't need an extra byte for the'\0'
 			if( ((char*)entry) + sizeOfCurrentMessage > endOfMessageMemory )
 			{
 				dbglog( "[getDirectoryList] Trying to write past end of message by %d ", (((char*)entry) + sizeOfCurrentMessage) - endOfMessageMemory );
 				break;
 			}
-			entry->size = currentEntry->ed_Size;
-			strncpy( entry->filename, currentEntry->ed_Name, strlen( (const char *)currentEntry->ed_Name ) + 1 );
-			entry->filename[ strlen( currentEntry->ed_Name ) ] = 0;	//Make sure we get the terminating NULL there
+
+			//Increase the entry count
+			dirListMsg->entryCount++;
 
 			//Now let's move onto the next one
-			dbglog( "[getDirectoryList] name: %30s entrySize: %03d entryAdr 0x%08x ", entry->filename, entry->entrySize, (unsigned int)entry  );
+			dbglog( "[getDirectoryList] name: %-30s entrySize: %03d entryAdr 0x%08x ", entry->filename, entry->entrySize, (unsigned int)entry  );
 			entry = (ProtocolMessage_DirEntry_t*)((char*)entry + entry->entrySize );
 			dbglog( "NxEntryAdr 0x%08x\n", (unsigned int)entry );
-			currentEntry = currentEntry->ed_Next;
 		}
-	}while( more );
-	FreeDosObject( DOS_EXALLCONTROL, control );
-	FreeVec( buffer );
-	UnLock( dirLock );
-
+		ap->ap_BreakBits = 0;
+		ap->ap_Flags = 0;
+		returnCode = MatchNext( ap );
+	}
+	MatchEnd( ap );
+	FreeVec( ap );
+	
 	dbglog( "[getDirectoryList] There are %d entries in '%s'.\n", directoryListSize, path );
 	dbglog( "[getDirectoryList] Returning directory listing message of size %d bytes.\n", messageSize );
 

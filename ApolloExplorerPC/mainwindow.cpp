@@ -127,9 +127,9 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
 
     //Deletion dialog
     connect( &m_DialogDelete, &DialogDelete::cancelDeletionSignal, this, &MainWindow::onAbortDeletionRequestedSlot );
+    connect( &m_DialogDelete, &DialogDelete::deletionCompletedSignal, this, &MainWindow::onRefreshButtonReleasedSlot );
     connect( this, &MainWindow::currentFileBeingDeleted, &m_DialogDelete, &DialogDelete::onCurrentFileBeingDeletedSlot );
     connect( this, &MainWindow::deletionCompletedSignal, &m_DialogDelete, &DialogDelete::onDeletionCompleteSlot );
-
 
     //Context Menu
     //ui->listWidgetBrowser->addAction( &m_OpenCLIHereAction );
@@ -743,6 +743,9 @@ void MainWindow::onDeleteSlot()
 //Replace this here for icon mode
     }
 
+#if 1
+    m_DialogDelete.onDeleteRemotePathsSlot( directoryListing );
+#else
     //Go through each of the selected
     QListIterator<QSharedPointer<DirectoryListing>> entryIter( directoryListing );
     while( entryIter.hasNext() )
@@ -764,7 +767,6 @@ void MainWindow::onDeleteSlot()
         if( directoryEntry->Type() == DET_USERDIR )
         {
             //Update the deletion dialog
-            emit currentFileBeingDeleted( directoryEntry->Path() );
             QApplication::processEvents();
 
             //Clear out and delete this directory
@@ -778,9 +780,9 @@ void MainWindow::onDeleteSlot()
                 return;
             }
 
-            //Now delete this directory
-            //emit deleteRemoteDirectorySignal( remoteDirPath );
+            //Now delete this directory            
             QString errorMessage;
+            emit currentFileBeingDeleted( directoryEntry->Path() );
             if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
             {
                 qDebug() << "Failed to delete path " << directoryEntry->Path();
@@ -825,6 +827,7 @@ void MainWindow::onDeleteSlot()
 
     //Hide the delete dialog
     m_DialogDelete.hide();
+#endif
 }
 
 void MainWindow::onRenameSlot()
@@ -1002,6 +1005,9 @@ void MainWindow::onConnectedToHostSlot()
     //Connect the upload agent
     m_DialogUploadFile->connectToHost( serverAddress, port );
 
+    //Connect the delete agent
+    m_DialogDelete.connectToHost( serverAddress, port );
+
     //Enable the gui
     ui->listWidgetFileBrowser->setEnabled( true );
     m_FileTableView->setEnabled( true );
@@ -1034,6 +1040,7 @@ void MainWindow::onDisconnectedFromHostSlot()
     //Disconnect our upload and download dialogs
     m_DialogDownloadFile->disconnectFromhost();
     m_DialogUploadFile->disconnectFromhost();
+    m_DialogDelete.disconnectFromhost();
 
     //Grey out the gui
     ui->listWidgetFileBrowser->setEnabled( false );
@@ -1044,8 +1051,8 @@ void MainWindow::onDisconnectedFromHostSlot()
 
 void MainWindow::onServerClosedConnectionSlot(QString message)
 {
-    QMessageBox errorBox( QMessageBox::Critical, "Server disconnected.", "The server disconnected with reason: " + message, QMessageBox::Ok );
-    errorBox.exec();
+    //QMessageBox errorBox( QMessageBox::Critical, "Server disconnected.", "The server disconnected with reason: " + message, QMessageBox::Ok );
+    //errorBox.exec();
     onDisconnectedFromHostSlot();
 }
 
@@ -1136,6 +1143,14 @@ void MainWindow::onThroughputTimerExpired()
     //Update the counters in the gui
     ui->labelUploadSpeed->setText( "Upload: " + QString::number( m_OutgoingByteCount/1024 ) + "kB/s" );
     ui->labelDownloadSpeed->setText( "Download: " + QString::number( m_IncomingByteCount/1024 ) + "kB/s" );
+
+    //If we have throughput, then the host is alive.
+    //But sometimes the uploads block the heartbeat.
+    //So lets refresh the alive timer
+    if( m_IncomingByteCount > 0 || m_OutgoingByteCount > 0 )
+    {
+        m_AmigaHost->setHostRespondedNow();
+    }
 
     //Clear the counters
     m_IncomingByteCount = 0;

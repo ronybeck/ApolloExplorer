@@ -55,17 +55,20 @@ void DiskVolume::generatePixmap()
 
     //Now the bar indicating disk usage
     quint32 percentFull = 0;
-    if( m_NumBlocksUsed > 0 ) percentFull = m_NumBlocksUsed * 100 / m_NumBlocks;
+    if( m_NumBlocksUsed > 0 ) percentFull = (quint64)m_NumBlocksUsed * (qint64)100 / (quint64)m_NumBlocks;
     painter.drawPixmap( 6,0, diskImage );
     QPainterPath path;
-    QPen redPen( Qt::red );
-    QPen blackPen( Qt::black );
+    QPen barFillPen( Qt::darkGray );
+    QPen barBoarderPen( 0xff181818 );
+    QPen textPen( Qt::white );
     path.addRect( QRect( 0, 60, percentFull, 20 ) );
-    painter.setPen( redPen );
-    painter.fillPath( path, Qt::red );
-    painter.setPen( blackPen );
+    painter.setPen( barFillPen );
+    painter.fillPath( path, barFillPen.color() );
+    painter.setPen( barBoarderPen );
     painter.drawRect( 0, 60, 99, 20 );
-    //painter.drawText( 5, 75, prettyFileSize( getSizeInBytes(), false ) + "/" + prettyFileSize( getUsedInBytes() ) );
-    painter.drawText( 35, 75, QString::number( percentFull ) + "%" );
+    painter.drawRect( 1, 61, 97, 18 );
+    painter.setPen( textPen );
+    painter.setFont( QFont(":/comfortaa", 12, QFont::DemiBold) );
+    painter.drawText( 35, 77, QString::number( percentFull ) + "%" );
     m_PixMap = QPixmap::fromImage( image );
 }

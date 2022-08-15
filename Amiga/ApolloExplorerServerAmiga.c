@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 
 				//Give the clients time to remove themselves from the client list
 				dbglog( "[master] Giving clients time to remove themselves from the client list.\n" );
-				Delay( 100 );
+				Delay( 10 );
 
 				//Send a reply to the caller
 				dbglog( "[master] Acknowledging the caller's shutdown request.\n" );
@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
 
 	shutdown:
 	dbglog( "[master] Shutting down.\n" );
-	Delay( 100 );
+	Delay( 10 );
 
 	//Clear out and then free the message port
 	dbglog( "[master] Removing message port.\n" );

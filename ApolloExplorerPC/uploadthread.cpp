@@ -14,7 +14,7 @@
 UploadThread::UploadThread(QObject *parent) :
     QThread(parent),
     m_Mutex( QMutex::Recursive ),
-    m_ThroughPutTimer( this ),
+    m_ThroughPutTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
     m_Connected( false ),
     m_FileToUpload( false ),
@@ -29,14 +29,11 @@ UploadThread::UploadThread(QObject *parent) :
     m_CurrentChunk( 0 ),
     m_BytesSentThisSecond( 0 ),
     m_BytesReceivedThisSecond( 0 ),
-    m_ThroughPut( 0 )
+    m_ThroughPut( 0 ),
+    m_InflightChunks(),
+    m_MaxInflightChunks( 5 )
 {
-    //Setup the throughput timer
-    m_ThroughPutTimer.setInterval( 1000 );
-    m_ThroughPutTimer.setSingleShot( false );
-    m_ThroughPutTimer.start();
 
-    connect( &m_ThroughPutTimer, &QTimer::timeout, this, &UploadThread::onThroughputTimerExpiredSlot );
 }
 
 void UploadThread::run()
@@ -45,6 +42,15 @@ void UploadThread::run()
     //Create our protocol handler
     m_ProtocolHandler = new ProtocolHandler();
 
+    //Setup the throughput timer
+    m_ThroughPutTimer = new QTimer();
+    m_ThroughPutTimer->setTimerType( Qt::PreciseTimer );
+    m_ThroughPutTimer->setInterval( 1000 );
+    m_ThroughPutTimer->setSingleShot( false );
+    m_ThroughPutTimer->start();
+
+    connect( m_ThroughPutTimer, &QTimer::timeout, this, &UploadThread::onThroughputTimerExpiredSlot );
+
     //Connect our protocol handler
     connect( m_ProtocolHandler, &ProtocolHandler::disconnectFromHostSignal, this, &UploadThread::onDisconnectedFromHostSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::connectToHostSignal, this, &UploadThread::onConnectedToHostSlot );
@@ -52,6 +58,8 @@ void UploadThread::run()
     connect( m_ProtocolHandler, &ProtocolHandler::outgoingByteCountSignal, this, &UploadThread::onOutgoingBytesUpdateSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::outgoingByteCountSignal, this, &UploadThread::outgoingBytesSignal );
     connect( m_ProtocolHandler, &ProtocolHandler::incomingByteCountSignal, this, &UploadThread::onIncomingBytesUpdateSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::fileChunkReceivedSignal, this, &UploadThread::onFileChunkReceivedSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::fileReceivedSignal, this, &UploadThread::onFilePutConfirmedSlot );
     connect( this, &UploadThread::sendMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendMessageSlot );
     connect( this, &UploadThread::sendAndReleaseMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendAndReleaseMessageSlot );
     connect( this, &UploadThread::connectToHostSignal, m_ProtocolHandler, &ProtocolHandler::onConnectToHostRequestedSlot );
@@ -86,10 +94,12 @@ void UploadThread::run()
         ProtocolMessage_FileChunk_t *nextFileChunk = AllocMessage< ProtocolMessage_FileChunk_t >();
         Q_ASSERT( nextFileChunk != nullptr );
 
-        while( m_CurrentChunk < m_FileChunks )
+        while( m_CurrentChunk < m_FileChunks && m_JobType == JT_UPLOAD )
         {
-            RELOCK;
+            QThread::yieldCurrentThread();
+            QThread::msleep( 10 );
 
+            RELOCK;
             //Check again that an interruption isn't requested
             if( this->isInterruptionRequested() )
             {
@@ -102,8 +112,6 @@ void UploadThread::run()
             if( !m_Connected )
             {
                 UNLOCK;
-                QThread::yieldCurrentThread();
-                QThread::msleep( 10 );
                 continue;
             }
 
@@ -114,59 +122,70 @@ void UploadThread::run()
                 //The file has prematurely closed or some sort of error?
                 qDebug() << "UploadThread: The file was suddenly closed.";
                 emit abortedSignal( "The local file was suddenly closed." );
-                break;;
+                break;
             }
 
-            //Setup the next chunk file
-            quint32 bytesRead = m_LocalFile.read( nextFileChunk->chunk, FILE_CHUNK_SIZE );
-            nextFileChunk->header.token = MAGIC_TOKEN;
-            nextFileChunk->header.type = PMT_FILE_CHUNK;
-            nextFileChunk->header.length = sizeof( ProtocolMessage_FileChunk_t );
-            nextFileChunk->bytesContained = qToBigEndian<quint32>( bytesRead );
-            nextFileChunk->chunkNumber = qToBigEndian<quint32>( m_CurrentChunk++ );
-            m_ProtocolHandler->sendMessage( nextFileChunk );
+            //If there aren't already too many inflight file chunks, send another.
+            if( m_InflightChunks.size() < m_MaxInflightChunks )
+            {
+                //Send the next file chunk
+                m_InflightChunks.append( m_CurrentChunk );
+                quint32 bytesRead = m_LocalFile.read( nextFileChunk->chunk, FILE_CHUNK_SIZE );
+                quint32 messageSize = sizeof( *nextFileChunk );
+                if( bytesRead < FILE_CHUNK_SIZE )
+                {
+                    messageSize -= FILE_CHUNK_SIZE - bytesRead;
+                }
+                nextFileChunk->header.token = MAGIC_TOKEN;
+                nextFileChunk->header.type = PMT_FILE_CHUNK;
+                nextFileChunk->header.length = messageSize;
+                nextFileChunk->bytesContained = qToBigEndian<quint32>( bytesRead );
+                nextFileChunk->chunkNumber = qToBigEndian<quint32>( m_CurrentChunk++ );
+                m_ProtocolHandler->sendMessage( nextFileChunk );
+                UNLOCK;
+
+                //Calculate the statistics
+                m_ProgressBytes += bytesRead;
+                m_ProgressProcent = m_FileSize > 0 ? ( m_ProgressBytes * 100 / m_FileSize ) : 100;
+
+                //Emit progress
+                emit uploadProgressSignal( m_ProgressProcent, m_ProgressBytes, m_ThroughPut );
+            }
+
 
             //Process events
             QApplication::processEvents();
-
-            //Calculate the statistics
-            m_ProgressBytes += bytesRead;
-            m_ProgressProcent = m_FileSize > 0 ? ( m_ProgressBytes * 100 / m_FileSize ) : 100;
-
-            //Emit progress
-            emit uploadProgressSignal( m_ProgressProcent, m_ProgressBytes, m_ThroughPut );
-
-            UNLOCK;
-            QThread::yieldCurrentThread();
-            QThread::msleep( 10 );
         }
-
-        //Signal completion
-        qDebug() << "UploadThread: Upload completed.";
-        emit uploadCompletedSignal();
-
 
         //Cleanup
         ReleaseMessage( nextFileChunk );
-        cleanup();
+        //cleanup();
 
         //Reset
         QThread::yieldCurrentThread();
-        QThread::msleep( 10 );
+        QThread::msleep( 50 );
     }
 
     //cleanup
     RELOCK;
+    m_ThroughPutTimer->stop();
+    delete m_ThroughPutTimer;
     delete m_ProtocolHandler;
+    m_ThroughPutTimer = nullptr;
     m_ProtocolHandler = nullptr;
 }
 
 bool UploadThread::createDirectory( QString remotePath )
 {
+    LOCK;
+    //Are we already doing something else?
+    if( m_JobType == JT_UPLOAD )
+        return false;
+
     //Create the remote directory first
     m_AcknowledgeState = ProtocolHandler::AS_Unknown;
-
     m_JobType = JT_MKDIR;
+    UNLOCK;
 
     //Wait on the reply with a timeout
     QTimer timer;
@@ -221,7 +240,8 @@ void UploadThread::onStartFileSlot( QString localFilePath, QString remoteFilePat
     }
 
     //Set the job type
-    m_JobType = JT_UPLOAD;
+    m_JobType = JT_UPLOAD_INIT;
+    m_InflightChunks.clear();
 
     //Open the file in question
     m_LocalFilePath = localFilePath;
@@ -293,9 +313,33 @@ void UploadThread::onCancelUploadSlot()
     cleanup();
 }
 
-void UploadThread::onConnectedToHostSlot()
+void UploadThread::onFileChunkReceivedSlot(quint32 chunkNumber)
 {
     LOCK;
+    DBGLOG << "Inflight chunk count: " << m_InflightChunks.count();
+    if( m_InflightChunks.contains( chunkNumber ) )
+    {
+        DBGLOG << m_InflightChunks.removeOne( chunkNumber ) << " removed";
+    }
+}
+
+void UploadThread::onFilePutConfirmedSlot(quint32 sizeWritten)
+{
+    if( sizeWritten != m_FileSize )
+    {
+        DBGLOG << "File uploaded but the size is wrong!  Recieved size " << sizeWritten << " expected " << m_FileSize;
+        cleanup();
+        emit uploadFailedSignal( UF_SIZE_MISMATCH );
+    }else
+    {
+        //Confirm the upload
+        cleanup();
+        emit uploadCompletedSignal();
+    }
+}
+
+void UploadThread::onConnectedToHostSlot()
+{
     m_Connected = true;
     qDebug() << "Uploadthread connected to server.";
     emit connectedToServerSignal();
@@ -303,7 +347,6 @@ void UploadThread::onConnectedToHostSlot()
 
 void UploadThread::onDisconnectedFromHostSlot()
 {
-    LOCK;
     m_Connected = false;
     qDebug() << "Uploadthread disconnected to server.";
     emit disconnectedFromServerSignal();
@@ -311,13 +354,11 @@ void UploadThread::onDisconnectedFromHostSlot()
 
 void UploadThread::onIncomingBytesUpdateSlot(quint32 bytes)
 {
-    LOCK;
     m_BytesReceivedThisSecond += bytes;
 }
 
 void UploadThread::onOutgoingBytesUpdateSlot(quint32 bytes)
 {
-    LOCK;
     m_BytesSentThisSecond += bytes;
 }
 
@@ -339,39 +380,43 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
         break;
     }
 
-    //If we are not uploading a file, there is nothing more to do
-    if( m_JobType != JT_UPLOAD ) return;
-
-    if( responseCode == 0 )
+    //If the server cancels the upload for some reason
+    if( m_JobType == JT_UPLOAD || m_JobType == JT_UPLOAD_INIT || m_JobType == JT_UPLOAD_WAIT_ACK )
     {
-        //TODO: Should this set m_FileToUpload to false?
-        qDebug() << "File could not be uploaded.  Error code " << responseCode;
-        emit abortedSignal( "Upload rejected by server." );
+        if( responseCode == 0 )
+        {
+            cleanup();
+            qDebug() << "File could not be uploaded.  Error code " << responseCode;
+            emit abortedSignal( "Upload rejected by server." );
+            return;
+        }
+    }
+
+    if( m_JobType == JT_UPLOAD_INIT )
+    {
+        //Send the start of file send request
+        ProtocolMessage_StartOfFileSend_t *startOfFileSendMessage = AllocMessage<ProtocolMessage_StartOfFileSend_t>();
+        startOfFileSendMessage->header.token = MAGIC_TOKEN;
+        startOfFileSendMessage->header.type = PMT_START_OF_SEND_FILE;
+        startOfFileSendMessage->header.length = sizeof( ProtocolMessage_StartOfFileSend_t ) + m_RemoteFilePath.length() + 1;
+        strncpy( startOfFileSendMessage->filePath, m_RemoteFilePath.toStdString().c_str(), m_RemoteFilePath.length() + 1 );
+        startOfFileSendMessage->fileSize = qToBigEndian<quint32>( m_FileSize );
+        startOfFileSendMessage->numberOfFileChunks = qToBigEndian<quint32>( m_FileChunks );
+        m_JobType = JT_UPLOAD_WAIT_ACK;
+        m_FileToUpload = true;
+        emit sendAndReleaseMessageSignal( reinterpret_cast<ProtocolMessage_t*>( startOfFileSendMessage ) );
         return;
     }
 
-    //Ignore possitive acknowledtements if we are already uploading
-    if( m_FileToUpload && responseCode == 1 )
-        return;
-
-    //Send the start of file send request
-    ProtocolMessage_StartOfFileSend_t *startOfFileSendMessage = AllocMessage<ProtocolMessage_StartOfFileSend_t>();
-    startOfFileSendMessage->header.token = MAGIC_TOKEN;
-    startOfFileSendMessage->header.type = PMT_START_OF_SEND_FILE;
-    startOfFileSendMessage->header.length = sizeof( ProtocolMessage_StartOfFileSend_t ) + m_RemoteFilePath.length() + 1;
-    strncpy( startOfFileSendMessage->filePath, m_RemoteFilePath.toStdString().c_str(), m_RemoteFilePath.length() + 1 );
-    startOfFileSendMessage->fileSize = qToBigEndian<quint32>( m_FileSize );
-    startOfFileSendMessage->numberOfFileChunks = qToBigEndian<quint32>( m_FileChunks );
-    //m_ProtocolHandler->sendMessage( startOfFileSendMessage );
-    //ReleaseMessage( startOfFileSendMessage );
-    emit sendAndReleaseMessageSignal( reinterpret_cast<ProtocolMessage_t*>( startOfFileSendMessage ) );
-
-    m_FileToUpload = true;
+    if( m_JobType == JT_UPLOAD_WAIT_ACK )
+    {
+        //Now we are ready to start sending file chunks
+        m_JobType = JT_UPLOAD;
+    }
 }
 
 void UploadThread::onThroughputTimerExpiredSlot()
 {
-    LOCK;
     m_ThroughPut = m_BytesSentThisSecond;
     m_BytesSentThisSecond = 0;
     //qDebug() << "Throughput: " << m_ThroughPut;

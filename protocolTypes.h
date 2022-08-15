@@ -10,7 +10,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0
-#define VERSION_REVISION 9
+#define VERSION_REVISION 10
 #define MAIN_LISTEN_PORTNUMBER 30302
 #define BROADCAST_PORTNUMBER 30301
 
@@ -52,6 +52,9 @@ typedef enum
 	PMT_GET_VOLUMES			= 0x00000019,
 	PMT_VOLUME_LIST			= 0x0000001A,
 	PMT_RENAME_FILE			= 0x0000001B,
+	PMT_FILE_CHUNK_CONF		= 0x0000001C,
+	PMT_FILE_PUT_CONF		= 0x0000001D,
+	PMT_PATH_DELETED		= 0x0000001E,
 
 	//Device Discovery
 	PMT_DEVICE_DISCOVERY	= 0x00000020,
@@ -171,14 +174,49 @@ typedef struct
 typedef struct
 {
 	ProtocolMessage_t header;
+	unsigned int chunkNumber;
+} ProtocolMessage_FileChunkConfirm_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	unsigned int chunkCount;
+	unsigned int filesize;
+	unsigned int checksum;
+} ProtocolMessage_FilePutConfirm_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
 	char filePath[1];
 } ProtocolMessage_MakeDir_t;
 
 typedef struct
 {
 	ProtocolMessage_t header;
+    unsigned int entryType;
 	char filePath[1];
 } ProtocolMessage_DeletePath_t;
+
+typedef enum
+{
+	DFR_NONE = 0x00,
+	DFR_FILE_IN_USE = 0x01,
+	DFR_PATH_NOT_FOUND = 0x02,
+	DFR_OPERATION_ALREADY_UNDERWAY = 0x03,
+	DFR_INVALID_PATH = 0x04,
+	DFR_UNKNOWN = 0x05
+} DeleteFailureReason;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	char deleteSucceeded;	//0 = no.  1 = yes
+	char deleteCompleted;	//0 = no.  1 = yes.  Only used for recursive deletion
+	DeleteFailureReason failureReason;
+	char padding;
+	char filePath[1];
+} ProtocolMessage_PathDeleted_t;
 
 typedef struct
 {

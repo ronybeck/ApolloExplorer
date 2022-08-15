@@ -16,6 +16,8 @@ void putStartOfFileReceive( ProtocolMessage_StartOfFileSend_t *startOfFilesendMe
 
 int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage );
 
+unsigned int getBytesWritenToFile();
+
 void cleanupFileReceive();
 
 #endif /* AMIGA_RECEIVEFILE_H_ */

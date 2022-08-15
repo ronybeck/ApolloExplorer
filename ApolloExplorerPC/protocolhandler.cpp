@@ -58,6 +58,43 @@ void ProtocolHandler::onSendAndReleaseMessageSlot( ProtocolMessage_t *message )
     ReleaseMessage( message );
 }
 
+void ProtocolHandler::onDeleteFileSlot(QString remotePath)
+{
+    //Form the file deletion message
+    ProtocolMessage_DeletePath_t *deleteMessage = AllocMessage<ProtocolMessage_DeletePath_t>();
+    deleteMessage->header.type = PMT_DELETE_PATH;
+    deleteMessage->header.token = MAGIC_TOKEN;
+    deleteMessage->header.length = sizeof( *deleteMessage ) + remotePath.size();
+    deleteMessage->entryType = qToBigEndian( (unsigned int)DET_FILE );
+    memset( deleteMessage->filePath, 0, MAX_FILEPATH_LENGTH );
+    convertFromUTF8ToAmigaTextEncoding( remotePath, deleteMessage->filePath, remotePath.length() );
+
+    //Send the message
+    m_AEConnection.sendMessage( deleteMessage );
+    ReleaseMessage( deleteMessage );
+}
+
+void ProtocolHandler::onDeleteRecursiveSlot(QString remotePath)
+{
+    //Form the file deletion message
+    ProtocolMessage_DeletePath_t *deleteMessage = AllocMessage<ProtocolMessage_DeletePath_t>();
+    deleteMessage->header.type = PMT_DELETE_PATH;
+    deleteMessage->header.token = MAGIC_TOKEN;
+    deleteMessage->header.length = sizeof( *deleteMessage ) + remotePath.size();
+    deleteMessage->entryType = qToBigEndian( (unsigned int)DET_USERDIR );
+    memset( deleteMessage->filePath, 0, MAX_FILEPATH_LENGTH );
+    convertFromUTF8ToAmigaTextEncoding( remotePath, deleteMessage->filePath, remotePath.length() );
+
+    //Send the message
+    m_AEConnection.sendMessage( deleteMessage );
+    ReleaseMessage( deleteMessage );
+}
+
+void ProtocolHandler::onCancelDeleteDirectorySlot()
+{
+    //TODO:
+}
+
 void ProtocolHandler::onRunCMDSlot(QString command, QString workingDirectroy)
 {
     Q_UNUSED( workingDirectroy )
@@ -336,6 +373,28 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             emit fileChunkSignal( chunkNumber, bytes, chunk );
             break;
         }
+        case PMT_FILE_CHUNK_CONF:
+        {
+            ProtocolMessage_FileChunkConfirm_t *fileChunkConfMsg = reinterpret_cast<ProtocolMessage_FileChunkConfirm_t*>( newMessage );
+
+            //Extract the info out of the message
+            quint32 chunkNumber = qFromBigEndian<quint32>( fileChunkConfMsg->chunkNumber );
+
+            //Emit the file chunk
+            emit fileChunkReceivedSignal( chunkNumber );
+            break;
+        }
+        case PMT_FILE_PUT_CONF:
+        {
+            ProtocolMessage_FilePutConfirm_t *filePutConfMsg = reinterpret_cast<ProtocolMessage_FilePutConfirm_t*>( newMessage );
+
+            //Extract the info out of the message
+            quint32 bytesWritten = qFromBigEndian<quint32>( filePutConfMsg->filesize );
+
+            //Emit the file chunk
+            emit fileReceivedSignal( bytesWritten );
+            break;
+        }
         case PMT_VOLUME_LIST:
         {
             ProtocolMessage_VolumeList_t *volumeListMessage = reinterpret_cast<ProtocolMessage_VolumeList_t*>( newMessage );
@@ -362,6 +421,26 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             //Send out the result
             emit volumeListSignal( volumes );
 
+            break;
+        }
+        case  PMT_PATH_DELETED:
+        {
+            ProtocolMessage_PathDeleted_t *pathDelMsg = reinterpret_cast<ProtocolMessage_PathDeleted_t*>( newMessage );
+            QString path = convertFromAmigaTextEncoding( pathDelMsg->filePath );
+            DBGLOG << "File " << path << " deleted " << ( pathDelMsg->deleteSucceeded == 1 ? "successfully" : "unsuccessfully" ) << ".";
+            if( pathDelMsg->deleteSucceeded == 1 )
+            {
+                if( pathDelMsg->deleteCompleted == 1 )
+                {
+                    emit recursiveDeletionCompletedSignal();
+                }else
+                {
+                    emit fileDeletedSignal( path );
+                }
+            }else
+            {
+                emit fileDeleteFailedSignal( path, pathDelMsg->failureReason );
+            }
             break;
         }
         case PMT_CLOSING:

@@ -10,6 +10,8 @@
 
 #include <uploadthread.h>
 
+#define RETRY_COUNT 2
+
 namespace Ui {
 class DialogUploadFile;
 }
@@ -38,6 +40,7 @@ public slots:
     void onConnectedToHostSlot();
     void onDisconnectedFromHostSlot();
     void onUploadCompletedSlot();
+    void onUploadFailedSlot( UploadThread::UploadFailureType type );
     void onAbortedSlot( QString reason );
     void onProgressUpdate( quint8 procent, quint64 bytes, quint64 throughput );
 
@@ -51,6 +54,8 @@ private:
     Ui::DialogUploadFile *ui;
     UploadThread m_UploadThread;
     QList<QPair<QString, QString>> m_UploadList;
+    QList<QPair<QString, QString>> m_UploadRetryList;
+    quint32 m_RetryCount;
     QString m_CurrentLocalFilePath;
     QString m_CurrentRemoteFilePath;
 };

@@ -32,6 +32,7 @@
 #include "ReceiveFile.h"
 #include "MakeDir.h"
 #include "VolumeList.h"
+#include "DeletePath.h"
 
 
 extern char g_KeepServerRunning;
@@ -471,9 +472,9 @@ static void clientThread()
 	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, &varLen );
 	dbglog( "[child] Buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
 
-	//Set new buffer sizes
-	sendBufferSize = 0x000020000;
-	receiveBufferSize = 0x00020000;
+	//Set new buffer sizes (but unaligned with the largest message size to see if it helps the stall)
+	sendBufferSize = 0x000031000;
+	receiveBufferSize = 0x00031000;
 	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, varLen );
 	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, varLen );
 
@@ -744,6 +745,25 @@ static void clientThread()
 			}
 			case PMT_PUT_FILE:
 			{
+
+				ProtocolMessage_Ack_t ackMessage;
+				ackMessage.header.length = sizeof( ackMessage );
+				ackMessage.header.token = MAGIC_TOKEN;
+				ackMessage.header.type = PMT_ACK;
+				ackMessage.response = 1;
+				
+
+				ProtocolMessage_FileChunkConfirm_t fileChunkConfMessage;
+				fileChunkConfMessage.header.length = sizeof( fileChunkConfMessage );
+				fileChunkConfMessage.header.token = MAGIC_TOKEN;
+				fileChunkConfMessage.header.type = PMT_FILE_CHUNK_CONF;
+				fileChunkConfMessage.chunkNumber = 0;
+
+				ProtocolMessage_FilePutConfirm_t filePutConfirm;
+				filePutConfirm.header.length = sizeof( filePutConfirm );
+				filePutConfirm.header.token = MAGIC_TOKEN;
+				filePutConfirm.header.type = PMT_FILE_PUT_CONF;
+
 				dbglog( "[child] Got a PUT_FILE request.\n" );
 				//First we expect the FilePut request
 				ProtocolMessage_FilePut_t *filePutMessage = ( ProtocolMessage_FilePut_t* )message;
@@ -766,22 +786,23 @@ static void clientThread()
 				dbglog( "[child] It seems file '%s' can be uploaded.\n", filePath );
 
 				//Now we expect the startoffilesend message
+				dbglog( "[child] Now just waiting for the start-of-filesend message.\n" );
 				IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
 				int retries = 50;
-				while( bytesAvailable < sizeof( ProtocolMessage_t ) && retries > 0 )
+				while( ( bytesAvailable < sizeof( ProtocolMessage_t ) ) && ( retries > 0 ) )
 				{
 					dbglog( "[child] Waiting for start-of-file-send message (retries remaining %d)\n", retries );
 					retries--;
-					Delay( 5 );
+					Delay( 2 );
 					IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
 				}
 
-				dbglog( "[child] Now just waiting for the start-of-filesend message.\n" );
 				if( getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH ) < sizeof( ProtocolMessage_StartOfFileSend_t ) ||
 						message->type != PMT_START_OF_SEND_FILE )
 				{
 					dbglog( "[child] Expected a Start-of-Filesend message.  But that didn't arrive.  Aborting.\n" );
 					dbglog( "[child] Token 0x%08x Type 0x%08x Length %04u\n", message->token, message->type, message->length );
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
 					cleanupFileReceive();
 					break;
 				}
@@ -798,11 +819,9 @@ static void clientThread()
 					break;
 				}
 
-				ProtocolMessage_Ack_t ackMessage;
-				ackMessage.header.length = sizeof( ackMessage );
-				ackMessage.header.token = MAGIC_TOKEN;
-				ackMessage.header.type = PMT_ACK;
-				ackMessage.response = 1;
+				//Acknowledge that we have the SOF
+				dbglog( "[child] acknowledging start-of-file receive.\n" );
+				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
 
 
 				//Now start pulling the file chunks
@@ -812,23 +831,22 @@ static void clientThread()
 				{
 					//Let's give the client some time to send the next chunk, else we make a timeout
 					LONG bytesAvailable = 0;
-					LONG retryCount = 10;
-					while( bytesAvailable == 0 && retryCount-- > 0 )
+					LONG retryCount = 30;
+					IoctlSocket( newClientSocket, FIONREAD ,&bytesAvailable );
+					while( bytesAvailable < sizeof( ProtocolMessage_t ) && retryCount-- > 0 )
 					{
+						dbglog( "[child] Waiting on client to send bytes...... (waiting %ld)\r", retryCount );
+						Delay( 2 );
 						IoctlSocket( newClientSocket, FIONREAD ,&bytesAvailable );
-						if( bytesAvailable != 0 )
-						{
-							break;
-						}
-						dbglog( "[child] Waiting on client to send bytes...... (waiting %ld)\n", retryCount );
-						Delay( 20 );
 					}
 
 					//Are there some bytes here now?
-					if( bytesAvailable == 0 )
+					if( bytesAvailable < sizeof( ProtocolMessage_t ) )
 					{
 						//So a timeout occurred.  Close the connection and cleanup
 						dbglog( "[child] There was a timeout on recieving file chunks from the client.  Terminating the conection.\n" );
+						ackMessage.response = 0;
+						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
 						cleanupFileReceive();
 						keepThisConnectionRunning = 0;
 						goto exit_child;
@@ -836,7 +854,7 @@ static void clientThread()
 
 					//Get the next file chunk message
 					int bytesReceived = getMessage( SocketBase, newClientSocket, message, MAX_MESSAGE_LENGTH );
-					dbglog( "[child] Got %d bytes waiting for the file chunk.\n", bytesReceived );
+					//dbglog( "[child] Got %d bytes waiting for the file chunk.\n", bytesReceived );
 
 					//Is this a cancel message?
 					if( message->type == PMT_CANCEL_OPERATION )
@@ -847,154 +865,75 @@ static void clientThread()
 					}
 
 					//Invalid message?
-					if(  bytesReceived < sizeof( ProtocolMessage_FileChunk_t ) || message->type != 0x00000011 )
+					if(  bytesReceived < message->length || message->type != 0x00000011 )
 					{
 						dbglog( "[child] Received an invalid message awaiting a file chunk.  Aborting.\n" );
+						filePutConfirm.filesize = getBytesWritenToFile();
+						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&filePutConfirm );	//Send back what we got until now
 						cleanupFileReceive();
 						break;
 					}
 
 					ProtocolMessage_FileChunk_t *fileChunkMessage = ( ProtocolMessage_FileChunk_t* )message;
 					chunksRemaining = putNextFileSendChunk( fileChunkMessage );
-					//sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );	//Send an ack back
-					dbglog( "[child] Got file chunk %d.  Chunks remaining: %d\n", fileChunkMessage->chunkNumber, chunksRemaining );
+					fileChunkConfMessage.chunkNumber = fileChunkMessage->chunkNumber;
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&fileChunkConfMessage );	//Send an ack back
+					dbglog( "[child] Got file chunk %d.  Chunks remaining: %d\r", fileChunkMessage->chunkNumber, chunksRemaining );
 
 				}while( chunksRemaining );
-				cleanupFileReceive();
+
+				//Send the confirmation and cleanup
+				unsigned int bytesWritten = getBytesWritenToFile();
+				filePutConfirm.filesize = bytesWritten;
+				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&filePutConfirm );	//Send back what we got until now
+				dbglog( "\n[child] File receive completed (%u bytes).\n", bytesWritten );
+				
 
 				//We are done
-				dbglog( "[child] File receive completed.\n" );
-				Delay( 2 );
+				cleanupFileReceive();
+				//Delay( 2 );
 				break;
 			}
 			case PMT_DELETE_PATH:
 			{
 				ProtocolMessage_DeletePath_t *deleteMessage = (ProtocolMessage_DeletePath_t*)message;
-				char dirPath[ MAX_FILEPATH_LENGTH * 2 ] = "";
-				memset( dirPath, 0, sizeof( dirPath ) );
-				strncpy( dirPath, deleteMessage->filePath, sizeof( dirPath ) );
-				dbglog( "[child] Requested to delete path: %s\n", dirPath );
+				dbglog( "[child] Deleting path: %s\n", deleteMessage->filePath );
 
-				//Sanity check
-				if( strlen( dirPath ) == 0 || dirPath[ MAX_FILEPATH_LENGTH - 1 ] != 0 )
+				//If we are just deleting a file
+				if( deleteMessage->entryType == DET_FILE )
 				{
-					//Probably this is a corrupt file name
-					dbglog( "[child] Requested to delete path which looks to be corrupt.  Ignoring\n" );
-
-					//Let's inform the client
-					char *errorString = "The file name supplied by the client looks corrupt.";
-					ULONG stringSize = strlen( errorString );
-
-					//Create an error message
-					ProtocolMessage_Failed_t *errorMessage = AllocVec( stringSize, MEMF_FAST|MEMF_CLEAR );
-
-					if( errorMessage == NULL )
-					{
-						//Well this is embarrassing.  No memory allocated.
-						dbglog( "[child] unable to allocate error message for failed delete operation.\n" );
-						break;
-					}
-
-					errorMessage->header.token = MAGIC_TOKEN;
-					errorMessage->header.length = sizeof( *errorMessage ) + stringSize;
-					errorMessage->header.type = PMT_FAILED;
-					snprintf( errorMessage->message, stringSize + 1, "%s", errorString );
-
-					//send the message back to the server
-					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)errorMessage );
-
-					//Free the message
-					FreeVec( errorMessage );
-					break;
+					ProtocolMessage_PathDeleted_t *msg = deleteFile( deleteMessage->filePath );
+					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
+					//dbglog( "[child] Delete of %s was %s", deleteMessage->filePath, msg->deleteSucceeded == 0 ? "unsuccessful" : "successful" );
 				}
-
-				//Peform the delete
-				if( !DeleteFile( dirPath ) )
+				else if( deleteMessage->entryType == DET_USERDIR )
 				{
-					dbglog( "[child] Requested to delete path: %s.  But this was not possible.\n", dirPath );
-
-					//Form an error message and send it to the client
-					char *errorStringStart = "Unable to delete path: ";
-					ULONG stringSize = strlen( errorStringStart ) + strlen( dirPath ) ;
-					ProtocolMessage_Failed_t *errorMessage = AllocVec( stringSize, MEMF_FAST|MEMF_CLEAR );
-
-					if( errorMessage == NULL )
+					if( !startRecursiveDelete( deleteMessage->filePath ) )
 					{
-						//Well this is embarrassing.  No memory allocated.
-						dbglog( "[child] unable to allocate error message for failed delete operation.\n" );
-						break;
+						dbglog( "[child] Recursive delete started.\n" );
+						ProtocolMessage_PathDeleted_t *msg = NULL;
+						while( ( msg = getNextFileDeleted() ) )
+						{
+							//dbglog( "[child] Deleted %s %s\r", msg->filePath, msg->deleteSucceeded == 0 ? "unsuccessfully" : "successfully" );
+							sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
+						}
+						endRecursiveDelete();
+						dbglog( "\n" );
+
+						//Now send completion message
+						msg = getRecusiveDeleteCompletedMessage();
+						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
+						dbglog( "[child] Recursive delete completed.\n" );
+					}else
+					{
+						dbglog( "[child] Failed to start recursive delete of %s\n", deleteMessage->filePath );
+						ProtocolMessage_PathDeleted_t *msg = getDeleteError();
+						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
 					}
 
-					errorMessage->header.token = MAGIC_TOKEN;
-					errorMessage->header.length = sizeof( *errorMessage ) + stringSize;
-					errorMessage->header.type = PMT_FAILED;
-					snprintf( errorMessage->message, stringSize + 1, "%s %s", errorStringStart, dirPath );
-
-					//send the message back to the server
-					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)errorMessage );
-
-					//Free the message
-					FreeVec( errorMessage );
 				}else
 				{
-					dbglog( "[child] Checking if  %s is deleted.\n", dirPath );
-					//Test that the file is gone
-					BPTR fileLock = 1;
-					int retries = 30;
-					while( fileLock != 0 && retries--!=0 )
-					{
-						Delay( 10 );		//Wait a bit.  Perhaps it is done after this wait
-						fileLock = Lock( dirPath, ACCESS_READ );
-						if( fileLock != 0 )
-						{
-							UnLock( fileLock );
-						}
-					}
-
-					//Check that the file was really deleted
-					if( fileLock != 0 )
-					{
-						dbglog( "[child] Path %s is NOT deleted.\n", dirPath );
-
-						//Somehow the delete failed or timedout
-						char *errorString = "Deletion timed-out.";
-						ULONG stringSize = strlen( errorString );
-
-						//Create an error message
-						ProtocolMessage_Failed_t *errorMessage = AllocVec( stringSize, MEMF_FAST|MEMF_CLEAR );
-
-						if( errorMessage == NULL )
-						{
-							//Well this is embarrassing.  No memory allocated.
-							dbglog( "[child] unable to allocate error message for failed delete operation.\n" );
-							break;
-						}
-
-						errorMessage->header.token = MAGIC_TOKEN;
-						errorMessage->header.length = sizeof( *errorMessage ) + stringSize;
-						errorMessage->header.type = PMT_FAILED;
-						snprintf( errorMessage->message, stringSize + 1, "%s", errorString );
-
-						//send the message back to the server
-						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)errorMessage );
-
-						//Free the message
-						FreeVec( errorMessage );
-						break;
-
-					}
-
-					dbglog( "[child] Path %s is deleted.\n", dirPath );
-
-					//Send an ACK
-					ProtocolMessage_Ack_t ackMessage;
-					ackMessage.header.token = MAGIC_TOKEN;
-					ackMessage.header.length = sizeof( ackMessage );
-					ackMessage.header.type = PMT_ACK;
-					ackMessage.response = 1;
-
-					//send the message back to the server
-					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
+					dbglog( "[child] Unknown file type.  Can't delete this.\n" );
 				}
 
 				break;

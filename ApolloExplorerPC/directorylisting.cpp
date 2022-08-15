@@ -98,8 +98,6 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
         m_Entries.push_back( newEntry );
 
         //Calculate the pointer for the next entry
-        DBGLOG << "Entry Size: " << entry->entrySize;
-        DBGLOG << "Entry Count: " << m_Entries.size();
         entry = reinterpret_cast<ProtocolMessage_DirEntry_t*>( ((char*)entry) + entry->entrySize );
     }
 }

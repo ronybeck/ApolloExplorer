@@ -66,7 +66,7 @@ signals:
 
 private:
     QMutex m_Mutex;
-    QTimer m_ThroughPutTimer;
+    QTimer *m_ThroughPutTimer;
     ProtocolHandler *m_ProtocolHandler;
     QSharedPointer<DirectoryListing> m_DirectoryListing;
     bool m_Connected;
