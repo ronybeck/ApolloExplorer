@@ -43,6 +43,8 @@ public:
 
     void run() override final;
 
+    void stopThread();
+
     bool createDirectory( QString remotePath );
 
 public slots:
@@ -99,6 +101,7 @@ private:
     QAtomicInteger<quint64> m_BytesSentThisSecond;
     QAtomicInteger<quint64> m_BytesReceivedThisSecond;
     QAtomicInteger<quint64> m_ThroughPut;
+    QAtomicInteger<bool> m_Keeprunning;
     QList<quint32> m_InflightChunks;
     quint32 m_MaxInflightChunks;
 };

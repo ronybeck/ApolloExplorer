@@ -22,6 +22,8 @@ DialogDelete::DialogDelete(QWidget *parent) :
 
 DialogDelete::~DialogDelete()
 {
+    m_DeletionThread.stopThread();
+    m_DeletionThread.wait();
     delete ui;
 }
 

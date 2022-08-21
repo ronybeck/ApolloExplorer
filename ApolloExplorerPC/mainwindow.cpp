@@ -171,6 +171,13 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
 
 MainWindow::~MainWindow()
 {
+    //Destroy all the dialogs and disconnect
+    m_DialogUploadFile->disconnectFromhost();
+    m_DialogDownloadFile->disconnectFromhost();
+    m_DialogDelete.disconnectFromhost();
+    m_DialogUploadFile->deleteLater();
+    m_DialogDownloadFile->deleteLater();
+
     disconnect( &m_ProtocolHandler, &ProtocolHandler::disconnectedFromHostSignal, this, &MainWindow::onDisconnectedFromHostSlot );
     delete ui;
 }
@@ -1092,7 +1099,7 @@ void MainWindow::onDeviceDiscoveredSlot()
 void MainWindow::onServerVersion(quint8 major, quint8 minor, quint8 revision)
 {
     //Set the version number in the QUI
-    QString version( "Server Version: " + QString::number( major ) + "." + QString::number( minor ) + QString::number( revision ) );
+    QString version( "Server Version: " + QString::number( major ) + "." + QString::number( minor ) + "." + QString::number( revision ) );
     ui->labelServerVersion->setText( version );
 }
 

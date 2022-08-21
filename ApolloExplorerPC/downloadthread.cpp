@@ -65,7 +65,8 @@ void DownloadThread::run()
 
     //Start the loop thread
     UNLOCK;
-    while( 1 )
+    m_Keeprunning = true;
+    while( m_Keeprunning )
     {
         //Process events
         QApplication::processEvents();
@@ -85,10 +86,16 @@ void DownloadThread::run()
 
     //cleanup
     RELOCK;
+    m_ThroughPutTimer->stop();
     delete m_ThroughPutTimer;
     m_ThroughPutTimer = nullptr;
     delete m_ProtocolHandler;
     m_ProtocolHandler = nullptr;
+}
+
+void DownloadThread::stopThread()
+{
+    m_Keeprunning = false;
 }
 
 void DownloadThread::onConnectToHostSlot( QHostAddress host, quint16 port )

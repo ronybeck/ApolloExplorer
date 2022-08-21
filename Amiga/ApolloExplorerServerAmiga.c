@@ -24,16 +24,16 @@ struct Library *SocketBase = NULL;
 
 char g_KeepServerRunning = 1;
 
-char* g_MessagePortName = MASTER_MSGPORT_NAME;
+char* g_MessagePortName __attribute((aligned(4))) = MASTER_MSGPORT_NAME;
 struct MsgPort *g_AEServerMessagePort = NULL;
 
 /*****************************************************************************/
 
 int main(int argc, char *argv[])
 {
-	struct sockaddr_in addr;
+	struct sockaddr_in addr __attribute__((aligned(4)));
 	//SOCKET s = 0;
-	SOCKET serverSocket = 0;
+	SOCKET serverSocket __attribute__((aligned(4))) = 0;
 	int res = 0;
 
 	//We want to do at least a few attempts to start this
@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-#if 1
 	//Set non-blocking on the server socket
 	yes = 1;
 	dbglog( "Setting non-blocking socket options.\n" );
@@ -86,7 +85,6 @@ int main(int argc, char *argv[])
 	{
 		dbglog( "Unable to set non-blocking on the server socket.\n" );
 	}
-#endif
 
 
 	dbglog( "Binding to port %d\n", MAIN_LISTEN_PORTNUMBER );
@@ -111,8 +109,8 @@ int main(int argc, char *argv[])
 
 	//We need to be able to check both the network socket and message port for incoming messages
 	//So we need to setup WaitSelect();
-	fd_set networkReadSet;
-	struct timeval timeOut = { .tv_sec = 1, .tv_usec = 0};	//1s
+	fd_set networkReadSet __attribute__((aligned(4)));
+	struct timeval timeOut __attribute__((aligned(4))) = { .tv_sec = 1, .tv_usec = 0};	//1s
 	FD_ZERO( &networkReadSet );
 	FD_SET( serverSocket, &networkReadSet );
 
@@ -135,6 +133,9 @@ int main(int argc, char *argv[])
 	//Start listening for new connections
 	while( g_KeepServerRunning )
 	{
+		//We don't want 100% CPU usage
+		Delay( 5 );
+
 		//dbglog("Awaiting new connection\n");
 		FD_ZERO( &networkReadSet );
 		FD_SET( serverSocket, &networkReadSet );
@@ -145,7 +146,7 @@ int main(int argc, char *argv[])
 		if( waitRC > 0 )
 		{
 			//Any new client connection?
-			socklen_t addrLen = sizeof( addr );
+			socklen_t addrLen __attribute__((aligned(4))) = sizeof( addr );
 			SOCKET newClientSocket = (SOCKET)accept(serverSocket, (struct sockaddr *)&addr, &addrLen);
 			if( newClientSocket < 0 )
 			{
@@ -211,7 +212,7 @@ int main(int argc, char *argv[])
 											(unsigned int)client->process,
 											ipAddress,
 											client->port );
-					struct AEMessage terminateMessage;
+					struct AEMessage terminateMessage __attribute__((aligned(4)));
 					memset( &terminateMessage, 0, sizeof( terminateMessage ) );
 					terminateMessage.messageType = AEM_KillClient;
 					terminateMessage.msg.mn_ReplyPort = g_AEServerMessagePort;
@@ -300,12 +301,7 @@ int main(int argc, char *argv[])
 
 	//Clear out and then free the message port
 	dbglog( "[master] Removing message port.\n" );
-	// struct Message *newMessage = GetMsg( g_AEServerMessagePort );
-	// while( newMessage )
-	// {
-	// 	ReplyMsg( newMessage );
-	// 	newMessage = GetMsg( g_AEServerMessagePort );
-	// }
+
 	RemPort( g_AEServerMessagePort );
 	DeleteMsgPort( g_AEServerMessagePort );
 

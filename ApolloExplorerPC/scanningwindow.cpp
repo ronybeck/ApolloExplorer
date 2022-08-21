@@ -247,6 +247,7 @@ void ScanningWindow::onBrowserWindowDestroyedSlot()
 {
     //Just free the window so we don't have a memory leak
     //delete QObject::sender();
+    QObject::sender()->deleteLater();
 
     //Go through our list and remove the appropriate entry
     QMapIterator<QString,MainWindow*> iter( m_BrowserList );

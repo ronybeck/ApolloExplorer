@@ -68,7 +68,8 @@ void UploadThread::run()
 
     //Start the loop thread
     UNLOCK;
-    while( 1 )
+    m_Keeprunning = true;
+    while( m_Keeprunning )
     {
         //Process events
         QApplication::processEvents();
@@ -136,6 +137,11 @@ void UploadThread::run()
                 {
                     messageSize -= FILE_CHUNK_SIZE - bytesRead;
                 }
+                DBGLOG << "Chunk message size: " << messageSize;
+
+                Q_ASSERT( messageSize > 0 );
+                Q_ASSERT( messageSize < MAX_MESSAGE_LENGTH );
+
                 nextFileChunk->header.token = MAGIC_TOKEN;
                 nextFileChunk->header.type = PMT_FILE_CHUNK;
                 nextFileChunk->header.length = messageSize;
@@ -150,6 +156,9 @@ void UploadThread::run()
 
                 //Emit progress
                 emit uploadProgressSignal( m_ProgressProcent, m_ProgressBytes, m_ThroughPut );
+            }else
+            {
+                UNLOCK;
             }
 
 
@@ -173,6 +182,11 @@ void UploadThread::run()
     delete m_ProtocolHandler;
     m_ThroughPutTimer = nullptr;
     m_ProtocolHandler = nullptr;
+}
+
+void UploadThread::stopThread()
+{
+    m_Keeprunning = false;
 }
 
 bool UploadThread::createDirectory( QString remotePath )
@@ -213,7 +227,7 @@ bool UploadThread::createDirectory( QString remotePath )
 void UploadThread::onConnectToHostSlot(QHostAddress host, quint16 port)
 {
     //Connect to the server
-    qDebug() << "Upload thread Connecting to server " << host.toString();
+    DBGLOG << "Upload thread Connecting to server " << host.toString();
     //m_ProtocolHandler->onConnectToHostRequestedSlot( host, port );
     emit connectToHostSignal( host, port );
 }
@@ -221,7 +235,7 @@ void UploadThread::onConnectToHostSlot(QHostAddress host, quint16 port)
 void UploadThread::onDisconnectFromHostRequestedSlot()
 {
     LOCK;
-    qDebug() << "Upload thread disconnecting from server";
+    DBGLOG << "Upload thread disconnecting from server";
     emit disconnectFromHostSignal();
 }
 
@@ -235,7 +249,7 @@ void UploadThread::onStartFileSlot( QString localFilePath, QString remoteFilePat
     //Check if an upload is in progress
     if( m_FileToUpload )
     {
-        qDebug() << "Rejecting request to upload file " << localFilePath << " because a file upload is in progress.";
+        DBGLOG << "Rejecting request to upload file " << localFilePath << " because a file upload is in progress.";
         return;
     }
 
@@ -255,7 +269,7 @@ void UploadThread::onStartFileSlot( QString localFilePath, QString remoteFilePat
     m_LocalFile.open( QFile::ReadOnly );
     if( !m_LocalFile.isOpen() )
     {
-        qDebug() << "Unable to open local file: " << m_LocalFile.errorString();
+        DBGLOG << "Unable to open local file: " << m_LocalFile.errorString();
         emit abortedSignal( m_LocalFile.errorString() );
         return;
     }
@@ -316,10 +330,10 @@ void UploadThread::onCancelUploadSlot()
 void UploadThread::onFileChunkReceivedSlot(quint32 chunkNumber)
 {
     LOCK;
-    DBGLOG << "Inflight chunk count: " << m_InflightChunks.count();
+    //DBGLOG << "Inflight chunk count: " << m_InflightChunks.count();
     if( m_InflightChunks.contains( chunkNumber ) )
     {
-        DBGLOG << m_InflightChunks.removeOne( chunkNumber ) << " removed";
+        m_InflightChunks.removeOne( chunkNumber );
     }
 }
 
@@ -341,14 +355,14 @@ void UploadThread::onFilePutConfirmedSlot(quint32 sizeWritten)
 void UploadThread::onConnectedToHostSlot()
 {
     m_Connected = true;
-    qDebug() << "Uploadthread connected to server.";
+    DBGLOG << "Uploadthread connected to server.";
     emit connectedToServerSignal();
 }
 
 void UploadThread::onDisconnectedFromHostSlot()
 {
     m_Connected = false;
-    qDebug() << "Uploadthread disconnected to server.";
+    DBGLOG << "Uploadthread disconnected to server.";
     emit disconnectedFromServerSignal();
 }
 
@@ -386,7 +400,7 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
         if( responseCode == 0 )
         {
             cleanup();
-            qDebug() << "File could not be uploaded.  Error code " << responseCode;
+            DBGLOG << "File could not be uploaded.  Error code " << responseCode;
             emit abortedSignal( "Upload rejected by server." );
             return;
         }

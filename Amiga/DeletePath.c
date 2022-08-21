@@ -5,20 +5,22 @@
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
 
-#define DBGOUT 0
+#define DBGOUT 1
 #include "AEUtil.h"
 #include "protocolTypes.h"
+#define BNULL 0
 
 
 ProtocolMessage_PathDeleted_t *g_PathDelMsg = NULL;
 DeleteFailureReason g_FailureReason;
 char g_CurrentPath[ MAX_FILEPATH_LENGTH * 2];    //If there is an operation underway, this will be populated.
 struct AnchorPath *g_AnchorPath = NULL;
+BPTR g_DirLock = 0;
 
 static void initialiseDelete()
 {
-    ULONG msgSize = sizeof( *g_PathDelMsg ) + (MAX_FILEPATH_LENGTH*3);  //We allocate enough space for unexpectedly long paths
-    ULONG anchorSize = sizeof( *g_AnchorPath ) + (MAX_FILEPATH_LENGTH*3);
+    ULONG msgSize __attribute__((aligned(4))) = sizeof( *g_PathDelMsg ) + (MAX_FILEPATH_LENGTH*3);  //We allocate enough space for unexpectedly long paths
+    ULONG anchorSize __attribute__((aligned(4))) = sizeof( *g_AnchorPath ) + (MAX_FILEPATH_LENGTH*3);
     //Allocate the message
     if( g_PathDelMsg == NULL )
     {
@@ -41,6 +43,13 @@ static void initialiseDelete()
     memset( g_AnchorPath, 0, anchorSize );
     memset( g_CurrentPath, 0, sizeof( g_CurrentPath ) );
     g_AnchorPath->ap_Strlen = MAX_FILEPATH_LENGTH;
+}
+
+BOOL inline isDeletable( struct	FileInfoBlock *fib )
+{
+	if( fib->fib_Protection & FIBF_DELETE )
+		return FALSE;
+	return TRUE;
 }
 
 
@@ -175,7 +184,7 @@ ProtocolMessage_PathDeleted_t *getNextFileDeleted()
 
 	//Copy the path to our globals
 	strncpy( g_CurrentPath, g_AnchorPath->ap_Buf, MAX_FILEPATH_LENGTH );
-#if DBGOUT > 0
+
 	dbglog( "[getNextFileDeleted] Path %s ", g_AnchorPath->ap_Buf );
 	switch( g_AnchorPath->ap_Info.fib_EntryType )
 	{
@@ -184,8 +193,24 @@ ProtocolMessage_PathDeleted_t *getNextFileDeleted()
 			dbglog( "directory");
 			if( g_AnchorPath->ap_Flags & APF_DIDDIR  )
 			{
+				//We want to delete this now, so lock the parent directory
+				char dirPath[ MAX_FILEPATH_LENGTH ] __attribute__((aligned(4)));
+				strncpy( dirPath, g_AnchorPath->ap_Buf, MAX_FILEPATH_LENGTH );
+				char *endOfPath = PathPart( dirPath );
+				*endOfPath=0;	//null terminate it so we have the path
+				if( g_DirLock != BNULL )	UnLock( g_DirLock );
+				g_DirLock = Lock( dirPath, ACCESS_WRITE );
+
 				g_AnchorPath->ap_Flags &= ~APF_DIDDIR;
 				dbglog( " - deleting ");
+
+				//Check if the file is delete protected
+				if( !isDeletable( &g_AnchorPath->ap_Info ) )
+				{
+					dbglog( "[getNextFileDeleted] removing delete protection from %s\n", g_AnchorPath->ap_Buf );
+					SetProtection( g_AnchorPath->ap_Buf, 0 );
+				}
+
 				if( DeleteFile( g_AnchorPath->ap_Buf ) )
 				{
 					dbglog( " - success ");
@@ -198,6 +223,8 @@ ProtocolMessage_PathDeleted_t *getNextFileDeleted()
 					g_PathDelMsg->deleteSucceeded = 0;
 					g_PathDelMsg->failureReason = DFR_UNKNOWN;
 				}
+				if( g_DirLock != BNULL )	UnLock( g_DirLock );
+				g_DirLock = BNULL;
 			}
 			else
 			{
@@ -210,6 +237,14 @@ ProtocolMessage_PathDeleted_t *getNextFileDeleted()
 		{
 			dbglog( "file" );
 			dbglog( " - deleting ");
+
+			//Check if the file is delete protected
+			if( !isDeletable( &g_AnchorPath->ap_Info ) )
+			{
+				dbglog( "[getNextFileDeleted] removing delete protection from %s\n", g_AnchorPath->ap_Buf );
+				SetProtection( g_AnchorPath->ap_Buf, 0 );
+			}
+
 			if( DeleteFile( g_AnchorPath->ap_Buf ) )
 			{
 				dbglog( " - success " );
@@ -229,7 +264,6 @@ ProtocolMessage_PathDeleted_t *getNextFileDeleted()
 			break;
 	}
 	dbglog( "\n" );
-#endif
 
 	//Form the response message
 	//dbglog( "[getNextFileDeleted] completed\n" );
@@ -244,6 +278,9 @@ ProtocolMessage_PathDeleted_t *getNextFileDeleted()
 char endRecursiveDelete()
 {
 	MatchEnd( g_AnchorPath );
+	memset( g_CurrentPath, 0, sizeof( g_CurrentPath ) );
+	if( g_DirLock != BNULL )UnLock( BNULL );
+	g_DirLock = BNULL;
 	return 0;
 }
 

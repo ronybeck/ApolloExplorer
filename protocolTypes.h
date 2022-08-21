@@ -11,6 +11,7 @@
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0
 #define VERSION_REVISION 10
+#define RELEASE_TYPE 'U'
 #define MAIN_LISTEN_PORTNUMBER 30302
 #define BROADCAST_PORTNUMBER 30301
 
@@ -141,6 +142,7 @@ typedef struct
 	unsigned char major;
 	unsigned char minor;
 	unsigned char rev;
+	char releaseType;	//R = Released version, U = Unreleased
 } ProtocolMessage_Version_t;
 
 typedef struct

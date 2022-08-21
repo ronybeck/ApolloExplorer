@@ -3,7 +3,7 @@
 #include <QPainterPath>
 #include <QtEndian>
 
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 DiskVolume::DiskVolume( VolumeEntry_t &entry, QObject *parent)

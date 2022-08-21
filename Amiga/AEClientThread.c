@@ -306,7 +306,7 @@ static void clientThread()
 	dbglog( "[child] Client thread started.\n" );
 
 	struct Library *SocketBase = NULL;
-	struct sockaddr_in addr;
+	struct sockaddr_in addr __attribute__((aligned(4))) ;
 	int returnCode = 0;
 	unsigned short newPort = g_NextClientPort++;		//Here we will also store our client port
 
@@ -335,7 +335,7 @@ static void clientThread()
 	}
 
 	//Ready our new client message to send to the parent process
-	struct AEMessage newClientMessage;
+	struct AEMessage newClientMessage __attribute__((aligned(4)));
 	memset( &newClientMessage, 0, sizeof( newClientMessage ) );
 	newClientMessage.msg.mn_Node.ln_Type = NT_MESSAGE;
 	newClientMessage.msg.mn_Length = sizeof( struct AEMessage );
@@ -452,7 +452,7 @@ static void clientThread()
 	//Now wait for the client to connect
 	dbglog("[child] Awaiting new connection\n" );
 
-	socklen_t addrLen = sizeof( addr );
+	socklen_t addrLen __attribute__((aligned(4))) = sizeof( addr );
 	SOCKET newClientSocket = (SOCKET)accept( childServerSocket, (struct sockaddr *)&addr, &addrLen);
 	if( newClientSocket < 0 )
 	{
@@ -519,7 +519,7 @@ static void clientThread()
 
 					//Give the message time to be deliverey by the stack
 					dbglog( "[child] Sent disconnect message.  Delaying to allow delivery.\n" );
-					Delay( 5 );
+					//Delay( 5 );
 
 					//Send a reply back to the caller
 					dbglog( "[child] Acknowledging the master's request.\n" );
@@ -595,14 +595,15 @@ static void clientThread()
 			break;
 			case PMT_GET_VERSION:
 				dbglog( "[child] Server Version Requested.\n" );
-				ProtocolMessage_Version_t versionMessage =
+				ProtocolMessage_Version_t versionMessage __attribute__((aligned(4))) =
 				{
 						.header.token = MAGIC_TOKEN,
 						.header.length = sizeof( ProtocolMessage_Version_t ),
 						.header.type = PMT_VERSION,
 						.major = VERSION_MAJOR,
 						.minor = VERSION_MINOR,
-						.rev = VERSION_REVISION
+						.rev = VERSION_REVISION,
+						.releaseType = RELEASE_TYPE
 				};
 				dbglog( "[child] Sending Version back\n" );
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&versionMessage );
@@ -612,7 +613,7 @@ static void clientThread()
 			{
 				//Extract the desired path
 				ProtocolMessageGetDirectoryList_t *getDir = (ProtocolMessageGetDirectoryList_t*)message;
-				char dirPath[ MAX_FILEPATH_LENGTH ];
+				char dirPath[ MAX_FILEPATH_LENGTH ] __attribute__((aligned(4)));
 				memset( dirPath, 0, sizeof( dirPath ) );
 				memcpy( dirPath, getDir->path, getDir->length );
 
@@ -640,12 +641,12 @@ static void clientThread()
 			case PMT_GET_FILE:
 			{
 				ProtocolMessage_FilePull_t *getFileMsg = ( ProtocolMessage_FilePull_t* )message;
-				unsigned int numberOfChunks = 0;
+				unsigned int numberOfChunks __attribute__((aligned(4))) = 0;
 				(void)numberOfChunks;
-				int bytesSent = 0;
+				int bytesSent __attribute__((aligned(4))) = 0;
 
 				//Get the file path from the message
-				char filePath[ MAX_FILEPATH_LENGTH ];
+				char filePath[ MAX_FILEPATH_LENGTH ] __attribute__((aligned(4)));
 				memset( filePath, 0, sizeof( filePath ) );
 				strncpy( filePath, getFileMsg->filePath, sizeof( filePath ) );
 
@@ -697,7 +698,7 @@ static void clientThread()
 				//Let's keep asking for file chunks until there are no more to send
 				ProtocolMessage_FileChunk_t *nextFileChunk = NULL;
 				dbglog( "[child] Starting file chunk sending\n" );
-				LONG bytesAvailable = 0;
+				LONG bytesAvailable __attribute__((aligned(4))) = 0;
 				while( ( nextFileChunk = getNextFileSendChunk( filePath ) ) )
 				{
 					bytesAvailable = 0;
@@ -746,7 +747,7 @@ static void clientThread()
 			case PMT_PUT_FILE:
 			{
 
-				ProtocolMessage_Ack_t ackMessage;
+				ProtocolMessage_Ack_t ackMessage __attribute__((aligned(4)));
 				ackMessage.header.length = sizeof( ackMessage );
 				ackMessage.header.token = MAGIC_TOKEN;
 				ackMessage.header.type = PMT_ACK;
@@ -767,7 +768,7 @@ static void clientThread()
 				dbglog( "[child] Got a PUT_FILE request.\n" );
 				//First we expect the FilePut request
 				ProtocolMessage_FilePut_t *filePutMessage = ( ProtocolMessage_FilePut_t* )message;
-				char filePath[ MAX_FILEPATH_LENGTH ];
+				char filePath[ MAX_FILEPATH_LENGTH ] __attribute__((aligned(4)));
 				strncpy( filePath, filePutMessage->filePath, MAX_FILEPATH_LENGTH );
 
 				//We need to check that we can write the requested file
@@ -831,7 +832,7 @@ static void clientThread()
 				{
 					//Let's give the client some time to send the next chunk, else we make a timeout
 					LONG bytesAvailable = 0;
-					LONG retryCount = 30;
+					LONG retryCount = 50;
 					IoctlSocket( newClientSocket, FIONREAD ,&bytesAvailable );
 					while( bytesAvailable < sizeof( ProtocolMessage_t ) && retryCount-- > 0 )
 					{
@@ -891,7 +892,7 @@ static void clientThread()
 
 				//We are done
 				cleanupFileReceive();
-				//Delay( 2 );
+				Delay( 2 );
 				break;
 			}
 			case PMT_DELETE_PATH:
@@ -908,6 +909,9 @@ static void clientThread()
 				}
 				else if( deleteMessage->entryType == DET_USERDIR )
 				{
+					ULONG deleteRetryCount = 30;
+					BOOL deleteFailures = FALSE;
+
 					if( !startRecursiveDelete( deleteMessage->filePath ) )
 					{
 						dbglog( "[child] Recursive delete started.\n" );
@@ -915,10 +919,33 @@ static void clientThread()
 						while( ( msg = getNextFileDeleted() ) )
 						{
 							//dbglog( "[child] Deleted %s %s\r", msg->filePath, msg->deleteSucceeded == 0 ? "unsuccessfully" : "successfully" );
+							if( msg->deleteSucceeded == 0 )	deleteFailures = TRUE;
 							sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
 						}
 						endRecursiveDelete();
-						dbglog( "\n" );
+
+						//If there were some failures try again
+						while( deleteFailures == TRUE && deleteRetryCount-- > 0 )
+						{
+							Delay( 10 );
+							deleteFailures = FALSE;
+							if( !startRecursiveDelete( deleteMessage->filePath ) )
+							{
+								dbglog( "[child] Had some failures so we are trying again.\n" );
+								ProtocolMessage_PathDeleted_t *msg = NULL;
+								while( ( msg = getNextFileDeleted() ) )
+								{
+									//dbglog( "[child] Deleted %s %s\r", msg->filePath, msg->deleteSucceeded == 0 ? "unsuccessfully" : "successfully" );
+									if( msg->deleteSucceeded == 0 )	deleteFailures = TRUE;
+									sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
+								}
+								endRecursiveDelete();
+							}else
+							{
+								endRecursiveDelete();
+								break;
+							}
+						}
 
 						//Now send completion message
 						msg = getRecusiveDeleteCompletedMessage();
@@ -926,6 +953,7 @@ static void clientThread()
 						dbglog( "[child] Recursive delete completed.\n" );
 					}else
 					{
+						endRecursiveDelete();
 						dbglog( "[child] Failed to start recursive delete of %s\n", deleteMessage->filePath );
 						ProtocolMessage_PathDeleted_t *msg = getDeleteError();
 						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)msg );
@@ -1046,7 +1074,7 @@ exit_child: ;
 
 	//Free our messagebuffer
 	dbglog( "[child] Freeing message buffer.\n" );
-	FreeVec( message );
+	if( message ) FreeVec( message );
 
 	//Now close the socket because we are done here
 	dbglog( "[child] Closing client thread for socket 0x%08x.\n", childServerSocket );

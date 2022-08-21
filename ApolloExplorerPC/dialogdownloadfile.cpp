@@ -48,6 +48,8 @@ DialogDownloadFile::DialogDownloadFile(QWidget *parent) :
 
 DialogDownloadFile::~DialogDownloadFile()
 {
+    m_DownloadThread.stopThread();
+    m_DownloadThread.wait();
     delete ui;
 }
 

@@ -20,6 +20,8 @@ public:
 
     void run() override final;
 
+    void stopThread();
+
 public slots:
     void onConnectToHostSlot( QHostAddress host, quint16 port );
     void onDisconnectFromHostRequestedSlot();
@@ -39,6 +41,8 @@ signals:
     void fileDeleteFailedSignal( QString path, DeleteFailureReason reasonCode );
     void recursiveDeletionCompletedSignal();
     void deletionTimedoutSignal();
+    void startTimeoutTimerSignal();
+    void stopTimeoutTimerSignal();
 
 
 private:
@@ -46,6 +50,7 @@ private:
     QTimer *m_TimeoutTimer;
     ProtocolHandler *m_ProtocolHandler;
    QAtomicInteger<bool> m_RecursiveDeleteActive;
+   QAtomicInteger<bool> m_Keeprunning;
 };
 
 #endif // DELETIONTHREAD_H

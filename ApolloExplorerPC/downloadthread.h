@@ -21,6 +21,8 @@ public:
 
     void run() override final;
 
+    void stopThread();
+
     QSharedPointer<DirectoryListing> onGetDirectoryListingSlot( QString remotePath );
 
 public slots:
@@ -82,6 +84,7 @@ private:
     QAtomicInteger<quint64> m_BytesSentThisSecond;
     QAtomicInteger<quint64> m_BytesReceivedThisSecond;
     QAtomicInteger<quint64> m_ThroughPut;
+    QAtomicInteger<quint64> m_Keeprunning;
 };
 
 #endif // DOWNLOADTHREAD_H

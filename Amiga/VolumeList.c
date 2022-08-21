@@ -27,7 +27,7 @@
 ProtocolMessage_VolumeList_t *getVolumeList()
 {
 	unsigned int volumeNameLength = 0;
-	char volumeName[ 128 ] = "";
+	char volumeName[ 128 ] __attribute__((aligned(4)))= "";
 
 	dbglog( "[getVolumeList] Getting the list of volumes.\n" );
 
@@ -118,7 +118,7 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 			volumeEntry->diskType = dosList->dol_misc.dol_volume.dol_DiskType;
 
 			//Get a lock on the disk so we can read information out
-			char diskAsPath[64];
+			char diskAsPath[64] __attribute__((aligned(4)));
 			sprintf( diskAsPath, "%s:", volumeEntry->name );
 			BPTR diskLock = Lock( diskAsPath, ACCESS_READ );
 			if( diskLock )

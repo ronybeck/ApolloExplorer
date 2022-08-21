@@ -20,8 +20,6 @@ DeletionThread::DeletionThread(QObject *parent)
 
 void DeletionThread::run()
 {
-    bool keepRunning = true;
-
     //Initialise the timeout timer
     m_TimeoutTimer = new QTimer();
     m_TimeoutTimer->setSingleShot( true );
@@ -38,14 +36,17 @@ void DeletionThread::run()
     connect( m_ProtocolHandler, &ProtocolHandler::fileDeleteFailedSignal, this, &DeletionThread::onFileDeleteFailedSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::recursiveDeletionCompletedSignal, this, &DeletionThread::recursiveDeletionCompletedSignal );
     connect( m_ProtocolHandler, &ProtocolHandler::recursiveDeletionCompletedSignal, this, &DeletionThread::onRecursiveDeleteionCompletedSlot );
+    connect( this, &DeletionThread::startTimeoutTimerSignal, m_TimeoutTimer, QOverload<>::of(&QTimer::start) );
+    connect( this, &DeletionThread::stopTimeoutTimerSignal, m_TimeoutTimer, QOverload<>::of(&QTimer::stop) );
 
     //Start the thread loop
-    while( keepRunning )
+    m_Keeprunning = true;
+    while( m_Keeprunning )
     {
         //Is this thread to be terminated?
         if( this->isInterruptionRequested() )
         {
-            keepRunning = false;
+            m_Keeprunning = false;
         }
 
         //Event pump
@@ -64,6 +65,11 @@ void DeletionThread::run()
     m_ProtocolHandler = nullptr;
 }
 
+void DeletionThread::stopThread()
+{
+    m_Keeprunning = false;
+}
+
 void DeletionThread::onConnectToHostSlot(QHostAddress host, quint16 port)
 {
     m_ProtocolHandler->onConnectToHostRequestedSlot( host, port );
@@ -77,14 +83,14 @@ void DeletionThread::onDisconnectFromHostRequestedSlot()
 void DeletionThread::onDeleteFileSlot(QString path)
 {
     m_ProtocolHandler->onDeleteFileSlot( path );
-    m_TimeoutTimer->start( TIMEOUT_TIME );
+    emit startTimeoutTimerSignal();
 }
 
 void DeletionThread::onDeleteRecursiveSlot(QString path)
 {
     m_ProtocolHandler->onDeleteRecursiveSlot( path );
     m_RecursiveDeleteActive = true;
-    m_TimeoutTimer->start( TIMEOUT_TIME );
+    emit startTimeoutTimerSignal();
 }
 
 void DeletionThread::onConnectedToHostSlot()
@@ -104,15 +110,15 @@ void DeletionThread::onTimeoutSlot()
 
 void DeletionThread::onFileDeletedSlot(QString path)
 {
-    m_TimeoutTimer->start( TIMEOUT_TIME );
+    emit startTimeoutTimerSignal();
 }
 
 void DeletionThread::onFileDeleteFailedSlot(QString path, DeleteFailureReason reason)
 {
-    m_TimeoutTimer->stop();
+    emit stopTimeoutTimerSignal();
 }
 
 void DeletionThread::onRecursiveDeleteionCompletedSlot()
 {
-    m_TimeoutTimer->stop();
+    emit stopTimeoutTimerSignal();
 }

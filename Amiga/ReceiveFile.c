@@ -28,11 +28,11 @@
 #include "protocolTypes.h"
 
 static BPTR g_FileHandle = (BPTR)NULL;
-static ULONG g_CurrentChunk = 0;
-static ULONG g_TotalChunks = 0;
-static ULONG g_FileSize = 0;
-static unsigned int g_BytesWrittenToFile = 0;
-static char g_FilePath[ MAX_FILEPATH_LENGTH ];
+static ULONG g_CurrentChunk __attribute__((aligned(4))) = 0;
+static ULONG g_TotalChunks __attribute__((aligned(4))) = 0;
+static ULONG g_FileSize __attribute__((aligned(4))) = 0;
+static unsigned int g_BytesWrittenToFile __attribute__((aligned(4))) = 0;
+static char g_FilePath[ MAX_FILEPATH_LENGTH ] __attribute__((aligned(4)));
 
 //So we don't waste to much time (re)allocating for messages we will (re)use often, we create them once
 static ProtocolMessage_Ack_t *g_AcknowledgeMessage = NULL;
@@ -99,9 +99,9 @@ int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 	g_CurrentChunk = fileChunkMessage->chunkNumber;
 
 	//Write the contents to the disk
-	LONG bytesWriten = 0; (void)bytesWriten;
-	LONG totalBytesWriten = 0;
-	LONG bytesRemaining = fileChunkMessage->bytesContained;
+	LONG bytesWriten __attribute__((aligned(4))) = 0; (void)bytesWriten;
+	LONG totalBytesWriten __attribute__((aligned(4))) = 0;
+	LONG bytesRemaining __attribute__((aligned(4))) = fileChunkMessage->bytesContained;
 	while( bytesRemaining > 0 )
 	{
 		bytesWriten = Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );

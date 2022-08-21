@@ -31,6 +31,7 @@ DialogUploadFile::DialogUploadFile(QWidget *parent) :
     connect( &m_UploadThread, &UploadThread::uploadCompletedSignal, this, &DialogUploadFile::onUploadCompletedSlot );
     connect( &m_UploadThread, &UploadThread::uploadProgressSignal, this, &DialogUploadFile::onProgressUpdate );
     connect( &m_UploadThread, &UploadThread::outgoingBytesSignal, this, &DialogUploadFile::outgoingBytesSignal );
+    connect( &m_UploadThread, &UploadThread::uploadFailedSignal, this, &DialogUploadFile::onUploadFailedSlot );
 
     //Gui signal slots
     connect( ui->buttonBoxCancel, &QDialogButtonBox::rejected, this, &DialogUploadFile::onCancelButtonReleasedSlot );
@@ -45,6 +46,8 @@ DialogUploadFile::DialogUploadFile(QWidget *parent) :
 
 DialogUploadFile::~DialogUploadFile()
 {
+    m_UploadThread.stopThread();
+    m_UploadThread.wait();
     delete ui;
 }
 
@@ -62,7 +65,7 @@ void DialogUploadFile::disconnectFromhost()
 
 void DialogUploadFile::startUpload(QList<QPair<QString, QString> > files)
 {
-    show();
+
     //Clear out the old list
     if( !m_UploadList.isEmpty() )
         return; //No new uploads while this one is in progress
@@ -70,6 +73,13 @@ void DialogUploadFile::startUpload(QList<QPair<QString, QString> > files)
     //Set the window title and retry count
     m_RetryCount = RETRY_COUNT;
     this->setWindowTitle( "Uploading...." );
+    ui->progressBar->setValue( 0 );
+    ui->labelFilesRemaining->setText( "Files remaing: - ");
+    ui->labelSpeed->setText( "Speed: -" );
+    ui->labelUpload->setText( "Initialising upload." );
+
+    //Show the GUI
+    show();
 
     //Set the new list
     m_UploadList.append( files );
@@ -86,6 +96,11 @@ void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath,
     //Set the window title and retry count
     m_RetryCount = RETRY_COUNT;
     this->setWindowTitle( "Uploading...." );
+    this->setWindowTitle( "Uploading...." );
+    ui->progressBar->setValue( 0 );
+    ui->labelFilesRemaining->setText( "Files remaing: - ");
+    ui->labelSpeed->setText( "Speed: -" );
+    ui->labelUpload->setText( "Initialising upload." );
 
     show();
     //we need to parse list of local paths and check for directories
