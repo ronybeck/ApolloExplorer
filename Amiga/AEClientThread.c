@@ -485,7 +485,7 @@ static void clientThread()
 
 
 	//Let's reserve some memory for each of the messages
-	ProtocolMessage_t *message = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
+	ProtocolMessage_t *message __attribute__((aligned(4))) = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
 
 	//Start reading all inbound messages
 	int bytesRead = 0;
@@ -584,7 +584,10 @@ static void clientThread()
 		}
 
 		if( bytesRead < sizeof( ProtocolMessage_t ))
+		{
+			Delay( 5 );
 			continue;	//This can't be a valid message then
+		}
 
 		//Handle the message
 		switch( message->type )
@@ -635,7 +638,6 @@ static void clientThread()
 					break;
 				}
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)list );
-				FreeVec( list );
 				break;
 			}
 			case PMT_GET_FILE:
@@ -760,7 +762,7 @@ static void clientThread()
 				fileChunkConfMessage.header.type = PMT_FILE_CHUNK_CONF;
 				fileChunkConfMessage.chunkNumber = 0;
 
-				ProtocolMessage_FilePutConfirm_t filePutConfirm;
+				ProtocolMessage_FilePutConfirm_t filePutConfirm __attribute__((aligned(4)));
 				filePutConfirm.header.length = sizeof( filePutConfirm );
 				filePutConfirm.header.token = MAGIC_TOKEN;
 				filePutConfirm.header.type = PMT_FILE_PUT_CONF;
@@ -1016,12 +1018,11 @@ static void clientThread()
 				if( volumeListMessage == NULL )
 				{
 					dbglog( "[child] Unknown error in retreiving the list of volumes.\n" );
-					return;
+					break;
 				}
 
 				//Send the list
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)volumeListMessage );
-				FreeVec( volumeListMessage );
 				break;
 			}
 			case PMT_RUN:
@@ -1064,12 +1065,6 @@ exit_child: ;
 
 	//Close our message port.  We need to clear it out first though.
 	dbglog( "[child] Deleting message port.\n" );
-	// struct Message *newMessage = GetMsg( replyPort );
-	// while( newMessage != NULL )
-	// {
-	// 	ReplyMsg( newMessage );
-	// 	newMessage = GetMsg( replyPort );
-	// }
 	DeleteMsgPort( replyPort );
 
 	//Free our messagebuffer

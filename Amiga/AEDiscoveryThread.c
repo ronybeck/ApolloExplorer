@@ -42,7 +42,7 @@
 #define VREG_BOARD              0xDFF3FC  // [16-bits] BoardID [HIGH-Byte: MODEL, LOW-Byte: xFREQ]
 
 extern char g_KeepServerRunning;
-STRPTR g_DiscoveryMessagePortName = DISCOVERY_MESSAGE_PORT_NAME;
+STRPTR g_DiscoveryMessagePortName __attribute__((aligned(4))) = DISCOVERY_MESSAGE_PORT_NAME;
 
 static void discoveryThread();
 
@@ -274,7 +274,7 @@ void startDiscoveryThread()
 	if ( DOSBase )
 	{
 		//Start a client thread
-		struct TagItem tags[] = {
+		struct TagItem tags[] __attribute__((aligned(4))) = {
 				{ NP_StackSize,		8192 },
 				{ NP_Name,			(ULONG)"AEDiscoveryThread" },
 				{ NP_Entry,			(ULONG)discoveryThread },
@@ -374,7 +374,7 @@ static void discoveryThread()
 
 	//setting the bind port
 	dbglog( "[discoverySocket] Preparing to bind to port %d\n", BROADCAST_PORTNUMBER );
-	struct sockaddr_in addr;
+	struct sockaddr_in addr __attribute__((aligned(4)));
 	memset(&addr, 0, sizeof(addr));
 	dbglog( "[discoverySocket] Setting local address\n" );
 	addr.sin_family = AF_INET;

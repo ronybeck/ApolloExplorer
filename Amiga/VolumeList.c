@@ -23,6 +23,9 @@
 #define DBGOUT 0
 #include "AEUtil.h"
 
+#define VOL_MSG_LENGTH MAX_MESSAGE_LENGTH*5
+static ProtocolMessage_VolumeList_t *vlistMessage = NULL;
+
 
 ProtocolMessage_VolumeList_t *getVolumeList()
 {
@@ -75,7 +78,8 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 
 	//Now create a the Volume List message
 	unsigned int messageLength = sizeof( ProtocolMessage_VolumeList_t ) + ( volumeCount * sizeof( VolumeEntry_t ) ) + stringSize;
-	ProtocolMessage_VolumeList_t *vlistMessage = (ProtocolMessage_VolumeList_t*)AllocVec( messageLength, MEMF_FAST|MEMF_CLEAR );
+	if( vlistMessage == NULL ) vlistMessage = (ProtocolMessage_VolumeList_t*)AllocVec( VOL_MSG_LENGTH, MEMF_FAST|MEMF_CLEAR );
+	memset( vlistMessage, 0, VOL_MSG_LENGTH );
 	vlistMessage->header.token = MAGIC_TOKEN;
 	vlistMessage->header.type = PMT_VOLUME_LIST;
 	vlistMessage->header.length = messageLength;

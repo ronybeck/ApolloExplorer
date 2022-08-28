@@ -28,10 +28,13 @@ DialogUploadFile::DialogUploadFile(QWidget *parent) :
     connect( &m_UploadThread, &UploadThread::abortedSignal, this, &DialogUploadFile::onAbortedSlot );
     connect( &m_UploadThread, &UploadThread::connectedToServerSignal, this, &DialogUploadFile::onConnectedToHostSlot );
     connect( &m_UploadThread, &UploadThread::disconnectedFromServerSignal, this, &DialogUploadFile::onDisconnectedFromHostSlot );
-    connect( &m_UploadThread, &UploadThread::uploadCompletedSignal, this, &DialogUploadFile::onUploadCompletedSlot );
+    connect( &m_UploadThread, &UploadThread::uploadCompletedSignal, this, &DialogUploadFile::onStartNextFileUploadSlot );
     connect( &m_UploadThread, &UploadThread::uploadProgressSignal, this, &DialogUploadFile::onProgressUpdate );
     connect( &m_UploadThread, &UploadThread::outgoingBytesSignal, this, &DialogUploadFile::outgoingBytesSignal );
     connect( &m_UploadThread, &UploadThread::uploadFailedSignal, this, &DialogUploadFile::onUploadFailedSlot );
+    connect( &m_UploadThread, &UploadThread::directoryCreationCompletedSignal, this, &DialogUploadFile::onStartNextDirectoryCreationSlot );
+    connect( &m_UploadThread, &UploadThread::directoryCreationFailedSignal, this, &DialogUploadFile::onDirectoryCreateFailedSlot );
+    connect( this, &DialogUploadFile::createDirectorySignal, &m_UploadThread, &UploadThread::onCreateDirectorySlot );
 
     //Gui signal slots
     connect( ui->buttonBoxCancel, &QDialogButtonBox::rejected, this, &DialogUploadFile::onCancelButtonReleasedSlot );
@@ -63,31 +66,6 @@ void DialogUploadFile::disconnectFromhost()
     m_UploadThread.onDisconnectFromHostRequestedSlot();
 }
 
-void DialogUploadFile::startUpload(QList<QPair<QString, QString> > files)
-{
-
-    //Clear out the old list
-    if( !m_UploadList.isEmpty() )
-        return; //No new uploads while this one is in progress
-
-    //Set the window title and retry count
-    m_RetryCount = RETRY_COUNT;
-    this->setWindowTitle( "Uploading...." );
-    ui->progressBar->setValue( 0 );
-    ui->labelFilesRemaining->setText( "Files remaing: - ");
-    ui->labelSpeed->setText( "Speed: -" );
-    ui->labelUpload->setText( "Initialising upload." );
-
-    //Show the GUI
-    show();
-
-    //Set the new list
-    m_UploadList.append( files );
-
-    //Start the next upload
-    onUploadCompletedSlot();
-}
-
 void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath, QStringList localPaths)
 {
     if( m_UploadList.size() > 0 )
@@ -95,7 +73,6 @@ void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath,
 
     //Set the window title and retry count
     m_RetryCount = RETRY_COUNT;
-    this->setWindowTitle( "Uploading...." );
     this->setWindowTitle( "Uploading...." );
     ui->progressBar->setValue( 0 );
     ui->labelFilesRemaining->setText( "Files remaing: - ");
@@ -144,7 +121,7 @@ void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath,
 
     //Start the next upload
     m_UploadList.append( uploadList );
-    onUploadCompletedSlot();
+    onStartNextDirectoryCreationSlot();
 }
 
 QList<QPair<QString,QString>> DialogUploadFile::createRemoteDirectoryStructure(QString localPath, QString remotePath, bool& error )
@@ -153,13 +130,8 @@ QList<QPair<QString,QString>> DialogUploadFile::createRemoteDirectoryStructure(Q
     DBGLOG << "Creating directory " << remotePath;
     ui->labelUpload->setText( "Creating directory " + remotePath );
 
-    //First, lets create this path
-    if( !m_UploadThread.createDirectory( remotePath ) )
-    {
-        error = true;
-        DBGLOG << "Failed to create remote directory " << remotePath;
-        return files;
-    }
+    //Add this directory to the list of directories to create
+    m_RemoteDirectories.append( remotePath );
 
     //Open the local path and check all the directories that will need to exist remotely
     QDir localRootDir( localPath );
@@ -183,7 +155,7 @@ QList<QPair<QString,QString>> DialogUploadFile::createRemoteDirectoryStructure(Q
         {
             DBGLOG << "Adding file " << nextLocalPath << " ------> " << nextRemotePath << " to upload list.";
             QPair<QString, QString> filePair( nextLocalPath, nextRemotePath );
-            files.push_back( filePair );
+            files.append( filePair );
             continue;
         }
 
@@ -215,14 +187,24 @@ QList<QPair<QString,QString>> DialogUploadFile::createRemoteDirectoryStructure(Q
     return files;
 }
 
+void DialogUploadFile::resetDialog()
+{
+    //Reset the gui elements
+    ui->labelFilesRemaining->setText( "Remaining: - " );
+    ui->labelSpeed->setText( "speed: - " );
+    ui->labelUpload->setText( "Uploading: - " );
+    ui->progressBar->setValue( 0 );
+
+    //Clear out our lists
+    m_RemoteDirectories.clear();
+    m_UploadList.clear();
+    m_UploadRetryList.clear();
+}
+
 void DialogUploadFile::onCancelButtonReleasedSlot()
 {
     //Signal a cancel to the upload thread
-    m_UploadThread.onCancelUploadSlot();
-
-    //Clear out out file list
-    m_UploadList.clear();
-
+    resetDialog();
     hide();
 }
 
@@ -236,7 +218,7 @@ void DialogUploadFile::onDisconnectedFromHostSlot()
     qDebug() << "Upload thread disconnected.";
 }
 
-void DialogUploadFile::onUploadCompletedSlot()
+void DialogUploadFile::onStartNextFileUploadSlot()
 {
     //Do we have any files to upload?
     if( m_UploadList.count() == 0 )
@@ -251,6 +233,7 @@ void DialogUploadFile::onUploadCompletedSlot()
         }else
         {
             //We are done
+            resetDialog();
             hide();
             emit allFilesUploadedSignal();
             return;
@@ -275,20 +258,49 @@ void DialogUploadFile::onUploadCompletedSlot()
     emit startupUploadSignal( m_CurrentLocalFilePath, m_CurrentRemoteFilePath );
 }
 
+void DialogUploadFile::onStartNextDirectoryCreationSlot()
+{
+    //Check if we have more directories to create
+    if( m_RemoteDirectories.size() == 0 )
+    {
+        //Let's kick off the upload of files now
+        onStartNextFileUploadSlot();
+        return;
+    }
+
+    //Update the gui
+    ui->labelUpload->setText( "Creating Directory: " + m_CurrentRemoteFilePath );
+
+    //Get the next directory to create
+    m_CurrentRemoteFilePath = m_RemoteDirectories.front();
+    m_RemoteDirectories.pop_front();
+    emit createDirectorySignal( m_CurrentRemoteFilePath );
+}
+
+void DialogUploadFile::onDirectoryCreateFailedSlot()
+{
+    QMessageBox errorBox( "Error Creating directory", "We failed to create the directory " + m_CurrentRemoteFilePath + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+    errorBox.show();
+    resetDialog();
+    hide();
+}
+
 void DialogUploadFile::onUploadFailedSlot( UploadThread::UploadFailureType type )
 {
+    Q_UNUSED( type )
     //Now we should reschedule the upload
     m_UploadRetryList.append( QPair<QString,QString>( m_CurrentLocalFilePath, m_CurrentRemoteFilePath ) );
     DBGLOG << "Adding file " << m_CurrentLocalFilePath << " to the retry list.";
-    onUploadCompletedSlot();
+    onStartNextFileUploadSlot();
 }
 
 void DialogUploadFile::onAbortedSlot( QString reason )
 {
+    Q_UNUSED( reason );
 
 #if 1
     m_UploadRetryList.append( QPair<QString,QString>(m_CurrentLocalFilePath,m_CurrentRemoteFilePath) );
-    onUploadCompletedSlot();
+    onStartNextFileUploadSlot();
 #else
     //Clear out our list
     m_UploadList.clear();

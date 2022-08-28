@@ -131,6 +131,11 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( this, &MainWindow::currentFileBeingDeleted, &m_DialogDelete, &DialogDelete::onCurrentFileBeingDeletedSlot );
     connect( this, &MainWindow::deletionCompletedSignal, &m_DialogDelete, &DialogDelete::onDeletionCompleteSlot );
 
+    //Connect actions
+    connect( ui->actionDelete, &QAction::triggered, this, &MainWindow::onDeleteSlot );
+    connect( ui->actionReboot_Amiga, &QAction::triggered, this, &MainWindow::onRebootSlot );
+    connect( ui->actionCreate_Directory, &QAction::triggered, this, &MainWindow::onMkdirSlot );
+
     //Context Menu
     //ui->listWidgetBrowser->addAction( &m_OpenCLIHereAction );
     ui->listWidgetFileBrowser->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -170,7 +175,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
 }
 
 MainWindow::~MainWindow()
-{
+{  
     //Destroy all the dialogs and disconnect
     m_DialogUploadFile->disconnectFromhost();
     m_DialogDownloadFile->disconnectFromhost();
@@ -238,61 +243,6 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *e)
         e->acceptProposedAction();
     }
     //qDebug()  << "Event Type " << e->type();
-}
-
-void MainWindow::dropEvent(QDropEvent *e)
-{
-    QMessageBox msgBox( this );
-    msgBox.setWindowTitle( "Please Wait" );
-    msgBox.setText( "We must prepare the directories on the server.\nThis might take some time.\nEspecially if it is a floppy drive." );
-    msgBox.setIcon( QMessageBox::Information );
-    msgBox.setStandardButtons( QMessageBox::NoButton );
-    msgBox.show();
-
-    QList<QPair<QString,QString>> uploadList;
-    foreach (const QUrl &url, e->mimeData()->urls())
-    {
-        //Local file path
-        QString localFilename = url.toLocalFile();
-        qDebug() << "Dropped file:" << localFilename;
-
-        //Form the remote path
-        QFileInfo localFile( localFilename );
-        QString remoteFilename = ui->lineEditPath->text();
-        if( !ui->lineEditPath->text().endsWith( '/' ) && !ui->lineEditPath->text().endsWith( ':' ) )
-        {
-            remoteFilename.append( "/" );
-        }
-        remoteFilename.append( localFile.fileName() );
-
-        //On directories, we need to search
-        if( localFile.isDir() )
-        {
-            bool errorOnSubDir = false;
-            auto subdirFiles = uploadPrepareRemoteDirctory( localFilename, remoteFilename, errorOnSubDir );
-            if( errorOnSubDir )
-            {
-                QMessageBox errorBox( QMessageBox::Critical, "Server error", "Some error occurred at the server end.  Unable to continue.", QMessageBox::Ok );
-                errorBox.exec();
-                return;
-            }
-
-            //All is well, add these files to our list
-            uploadList.append( subdirFiles );
-
-            //We don't want to add this to the list
-            continue;
-        }
-
-
-        //Form the next entry in our list
-        uploadList.push_back( QPair<QString,QString>(localFilename, remoteFilename) );
-    }
-    msgBox.hide();
-
-    //Start the upload
-    m_DialogUploadFile->show();
-    m_DialogUploadFile->startUpload( uploadList );
 }
 
 void MainWindow::dragLeaveEvent(QDragLeaveEvent *e)
@@ -1123,8 +1073,35 @@ void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volum
 {
     m_Volumes = volumes;
     updateDrivebrowser();
-    if( ui->lineEditPath->text() == "" )
-        updateFilebrowser();
+    if( ( volumes.size() > 0 ) )
+    {
+        //Get the first drive in the list
+        QString firstDrive = volumes.first()->getName() + ":";
+
+        //If we don't have a drive already selected, select the first one now.
+        if( ui->lineEditPath->text() == "" )
+        {
+            ui->lineEditPath->setText( firstDrive );
+            emit getRemoteDirectorySignal( firstDrive );
+            return;
+        }
+
+        //If the path, doesn't exist, select anotherone now.
+        QString drivePath = ui->lineEditPath->text();
+        drivePath = drivePath.left( drivePath.indexOf( ":") );
+        QList<QSharedPointer<DiskVolume>>::Iterator iter;
+        for( iter = volumes.begin();  iter != volumes.end(); iter++ )
+        {
+            auto drive = *iter;
+            if( drive->getName() == drivePath )
+                return; //Ok, the drive is listed, we can exist now
+        }
+
+        //If we got this far, then the drive listed in the path field is no longer present on the system.
+        //We should automatically switch to a new drive
+        ui->lineEditPath->setText( firstDrive );
+        emit getRemoteDirectorySignal( firstDrive );
+    }
 }
 
 void MainWindow::onAcknowledgeSlot( quint8 responseCode )

@@ -27,11 +27,11 @@ public:
     //Caller Commands
     void connectToHost( QHostAddress host, quint16 port );
     void disconnectFromhost();
-    void startUpload( QList<QPair<QString,QString>> files );
     void startUpload( QSharedPointer<DirectoryListing> remotePath, QStringList localPaths );
 
 private:
     QList<QPair<QString,QString>> createRemoteDirectoryStructure( QString localPath, QString remotePath, bool& error );
+    void resetDialog();
 
 public slots:
     void onCancelButtonReleasedSlot();
@@ -39,7 +39,9 @@ public slots:
     //Internally used slots
     void onConnectedToHostSlot();
     void onDisconnectedFromHostSlot();
-    void onUploadCompletedSlot();
+    void onStartNextFileUploadSlot();
+    void onStartNextDirectoryCreationSlot();
+    void onDirectoryCreateFailedSlot();
     void onUploadFailedSlot( UploadThread::UploadFailureType type );
     void onAbortedSlot( QString reason );
     void onProgressUpdate( quint8 procent, quint64 bytes, quint64 throughput );
@@ -49,10 +51,12 @@ signals:
     void allFilesUploadedSignal();
     void startupUploadSignal( QString localFilePath, QString remoteFilePath );
     void outgoingBytesSignal( quint32 bytesSent );
+    void createDirectorySignal( QString remotePath );
 
 private:
     Ui::DialogUploadFile *ui;
     UploadThread m_UploadThread;
+    QList<QString> m_RemoteDirectories;
     QList<QPair<QString, QString>> m_UploadList;
     QList<QPair<QString, QString>> m_UploadRetryList;
     quint32 m_RetryCount;

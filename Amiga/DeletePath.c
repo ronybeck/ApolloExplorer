@@ -5,7 +5,7 @@
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
 
-#define DBGOUT 1
+#define DBGOUT 0
 #include "AEUtil.h"
 #include "protocolTypes.h"
 #define BNULL 0

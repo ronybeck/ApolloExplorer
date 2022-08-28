@@ -4,7 +4,7 @@
 #include <QApplication>
 #include <QMessageBox>
 
-#define DEBUG 0
+#define DEBUG 1
 #include "AEUtils.h"
 
 

@@ -45,8 +45,6 @@ public:
 
     void stopThread();
 
-    bool createDirectory( QString remotePath );
-
 public slots:
     void onConnectToHostSlot( QHostAddress host, quint16 port );
     void onDisconnectFromHostRequestedSlot();
@@ -54,6 +52,7 @@ public slots:
     void onCancelUploadSlot();
     void onFileChunkReceivedSlot( quint32 chunkNumber );
     void onFilePutConfirmedSlot( quint32 sizeWritten );
+    void onCreateDirectorySlot( QString remotePath );
 
     //Internally used slots
     void onConnectedToHostSlot();
@@ -74,13 +73,15 @@ signals:
     void disconnectedFromServerSignal();
     void connectedToServerSignal();
     void abortedSignal( QString message );
-    void createDirectorySignal( QString remotePath );
+    void directoryCreationCompletedSignal();
+    void directoryCreationFailedSignal();
 
     //Communication with the protocol handler
     void sendMessageSignal( ProtocolMessage_t *message );
     void sendAndReleaseMessageSignal( ProtocolMessage_t *message );
     void connectToHostSignal( QHostAddress host, quint16 port );
     void disconnectFromHostSignal();
+    void createDirectorySignal( QString remotePath );
 
 private:
     QMutex m_Mutex;

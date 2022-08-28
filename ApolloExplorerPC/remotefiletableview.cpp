@@ -12,7 +12,7 @@
 #include <QHeaderView>
 #include <QDir>
 
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :

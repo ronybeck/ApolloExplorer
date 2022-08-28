@@ -137,7 +137,7 @@ void UploadThread::run()
                 {
                     messageSize -= FILE_CHUNK_SIZE - bytesRead;
                 }
-                DBGLOG << "Chunk message size: " << messageSize;
+                //DBGLOG << "Chunk message size: " << messageSize;
 
                 Q_ASSERT( messageSize > 0 );
                 Q_ASSERT( messageSize < MAX_MESSAGE_LENGTH );
@@ -189,39 +189,23 @@ void UploadThread::stopThread()
     m_Keeprunning = false;
 }
 
-bool UploadThread::createDirectory( QString remotePath )
+void UploadThread::onCreateDirectorySlot( QString remotePath )
 {
     LOCK;
     //Are we already doing something else?
     if( m_JobType == JT_UPLOAD )
-        return false;
+        return;
 
     //Create the remote directory first
     m_AcknowledgeState = ProtocolHandler::AS_Unknown;
     m_JobType = JT_MKDIR;
     UNLOCK;
 
-    //Wait on the reply with a timeout
-    QTimer timer;
-    timer.setSingleShot(true);
-    QEventLoop loop;
-    connect( m_ProtocolHandler, &ProtocolHandler::acknowledgeSignal, &loop, &QEventLoop::quit );
-    connect( &timer, &QTimer::timeout, &loop, &QEventLoop::quit );
-    timer.start( 10000 );    //Wait up to 10 seconds.  Note:  Floppies and CDROMS are SLLLLLOOOOOOWWWWW
-    emit createDirectorySignal( remotePath );   //Send the command now
-    loop.exec();
-
-    //Did we timeout?  Did the dir creation succeed?
-    if( !timer.isActive() || m_AcknowledgeState != ProtocolHandler::AS_SUCCESS )
-    {
-        qDebug() << "Timeout exceeded creating directory " << remotePath;
-        QMessageBox errorBox( QMessageBox::Critical, "Timeout creating remote directory", "A timeout occurred while creating remote directory" + remotePath, QMessageBox::Ok );
-        errorBox.exec();
-        return false;
-    }
+    //Create the directory
+    emit createDirectorySignal( remotePath );
 
     //we are done
-    return true;
+    return;
 }
 
 void UploadThread::onConnectToHostSlot(QHostAddress host, quint16 port)
@@ -392,6 +376,14 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
         default:
             m_AcknowledgeState = ProtocolHandler::AS_Unknown;
         break;
+    }
+
+    //If we creating directories, we should signal this as being successful
+    if( m_JobType == JT_MKDIR )
+    {
+        if( m_AcknowledgeState == ProtocolHandler::AS_SUCCESS ) emit directoryCreationCompletedSignal();
+        else emit directoryCreationFailedSignal();
+        return;
     }
 
     //If the server cancels the upload for some reason

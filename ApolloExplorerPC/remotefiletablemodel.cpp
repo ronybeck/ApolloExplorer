@@ -1,5 +1,5 @@
 #include "remotefiletablemodel.h"
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 #include <QStyle>

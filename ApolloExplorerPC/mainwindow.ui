@@ -555,7 +555,9 @@ QMenu::indicator:checked {
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionSettings"/>
+    <addaction name="actionCreate_Directory"/>
+    <addaction name="actionReboot_Amiga"/>
+    <addaction name="actionDelete"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
@@ -567,6 +569,7 @@ QMenu::indicator:checked {
     <addaction name="separator"/>
     <addaction name="actionList_Mode"/>
     <addaction name="actionShow_Info_Files"/>
+    <addaction name="actionSettings"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -609,6 +612,30 @@ QMenu::indicator:checked {
   <action name="actionSettings">
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionDelete">
+   <property name="text">
+    <string>Delete</string>
+   </property>
+   <property name="shortcut">
+    <string>Del</string>
+   </property>
+  </action>
+  <action name="actionCreate_Directory">
+   <property name="text">
+    <string>Create Directory</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
+   </property>
+  </action>
+  <action name="actionReboot_Amiga">
+   <property name="text">
+    <string>Reboot Amiga</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+R</string>
    </property>
   </action>
  </widget>

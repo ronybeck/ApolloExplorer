@@ -99,7 +99,6 @@ public slots:
 
     //Drag and Drop
     void dragEnterEvent(QDragEnterEvent *e) override;
-    void dropEvent(QDropEvent *e) override;
     void dragLeaveEvent( QDragLeaveEvent *e ) override;
     void dragMoveEvent( QDragMoveEvent *e ) override;
     //void dragEvent(QDragEnterEvent *e);

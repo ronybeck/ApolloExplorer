@@ -26,6 +26,9 @@
 
 #include "AEUtil.h"
 
+#define DIR_MSG_LENGTH MAX_MESSAGE_LENGTH*5
+ProtocolMessageDirectoryList_t *dirListMsg = NULL;
+
 static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameBufferLen  )
 {
 	LONG returnCode = 0;
@@ -70,7 +73,6 @@ static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameB
 
 ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 {
-	ProtocolMessageDirectoryList_t *dirListMsg= NULL;
 	unsigned int directoryListSize = 0;
 	unsigned int filenameBufferSize = 0;
 	char *currentPositionInMessage = 0;
@@ -91,7 +93,8 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 
 	//Allocate memory for the message
 	size_t messageSize = sizeof( ProtocolMessageDirectoryList_t ) + (sizeof( ProtocolMessage_DirEntry_t ) * directoryListSize ) + filenameBufferSize;
-	dirListMsg = ( ProtocolMessageDirectoryList_t* )AllocVec( messageSize, MEMF_FAST|MEMF_CLEAR );
+	if( dirListMsg == NULL ) dirListMsg = ( ProtocolMessageDirectoryList_t* )AllocVec( DIR_MSG_LENGTH, MEMF_FAST|MEMF_CLEAR );
+	memset( dirListMsg, 0, DIR_MSG_LENGTH );
 	endOfMessageMemory = ((char*)dirListMsg) + messageSize;
 	dbglog( "[getDirectoryList] dirListMsg: 0x%08x\n", (unsigned int)dirListMsg );
 	dbglog( "[getDirectoryList] dirListMsg size: %d bytes\n", messageSize );

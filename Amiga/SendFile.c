@@ -81,7 +81,7 @@ ProtocolMessage_StartOfFileSend_t *getStartOfFileSend( char *path )
 	if( g_StartOfFilesendMessage == NULL )
 	{
 		//Form our start-of-file message
-		g_StartOfFilesendMessage = ( ProtocolMessage_StartOfFileSend_t* )AllocVec( sizeof( ProtocolMessage_StartOfFileSend_t ) , MEMF_FAST|MEMF_CLEAR ) + MAX_FILEPATH_LENGTH + 1;
+		g_StartOfFilesendMessage = ( ProtocolMessage_StartOfFileSend_t* )AllocVec( MAX_MESSAGE_LENGTH , MEMF_FAST|MEMF_CLEAR ) + MAX_FILEPATH_LENGTH + 1;
 	}
 	g_StartOfFilesendMessage->header.token = MAGIC_TOKEN;
 	g_StartOfFilesendMessage->header.length = sizeof( ProtocolMessage_StartOfFileSend_t ) + MAX_FILEPATH_LENGTH + 1;
