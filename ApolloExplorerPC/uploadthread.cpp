@@ -15,6 +15,7 @@ UploadThread::UploadThread(QObject *parent) :
     QThread(parent),
     m_Mutex( QMutex::Recursive ),
     m_ThroughPutTimer( nullptr ),
+    m_UploadTimeoutTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
     m_Connected( false ),
     m_FileToUpload( false ),
@@ -48,12 +49,21 @@ void UploadThread::run()
     m_ThroughPutTimer->setInterval( 1000 );
     m_ThroughPutTimer->setSingleShot( false );
     m_ThroughPutTimer->start();
-
     connect( m_ThroughPutTimer, &QTimer::timeout, this, &UploadThread::onThroughputTimerExpiredSlot );
 
+    //setup the upload timeout timer
+    m_UploadTimeoutTimer = new QTimer();
+    m_UploadTimeoutTimer->setTimerType( Qt::PreciseTimer );
+    m_UploadTimeoutTimer->setInterval( 10000 );
+    m_UploadTimeoutTimer->setSingleShot( true );
+    connect( m_UploadTimeoutTimer, &QTimer::timeout, this, &UploadThread::onUploadTimeoutTimerExpiredSlot );
+    connect( this, &UploadThread::stopUploadTimeoutTimerSignal, m_UploadTimeoutTimer, &QTimer::stop );
+    connect( this, &UploadThread::startUploadTimeoutTimerSignal, m_UploadTimeoutTimer, QOverload<>::of( &QTimer::start ) );
+
+
     //Connect our protocol handler
-    connect( m_ProtocolHandler, &ProtocolHandler::disconnectFromHostSignal, this, &UploadThread::onDisconnectedFromHostSlot );
-    connect( m_ProtocolHandler, &ProtocolHandler::connectToHostSignal, this, &UploadThread::onConnectedToHostSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::disconnectedFromHostSignal, this, &UploadThread::onDisconnectedFromHostSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::connectedToHostSignal, this, &UploadThread::onConnectedToHostSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::acknowledgeWithCodeSignal, this, &UploadThread::onAcknowledgeSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::outgoingByteCountSignal, this, &UploadThread::onOutgoingBytesUpdateSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::outgoingByteCountSignal, this, &UploadThread::outgoingBytesSignal );
@@ -73,13 +83,6 @@ void UploadThread::run()
     {
         //Process events
         QApplication::processEvents();
-
-        //Second check if there is a request to shut down the thread
-        if( this->isInterruptionRequested() )
-        {
-            qDebug() << "Shutting down upload thread.";
-            break;
-        }
 
         //Nothing to send yet?  Just loop around until there is
         RELOCK;
@@ -105,7 +108,7 @@ void UploadThread::run()
             if( this->isInterruptionRequested() )
             {
                 UNLOCK;
-                qDebug() << "Stopping upload.";
+                DBGLOG << "Stopping upload.";
                 break;
             }
 
@@ -113,7 +116,7 @@ void UploadThread::run()
             if( !m_Connected )
             {
                 UNLOCK;
-                continue;
+                break;
             }
 
             //Read in the next file chunk
@@ -121,7 +124,7 @@ void UploadThread::run()
             {
                 UNLOCK;
                 //The file has prematurely closed or some sort of error?
-                qDebug() << "UploadThread: The file was suddenly closed.";
+                DBGLOG << "The file was suddenly closed.";
                 emit abortedSignal( "The local file was suddenly closed." );
                 break;
             }
@@ -168,7 +171,13 @@ void UploadThread::run()
 
         //Cleanup
         ReleaseMessage( nextFileChunk );
-        //cleanup();
+
+        //Second check if there is a request to shut down the thread
+        if( this->isInterruptionRequested() )
+        {
+            DBGLOG << "Shutting down upload thread.";
+            break;
+        }
 
         //Reset
         QThread::yieldCurrentThread();
@@ -285,6 +294,9 @@ void UploadThread::onStartFileSlot( QString localFilePath, QString remoteFilePat
 
     //Send the message
     emit sendAndReleaseMessageSignal( reinterpret_cast<ProtocolMessage_t*>( putFileRequest ) );
+
+    //Start the timer
+    emit startUploadTimeoutTimerSignal();
 }
 
 void UploadThread::onCancelUploadSlot()
@@ -307,6 +319,9 @@ void UploadThread::onCancelUploadSlot()
         emit sendAndReleaseMessageSignal( reinterpret_cast<ProtocolMessage_t*>( nextFileChunk ) );
     }
 
+    //Stop the timeout timer
+    emit stopUploadTimeoutTimerSignal();
+
     //Now cleanup the upload book keeping
     cleanup();
 }
@@ -319,10 +334,15 @@ void UploadThread::onFileChunkReceivedSlot(quint32 chunkNumber)
     {
         m_InflightChunks.removeOne( chunkNumber );
     }
+    emit startUploadTimeoutTimerSignal();  //Reset timer
 }
 
 void UploadThread::onFilePutConfirmedSlot(quint32 sizeWritten)
 {
+    //Stop the upload timeout timer
+    emit stopUploadTimeoutTimerSignal();
+
+    //Check that the uploaded file size was correct
     if( sizeWritten != m_FileSize )
     {
         DBGLOG << "File uploaded but the size is wrong!  Recieved size " << sizeWritten << " expected " << m_FileSize;
@@ -347,6 +367,7 @@ void UploadThread::onDisconnectedFromHostSlot()
 {
     m_Connected = false;
     DBGLOG << "Uploadthread disconnected to server.";
+    emit stopUploadTimeoutTimerSignal();
     emit disconnectedFromServerSignal();
 }
 
@@ -428,6 +449,13 @@ void UploadThread::onThroughputTimerExpiredSlot()
     //qDebug() << "Throughput: " << m_ThroughPut;
 }
 
+void UploadThread::onUploadTimeoutTimerExpiredSlot()
+{
+    DBGLOG << "Operation timed out";
+    cleanup();
+    emit operationTimedOutSignal();
+}
+
 void UploadThread::cleanup()
 {
     LOCK;
@@ -446,4 +474,5 @@ void UploadThread::cleanup()
     m_CurrentChunk = 0;
     m_FileToUpload = false;
     m_JobType= JT_NONE;
+    m_InflightChunks.clear();
 }

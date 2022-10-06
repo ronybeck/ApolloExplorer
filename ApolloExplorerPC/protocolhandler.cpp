@@ -31,6 +31,7 @@ ProtocolHandler::ProtocolHandler(QObject *parent) :
 
 void ProtocolHandler::onConnectToHostRequestedSlot( QHostAddress serverAddress, quint16 port )
 {
+    DBGLOG << "Connecting to host " << serverAddress << " on port " << port;
     //Save this for the reconnect later.
     m_ServerAddress = serverAddress;
     m_ServerPort = port;
@@ -124,7 +125,7 @@ void ProtocolHandler::onGetDirectorySlot( QString remoteDirectory )
     ProtocolMessageGetDirectoryList_t *getDirMsg = AllocMessage<ProtocolMessageGetDirectoryList_t>();
     if( getDirMsg )
     {
-        qDebug() << "Getting dir path " << remoteDirectory;
+        DBGLOG << "Getting dir path " << remoteDirectory;
 
         //Setup the message
         getDirMsg->length = strlen( encodedPath );
@@ -293,7 +294,7 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             ProtocolMessageNewClientPort_t *newClientPort = reinterpret_cast<ProtocolMessageNewClientPort_t*>( newMessage );
             m_ServerPort = qFromBigEndian<quint16>( newClientPort->port );
 
-            qDebug() << "Server told us to connect to port " << m_ServerPort;
+            DBGLOG << "Server told us to connect to port " << m_ServerPort;
 
             //Now we are transitioning to the reconnect phase
             m_ConnectionPhase = CP_RECONNECTING;
@@ -309,7 +310,7 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             m_ConnectionPhase = CP_CONNECTED;
 
             ProtocolMessage_Version_t *versionMsg = reinterpret_cast<ProtocolMessage_Version_t*>( newMessage );
-            qDebug().nospace().noquote() << "Server version is: " << versionMsg->major << "." << versionMsg->minor << "." << versionMsg->rev;
+            DBGLOG << "Server version is: " << versionMsg->major << "." << versionMsg->minor << "." << versionMsg->rev;
             emit serverVersionSignal( versionMsg->major, versionMsg->minor, versionMsg->rev );
             emit connectedToHostSignal();
             break;
@@ -448,15 +449,12 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             ProtocolMessageDisconnect_t *disconnectMessage = reinterpret_cast<ProtocolMessageDisconnect_t*>( newMessage );
             QString message( disconnectMessage->message );
 
-            //Shutdown the client connection
-            //m_AEConnection.onDisconnectFromhostRequestedSlot();
-
             //Inform others what happened
             emit serverClosedConnectionSignal( message );
             break;
         }
         default:
-            qDebug() << "Unsupported message type " << newMessage->type;
+            DBGLOG << "Unsupported message type " << newMessage->type;
         break;
     }
 }

@@ -996,7 +996,7 @@ void MainWindow::onDisconnectedFromHostSlot()
 
     //Disconnect our upload and download dialogs
     m_DialogDownloadFile->disconnectFromhost();
-    m_DialogUploadFile->disconnectFromhost();
+    //m_DialogUploadFile->disconnectFromhost();
     m_DialogDelete.disconnectFromhost();
 
     //Grey out the gui

@@ -45,6 +45,9 @@ public slots:
     void onUploadFailedSlot( UploadThread::UploadFailureType type );
     void onAbortedSlot( QString reason );
     void onProgressUpdate( quint8 procent, quint64 bytes, quint64 throughput );
+    void onOperationTimedOutSlot();
+
+    void cleanup();
 
 signals:
     void uploadCompletedSignal();
@@ -55,6 +58,8 @@ signals:
 
 private:
     Ui::DialogUploadFile *ui;
+    QHostAddress m_Host;
+    quint16 m_Port;
     UploadThread m_UploadThread;
     QList<QString> m_RemoteDirectories;
     QList<QPair<QString, QString>> m_UploadList;

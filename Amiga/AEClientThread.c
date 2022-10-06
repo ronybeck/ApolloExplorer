@@ -5,7 +5,7 @@
  *      Author: rony
  */
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #include <stdio.h>
@@ -473,8 +473,8 @@ static void clientThread()
 	dbglog( "[child] Buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
 
 	//Set new buffer sizes (but unaligned with the largest message size to see if it helps the stall)
-	sendBufferSize = 0x000031000;
-	receiveBufferSize = 0x00031000;
+	sendBufferSize = 1514*3;
+	receiveBufferSize = 1514*3;
 	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, varLen );
 	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, varLen );
 
@@ -704,7 +704,7 @@ static void clientThread()
 				while( ( nextFileChunk = getNextFileSendChunk( filePath ) ) )
 				{
 					bytesAvailable = 0;
-					dbglog( "[child] Sending the next chunk %d of %d\n", nextFileChunk->chunkNumber, numberOfChunks );
+					dbglog( "[child] Sending the next chunk %d of %d (size %db/%db)\n", nextFileChunk->chunkNumber, numberOfChunks, nextFileChunk->bytesContained, nextFileChunk->header.length );
 					bytesSent = sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)nextFileChunk );
 					if( bytesSent < 0 )
 					{

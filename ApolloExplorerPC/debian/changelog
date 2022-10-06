@@ -1,3 +1,8 @@
+apolloexplorer (1.0.10-0) UNRELEASED; urgency=low
+  * Fixes to the upload dialog so that multiple uploads don't confilict
+  * Fixes the deletion of large directory structures which would often crash the Amiga (especially on ApolloOS)
+  * Added keyboard short cuts to common operations
+
 apolloexplorer (1.0.9-0) UNRELEASED; urgency=low
   * Next preview release
 

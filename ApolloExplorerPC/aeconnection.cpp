@@ -5,6 +5,9 @@
 #include <QApplication>
 #include <QThread>
 
+#define DEBUG 1
+#include "AEUtils.h"
+
 #define INPUT_BUFFER_SIZE 0x20000
 
 AEConnection::AEConnection(QObject *parent) :
@@ -51,7 +54,7 @@ void AEConnection::onConnectToHostRequestedSlot(QHostAddress serverAddress, quin
     //Connect to the host
     m_Socket.connectToHost( serverAddress, port );
 
-    qDebug() << "Connecting to server " << serverAddress << " on port " << port;
+    DBGLOG << "Connecting to server " << serverAddress << " on port " << port;
 }
 
 void AEConnection::onDisconnectFromhostRequestedSlot()
@@ -65,7 +68,7 @@ void AEConnection::onDisconnectFromhostRequestedSlot()
 
 void AEConnection::onErrorSlot( QAbstractSocket::SocketError error )
 {
-    qDebug() << "Error: " << error << ".  " << m_Socket.errorString();
+    DBGLOG << "Error: " << error << ".  " << m_Socket.errorString();
 }
 
 void AEConnection::onSendMessage(ProtocolMessage_t *message )
@@ -88,7 +91,7 @@ void AEConnection::onSendMessage(ProtocolMessage_t *message )
         if( bytesSent < 0 )
         {
             QString errorMessage = m_Socket.errorString();
-            qDebug() << "Failed to send message: " << errorMessage;
+            DBGLOG << "Failed to send message: " << errorMessage;
             return;
         }
 
@@ -102,23 +105,12 @@ void AEConnection::onSendMessage(ProtocolMessage_t *message )
         //Wait until the bytes are written
         m_Socket.flush();
         m_Socket.waitForBytesWritten( 10000 );
-//        if( m_Socket.bytesToWrite() > 0 )
-//        {
-//            qDebug() << "We still have " << m_Socket.bytesToWrite() << " bytes left to write.";
-//        }
-//        while( m_Socket.bytesToWrite() > 0 )
-//        {
-//            QApplication::processEvents();
-//            m_Socket.flush();
-//            QThread::yieldCurrentThread();
-//            QThread::msleep( 20 );
-//        }
     }
 }
 
 void AEConnection::onConnectedSlot()
 {
-    qDebug() << "Connected to server";
+    DBGLOG << "Connected to server";
 
     //Reset the book keeping
     m_TotalBytesLeftToRead = 0;
@@ -131,7 +123,7 @@ void AEConnection::onConnectedSlot()
 
 void AEConnection::onDisconnectedSlot()
 {
-    qDebug() << "Disconnected from server";
+    DBGLOG << "Disconnected from server";
     emit disconnectedFromHostSignal();
 }
 
@@ -183,12 +175,14 @@ void AEConnection::onReadReadySlot()
             badByteCount++;
         };
         if( badByteCount )
-            qDebug() << "Took " << badByteCount << " bytes to find the token of the next message.";
+        {
+            DBGLOG << "Took " << badByteCount << " bytes to find the token of the next message.";
+        }
 
         //Check if the token is valid
         if( m_IncomingMessageBuffer->token != MAGIC_TOKEN )
         {
-            qDebug() << "Invalid token on new message.  Aborting.";
+            DBGLOG << "Invalid token on new message.  Aborting.";
             m_Socket.disconnectFromHost();
             return;
         }
@@ -197,7 +191,7 @@ void AEConnection::onReadReadySlot()
         bytesRead = m_Socket.read( reinterpret_cast<char*>( &m_IncomingMessageBuffer->type ), sizeof( m_IncomingMessageBuffer->type ) );
         if( bytesRead != sizeof( m_IncomingMessageBuffer->type ) )
         {
-            qDebug() << "Unable to read the message type.  Aborting.";
+            DBGLOG << "Unable to read the message type.  Aborting.";
             m_Socket.disconnectFromHost();
             return;
         }
@@ -208,7 +202,7 @@ void AEConnection::onReadReadySlot()
         bytesRead = m_Socket.read( reinterpret_cast<char*>( &m_IncomingMessageBuffer->length ), sizeof( m_IncomingMessageBuffer->length ) );
         if( bytesRead != sizeof( m_IncomingMessageBuffer->length ) )
         {
-            qDebug() << "Unable to read the message length.  Aborting.";
+            DBGLOG << "Unable to read the message length.  Aborting.";
             m_Socket.disconnectFromHost();
             return;
         }
@@ -225,7 +219,7 @@ void AEConnection::onReadReadySlot()
         bytesRead = m_Socket.read( reinterpret_cast<char*>( m_IncomingMessageBuffer ) + m_TotalBytesRead, m_TotalBytesLeftToRead );
         if( bytesRead < 0 )
         {
-            qDebug() << "Socket error on read.  Aborting connection.";
+            DBGLOG << "Socket error on read.  Aborting connection.";
             m_Socket.disconnectFromHost();
             return;
         }

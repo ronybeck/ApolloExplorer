@@ -34,6 +34,7 @@ public:
         UF_NONE,
         UF_SIZE_MISMATCH,
         UF_CHECKSUM_MISMATCH,
+        UF_TIMEOUT,
         UF_UNKNOWN
     } UploadFailureType;
 
@@ -61,6 +62,7 @@ public slots:
     void onOutgoingBytesUpdateSlot( quint32 bytes );
     void onAcknowledgeSlot( quint8 responseCode );
     void onThroughputTimerExpiredSlot();
+    void onUploadTimeoutTimerExpiredSlot();
 
 private:
     void cleanup();
@@ -75,6 +77,7 @@ signals:
     void abortedSignal( QString message );
     void directoryCreationCompletedSignal();
     void directoryCreationFailedSignal();
+    void operationTimedOutSignal();
 
     //Communication with the protocol handler
     void sendMessageSignal( ProtocolMessage_t *message );
@@ -83,9 +86,14 @@ signals:
     void disconnectFromHostSignal();
     void createDirectorySignal( QString remotePath );
 
+    //Timer communications
+    void startUploadTimeoutTimerSignal();
+    void stopUploadTimeoutTimerSignal();
+
 private:
     QMutex m_Mutex;
     QTimer *m_ThroughPutTimer;
+    QTimer *m_UploadTimeoutTimer;
     ProtocolHandler *m_ProtocolHandler;
     ProtocolHandler::AcknowledgeState m_AcknowledgeState;
     bool m_Connected;

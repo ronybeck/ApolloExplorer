@@ -27,13 +27,13 @@ DialogUploadFile::DialogUploadFile(QWidget *parent) :
     connect( this, &DialogUploadFile::startupUploadSignal, &m_UploadThread, &UploadThread::onStartFileSlot );
     connect( &m_UploadThread, &UploadThread::abortedSignal, this, &DialogUploadFile::onAbortedSlot );
     connect( &m_UploadThread, &UploadThread::connectedToServerSignal, this, &DialogUploadFile::onConnectedToHostSlot );
-    connect( &m_UploadThread, &UploadThread::disconnectedFromServerSignal, this, &DialogUploadFile::onDisconnectedFromHostSlot );
     connect( &m_UploadThread, &UploadThread::uploadCompletedSignal, this, &DialogUploadFile::onStartNextFileUploadSlot );
     connect( &m_UploadThread, &UploadThread::uploadProgressSignal, this, &DialogUploadFile::onProgressUpdate );
     connect( &m_UploadThread, &UploadThread::outgoingBytesSignal, this, &DialogUploadFile::outgoingBytesSignal );
     connect( &m_UploadThread, &UploadThread::uploadFailedSignal, this, &DialogUploadFile::onUploadFailedSlot );
     connect( &m_UploadThread, &UploadThread::directoryCreationCompletedSignal, this, &DialogUploadFile::onStartNextDirectoryCreationSlot );
     connect( &m_UploadThread, &UploadThread::directoryCreationFailedSignal, this, &DialogUploadFile::onDirectoryCreateFailedSlot );
+    connect( &m_UploadThread, &UploadThread::operationTimedOutSignal, this, &DialogUploadFile::onOperationTimedOutSlot );
     connect( this, &DialogUploadFile::createDirectorySignal, &m_UploadThread, &UploadThread::onCreateDirectorySlot );
 
     //Gui signal slots
@@ -57,6 +57,8 @@ DialogUploadFile::~DialogUploadFile()
 void DialogUploadFile::connectToHost(QHostAddress host, quint16 port)
 {
     //qDebug() << "Connecting to server.";
+    m_Host=host;
+    m_Port=port;
     m_UploadThread.onConnectToHostSlot( host, port );
 }
 
@@ -64,6 +66,8 @@ void DialogUploadFile::disconnectFromhost()
 {
     //qDebug() << "Disconnecting to server.";
     m_UploadThread.onDisconnectFromHostRequestedSlot();
+    cleanup();
+    resetDialog();
 }
 
 void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath, QStringList localPaths)
@@ -194,28 +198,35 @@ void DialogUploadFile::resetDialog()
     ui->labelSpeed->setText( "speed: - " );
     ui->labelUpload->setText( "Uploading: - " );
     ui->progressBar->setValue( 0 );
-
-    //Clear out our lists
-    m_RemoteDirectories.clear();
-    m_UploadList.clear();
-    m_UploadRetryList.clear();
 }
 
 void DialogUploadFile::onCancelButtonReleasedSlot()
 {
     //Signal a cancel to the upload thread
     resetDialog();
+    cleanup();
     hide();
 }
 
 void DialogUploadFile::onConnectedToHostSlot()
 {
-    qDebug() << "Upload thread Connected.";
+    DBGLOG << "Upload thread Connected.";
+
+    connect( &m_UploadThread, &UploadThread::disconnectedFromServerSignal, this, &DialogUploadFile::onDisconnectedFromHostSlot );
+
+    //Do we have tasks to continue?
+    if( m_UploadList.count() )
+    {
+        DBGLOG << "Restarting upload.";
+        ui->labelUpload->setText( "Restarting upload." );
+        onStartNextFileUploadSlot();
+    }
 }
 
 void DialogUploadFile::onDisconnectedFromHostSlot()
 {
-    qDebug() << "Upload thread disconnected.";
+    DBGLOG << "Upload thread disconnected.";
+    connect( &m_UploadThread, &UploadThread::disconnectedFromServerSignal, this, &DialogUploadFile::onDisconnectedFromHostSlot );
 }
 
 void DialogUploadFile::onStartNextFileUploadSlot()
@@ -250,11 +261,12 @@ void DialogUploadFile::onStartNextFileUploadSlot()
     m_CurrentRemoteFilePath = filefileUpload.second;
 
     //Update gui
+    ui->progressBar->setValue( 0 );
     ui->labelUpload->setText( "File: " + m_CurrentLocalFilePath );
     ui->labelFilesRemaining->setText( "Files: " + QString::number( m_UploadList.count() ) );
 
     //Start this upload
-    qDebug() << "Uploading " << m_CurrentLocalFilePath << " to  " << m_CurrentRemoteFilePath;
+    DBGLOG << "Uploading " << m_CurrentLocalFilePath << " to  " << m_CurrentRemoteFilePath;
     emit startupUploadSignal( m_CurrentLocalFilePath, m_CurrentRemoteFilePath );
 }
 
@@ -282,6 +294,7 @@ void DialogUploadFile::onDirectoryCreateFailedSlot()
     QMessageBox errorBox( "Error Creating directory", "We failed to create the directory " + m_CurrentRemoteFilePath + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
     errorBox.show();
     resetDialog();
+    cleanup();
     hide();
 }
 
@@ -298,18 +311,8 @@ void DialogUploadFile::onAbortedSlot( QString reason )
 {
     Q_UNUSED( reason );
 
-#if 1
     m_UploadRetryList.append( QPair<QString,QString>(m_CurrentLocalFilePath,m_CurrentRemoteFilePath) );
     onStartNextFileUploadSlot();
-#else
-    //Clear out our list
-    m_UploadList.clear();
-
-    QMessageBox errorBox( "Error uploading file", "The local file couldn't be uploaded because: " + reason, QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
-    errorBox.exec();
-
-    hide();
-#endif
 }
 
 void DialogUploadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)
@@ -317,5 +320,28 @@ void DialogUploadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 t
     Q_UNUSED( bytes )
     ui->labelSpeed->setText( "speed: " + QString::number( throughput/1024 ) + "KB/s" );
     ui->progressBar->setValue( procent );
+}
+
+void DialogUploadFile::onOperationTimedOutSlot()
+{
+    DBGLOG << "Operation timedout";
+    //If we are uploading, we should reconnect and then reschedule the current upload
+    DBGLOG << "Reconnecting";
+    ui->labelUpload->setText( "Operation timed out.  Retrying....." );
+    disconnect( &m_UploadThread, &UploadThread::disconnectedFromServerSignal, this, &DialogUploadFile::onDisconnectedFromHostSlot );
+    m_UploadThread.onDisconnectFromHostRequestedSlot();
+    m_UploadThread.onConnectToHostSlot( m_Host, m_Port );
+
+    //Now we should reschedule the upload
+    m_UploadRetryList.append( QPair<QString,QString>( m_CurrentLocalFilePath, m_CurrentRemoteFilePath ) );
+}
+
+void DialogUploadFile::cleanup()
+{
+    m_RemoteDirectories.clear();
+    m_UploadList.clear();
+    m_UploadRetryList.clear();
+    m_CurrentLocalFilePath.clear();
+    m_CurrentRemoteFilePath.clear();
 }
 
