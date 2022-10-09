@@ -75,7 +75,7 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     //Create a context menu for the system try
     m_SystemTrayIcon.setContextMenu( &m_SystemTrayMenu );
     m_SystemTrayMenu.addMenu( &m_SystemTrayHostsMenu );
-    m_SystemTrayHostsMenu.setTitle( "VNhet Hosts" );
+    m_SystemTrayHostsMenu.setTitle( "Amiga Hosts" );
     m_SystemTrayMenu.addSeparator();
     connect( &m_SystemTrayIcon, &QSystemTrayIcon::activated, this, &ScanningWindow::onSystemTrayIconClickedSlot );
     QAction *quitAction = m_SystemTrayMenu.addAction( "Quit", this, &ScanningWindow::close );

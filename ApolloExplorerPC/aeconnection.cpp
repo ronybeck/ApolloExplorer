@@ -26,7 +26,7 @@ AEConnection::AEConnection(QObject *parent) :
     connect( &m_Socket, &QTcpSocket::disconnected, this, &AEConnection::onDisconnectedSlot );
     connect( &m_Socket, &QTcpSocket::readyRead, this, &AEConnection::onReadReadySlot );
 #if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
-    connect( &m_Socket, &QTcpSocket::errorOccurred, this, &VNetConnection::onErrorSlot );
+    connect( &m_Socket, &QTcpSocket::errorOccurred, this, &AEConnection::onErrorSlot );
 #else
     connect( &m_Socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QAbstractSocket::error), this, &AEConnection::onErrorSlot );
 #endif
