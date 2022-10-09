@@ -348,7 +348,6 @@ void DialogDownloadFile::onOperationTimedoutSlot()
 void DialogDownloadFile::resetDownloadDialog()
 {
     m_DownloadList.clear();
-    m_FilesToOpen.clear();
     ui->labelDownload->setText( "File: -" );
     ui->labelFilesRemaining->setText( "Files remaining: -" );
     ui->progressBar->setValue( 0 );

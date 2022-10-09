@@ -1,3 +1,8 @@
+apolloexplorer (1.0.11-0) UNRELEASED; urgency=low
+  * Added timeout detection and recovery to upload and download on the client
+    side
+  * Fixed some incorrectly connected "connection disconnected" signals.
+
 apolloexplorer (1.0.10-0) UNRELEASED; urgency=low
   * Fixes to the upload dialog so that multiple uploads don't confilict
   * Fixes the deletion of large directory structures which would often crash the Amiga (especially on ApolloOS)
