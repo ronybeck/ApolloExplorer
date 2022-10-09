@@ -16,9 +16,11 @@ DownloadThread::DownloadThread(QObject *parent) :
     QThread(parent),
     m_Mutex( QMutex::Recursive ),
     m_ThroughPutTimer( nullptr ),
+    m_OperationTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
-    m_Connected( false ),
-    m_FileToDownload( false ),
+    m_DirectoryListing(),
+    m_OperationState( IDLE ),
+    m_ConnectionState( DISCONNECTED ),
     m_RemoteFilePath( "" ),
     m_LocalFilePath( "" ),
     m_LocalFile(),
@@ -40,8 +42,8 @@ void DownloadThread::run()
     m_ProtocolHandler = new ProtocolHandler();
 
     //Connect our protocol handler
-    connect( m_ProtocolHandler, &ProtocolHandler::disconnectFromHostSignal, this, &DownloadThread::onDisconnectedFromHostSlot );
-    connect( m_ProtocolHandler, &ProtocolHandler::connectToHostSignal, this, &DownloadThread::onConnectedToHostSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::disconnectedFromHostSignal, this, &DownloadThread::onDisconnectedFromHostSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::connectedToHostSignal, this, &DownloadThread::onConnectedToHostSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::acknowledgeWithCodeSignal, this, &DownloadThread::onAcknowledgeSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::startOfFileSendSignal, this, &DownloadThread::onStartOfFileSendSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::fileChunkSignal, this, &DownloadThread::onFileChunkSlot );
@@ -60,6 +62,16 @@ void DownloadThread::run()
     m_ThroughPutTimer->setInterval( 1000 );
     m_ThroughPutTimer->setSingleShot( false );
     m_ThroughPutTimer->start();
+
+    //setup the operation timer
+    m_OperationTimer = new QTimer();
+    m_OperationTimer->setTimerType( Qt::PreciseTimer );
+    m_OperationTimer->setSingleShot( true );
+    m_OperationTimer->setInterval( 10000 );
+    connect( this, &DownloadThread::startOperationTimerSignal, m_OperationTimer, QOverload<>::of( &QTimer::start ) );
+    connect( this, &DownloadThread::stopOperationTimerSignal, m_OperationTimer, &QTimer::stop );
+    connect( m_OperationTimer, &QTimer::timeout, this, &DownloadThread::onOperationTimerTimeoutSlot );
+
 
     connect( m_ThroughPutTimer, &QTimer::timeout, this, &DownloadThread::onThroughputTimerExpiredSlot );
 
@@ -102,6 +114,7 @@ void DownloadThread::onConnectToHostSlot( QHostAddress host, quint16 port )
 {
     //Connect to the server
     DBGLOG << "Download thread Connecting to server " << host.toString();
+    m_ConnectionState=CONNECTING;
     emit connectToHostSignal( host, port );
 }
 
@@ -109,6 +122,7 @@ void DownloadThread::onDisconnectFromHostRequestedSlot()
 {
     LOCK;
     DBGLOG << "Download thread disconnecting from server";
+    m_ConnectionState=DISCONNECTING;
     emit disconnectFromHostSignal();
 }
 
@@ -140,6 +154,9 @@ void DownloadThread::onStartFileSlot(QString localFilePath, QString remoteFilePa
     strncpy( pullFileRequest->filePath, encodedPath, strlen( encodedPath ) + 1 );
     pullFileRequest->filePath[ strlen( encodedPath ) ] = 0;      //Make sure we have a terminating null
 
+    //Start the operation timer
+    emit startOperationTimerSignal();
+
     //Send the message
     emit sendAndReleaseMessageSignal( reinterpret_cast<ProtocolMessage_t*>( pullFileRequest ) );
 }
@@ -147,6 +164,9 @@ void DownloadThread::onStartFileSlot(QString localFilePath, QString remoteFilePa
 void DownloadThread::onCancelDownloadSlot()
 {
     LOCK;
+
+    //Set the state to IDLE
+    m_OperationState=IDLE;
 
     //Send the cancel operation message
     ProtocolMessage_CancelOperation_t *cancelMessage = AllocMessage<ProtocolMessage_CancelOperation_t>();
@@ -160,9 +180,24 @@ void DownloadThread::onCancelDownloadSlot()
     cleanup();
 }
 
+void DownloadThread::onOperationTimerTimeoutSlot()
+{
+    DBGLOG << "Operation timedout";
+    if( m_OperationState != IDLE )
+    {
+        if( m_LocalFile.isOpen() )
+            m_LocalFile.close();
+        cleanup();
+    }
+    emit operationTimedOutSignal();
+}
+
 QSharedPointer<DirectoryListing> DownloadThread::onGetDirectoryListingSlot( QString remotePath )
 {
     DBGLOG << "Getting remote directory " << remotePath;
+
+    //Set the operational state
+    m_OperationState=GETTING_DIRECTORY;
 
     //Now get a list of the remote files
     quint32 waitTime = 60000;  //Wait up to 120 seconds.  Note:  This is not over doing it.  I have seen WB take 60 seconds to get a directory list of BeneathASteelSky for the CD32.  We will take longer.
@@ -176,10 +211,14 @@ QSharedPointer<DirectoryListing> DownloadThread::onGetDirectoryListingSlot( QStr
     emit getRemoteDirectorySignal( remotePath );
     loop.exec();
 
+    //Reset the state
+    m_OperationState=IDLE;
+
     //Did a timeout occur?
     if( !timer.isActive() )
     {
         DBGLOG << "Time out occured getting remote path " << remotePath;
+        emit operationTimedOutSignal();
         return nullptr;
     }
 
@@ -190,16 +229,16 @@ QSharedPointer<DirectoryListing> DownloadThread::onGetDirectoryListingSlot( QStr
 void DownloadThread::onConnectedToHostSlot()
 {
     LOCK;
-    m_Connected = true;
     DBGLOG << "Download thread connected to server.";
+    m_ConnectionState=CONNECTED;
     emit connectedToServerSignal();
 }
 
 void DownloadThread::onDisconnectedFromHostSlot()
 {
     LOCK;
-    m_Connected = false;
     DBGLOG << "Download thread disconnected to server.";
+    m_ConnectionState=DISCONNECTING;
     emit disconnectedFromServerSignal();
 }
 
@@ -219,6 +258,9 @@ void DownloadThread::onOutgoingBytesUpdateSlot(quint32 bytes)
 void DownloadThread::onAcknowledgeSlot( quint8 responseCode )
 {
     LOCK;
+
+    //Stop the timer
+    emit stopOperationTimerSignal();
 
     DBGLOG << "Got an acknowledge from the server with a response of " << responseCode;
     //Check if our request has been accepted.
@@ -249,6 +291,9 @@ void DownloadThread::onStartOfFileSendSlot(quint64 fileSize, quint32 numberOfChu
     m_FileSize = fileSize;
     m_FileChunks = numberOfChunks;
     m_CurrentChunk = 0;
+
+    //restart the operation timer
+    emit startOperationTimerSignal();
 }
 
 void DownloadThread::onFileChunkSlot(quint32 chunkNumber, quint32 bytes, QByteArray chunk)
@@ -258,14 +303,17 @@ void DownloadThread::onFileChunkSlot(quint32 chunkNumber, quint32 bytes, QByteAr
     if( bytes == 0 )
     {
         DBGLOG << "The server said the file can't be downloaded mid download.";
+        emit stopOperationTimerSignal();
         emit abortedSignal( "Something went wrong on the server side." );
         cleanup();
         return;
     }
 
+    //restart the operation timer
+    emit startOperationTimerSignal();
+
 
     //Otherwise we need to write this to the disk
-
     m_CurrentChunk = chunkNumber;
     if( chunk.size() )
     {
@@ -303,6 +351,7 @@ void DownloadThread::onThroughputTimerExpiredSlot()
 void DownloadThread::onDirectoryListingSlot(QSharedPointer<DirectoryListing> listing)
 {
     m_DirectoryListing = listing;
+    emit stopOperationTimerSignal();
     emit directoryListingReceivedSignal();
 }
 
@@ -322,5 +371,5 @@ void DownloadThread::cleanup()
     m_ProgressProcent = 0;
     m_FileChunks = 0;
     m_CurrentChunk = 0;
-    m_FileToDownload = false;
+    m_OperationState=IDLE;
 }

@@ -17,6 +17,24 @@ class DownloadThread : public QThread
 {
     Q_OBJECT
 public:
+    enum ConnectionState
+    {
+        DISCONNECTED,
+        CONNECTING,
+        CONNECTED,
+        DISCONNECTING,
+        UNKNOWN_CONNECTION_STATE
+    };
+
+    enum OperationState
+    {
+        IDLE,
+        DOWNLOADING,
+        GETTING_DIRECTORY,
+        UNKNOWN_OPERATION_STATE
+    };
+
+
     explicit DownloadThread(QObject *parent = nullptr);
 
     void run() override final;
@@ -30,6 +48,7 @@ public slots:
     void onDisconnectFromHostRequestedSlot();
     void onStartFileSlot( QString localFilePath, QString remoteFilePath );
     void onCancelDownloadSlot();
+    void onOperationTimerTimeoutSlot();
 
 
     //Internally used slots
@@ -65,14 +84,20 @@ signals:
     void disconnectFromHostSignal();
     void getRemoteDirectorySignal( QString remotePath );
 
+    //Operation timer signals
+    void startOperationTimerSignal();
+    void stopOperationTimerSignal();
+    void operationTimedOutSignal();
+
 
 private:
     QMutex m_Mutex;
     QTimer *m_ThroughPutTimer;
+    QTimer *m_OperationTimer;
     ProtocolHandler *m_ProtocolHandler;
     QSharedPointer<DirectoryListing> m_DirectoryListing;
-    bool m_Connected;
-    bool m_FileToDownload;
+    OperationState m_OperationState;
+    ConnectionState m_ConnectionState;
     QString m_RemoteFilePath;
     QString m_LocalFilePath;
     QFile m_LocalFile;

@@ -24,6 +24,24 @@ class DialogDownloadFile : public QDialog
     Q_OBJECT
 
 public:
+    enum OperationState
+    {
+        IDLE,
+        GETTING_DIRECTORY,
+        DOWNLOADING_FILES,
+        UNKNOWN_OPERATION_STATE
+    };
+
+    enum ConnectionState
+    {
+        DISCONNECTED,
+        CONNECTING,
+        CONNECTED,
+        DISCONNECTING,
+        UNKNOWN_CONNECTION_STATE
+    };
+
+
     explicit DialogDownloadFile(QWidget *parent = nullptr);
     ~DialogDownloadFile();
 
@@ -47,6 +65,7 @@ public slots:
     void onSingleFileDownloadCompletedSlot();
     void onAllFileDownloadsCompletedSlot();
     void onProgressUpdate( quint8 procent, quint64 bytes, quint64 throughput );
+    void onOperationTimedoutSlot();
 
 signals:
     void singleFileDownloadCompletedSignal();
@@ -65,8 +84,13 @@ private:
     QMutex m_Mutex;
     QMutex m_DownloadCompletionMutex;
     QWaitCondition m_DownloadCompletionWaitCondition;
-    QAtomicInteger<bool> m_DownloadActive;
     QStringList m_FilesToOpen;      //Which files are to be opened when the download is completed
+    OperationState m_OperationState;
+    ConnectionState m_ConnectionState;
+    QHostAddress m_Host;
+    quint16 m_Port;
+    QString m_CurrentLocalFile;
+    QString m_CurrentRemoteFile;
 };
 
 #endif // DIALOGDOWNLOADFILE_H

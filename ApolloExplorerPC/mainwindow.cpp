@@ -272,8 +272,8 @@ void MainWindow::onConnectButtonReleasedSlot()
 
 void MainWindow::onDisconnectButtonReleasedSlot()
 {
-    m_DialogDownloadFile->disconnectFromhost();
-    m_DialogUploadFile->disconnectFromhost();
+    //m_DialogDownloadFile->disconnectFromhost();
+    //m_DialogUploadFile->disconnectFromhost();
     emit disconnectFromHostSignal();
 }
 
@@ -995,7 +995,7 @@ void MainWindow::onDisconnectedFromHostSlot()
     ui->labelServerVersion->setText( "Server Version: -" );
 
     //Disconnect our upload and download dialogs
-    m_DialogDownloadFile->disconnectFromhost();
+    //m_DialogDownloadFile->disconnectFromhost();
     //m_DialogUploadFile->disconnectFromhost();
     m_DialogDelete.disconnectFromhost();
 
