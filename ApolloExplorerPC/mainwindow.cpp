@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "aboutdialog.h"
 
 #include <QDebug>
 #include <QtEndian>
@@ -133,6 +134,7 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
 
     //Connect actions
     connect( ui->actionDelete, &QAction::triggered, this, &MainWindow::onDeleteSlot );
+    connect( ui->actionAbout, &QAction::triggered, this, &MainWindow::onAboutSlot );
     connect( ui->actionReboot_Amiga, &QAction::triggered, this, &MainWindow::onRebootSlot );
     connect( ui->actionCreate_Directory, &QAction::triggered, this, &MainWindow::onMkdirSlot );
 
@@ -785,6 +787,11 @@ void MainWindow::onDeleteSlot()
     //Hide the delete dialog
     m_DialogDelete.hide();
 #endif
+}
+
+void MainWindow::onAboutSlot()
+{
+    m_AboutDialog.show();
 }
 
 void MainWindow::onRenameSlot()

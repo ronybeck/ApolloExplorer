@@ -90,7 +90,7 @@ void UploadThread::run()
         {
             UNLOCK;
             QThread::yieldCurrentThread();
-            QThread::msleep( 100 );
+            QThread::msleep( 5 );
             continue;
         }
         UNLOCK;
@@ -101,7 +101,7 @@ void UploadThread::run()
         while( m_CurrentChunk < m_FileChunks && m_JobType == JT_UPLOAD )
         {
             QThread::yieldCurrentThread();
-            QThread::msleep( 10 );
+            QThread::msleep( 5 );
 
             RELOCK;
             //Check again that an interruption isn't requested
@@ -181,7 +181,7 @@ void UploadThread::run()
 
         //Reset
         QThread::yieldCurrentThread();
-        QThread::msleep( 50 );
+        QThread::msleep( 5 );
     }
 
     //cleanup

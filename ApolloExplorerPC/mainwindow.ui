@@ -555,6 +555,7 @@ QMenu::indicator:checked {
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionAbout"/>
     <addaction name="actionCreate_Directory"/>
     <addaction name="actionReboot_Amiga"/>
     <addaction name="actionDelete"/>
@@ -636,6 +637,11 @@ QMenu::indicator:checked {
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+R</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
    </property>
   </action>
  </widget>

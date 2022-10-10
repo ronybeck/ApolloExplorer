@@ -17,6 +17,7 @@ INCLUDEPATH += ../
 
 SOURCES += \
     AEUtils.cpp \
+    aboutdialog.cpp \
     aeconnection.cpp \
     amigahost.cpp \
     deletionthread.cpp \
@@ -44,6 +45,7 @@ SOURCES += \
 HEADERS += \
     ../protocolTypes.h \
     AEUtils.h \
+    aboutdialog.h \
     aeconnection.h \
     amigahost.h \
     deletionthread.h \
@@ -68,6 +70,7 @@ HEADERS += \
     uploadthread.h
 
 FORMS += \
+    aboutdialog.ui \
     dialogconsole.ui \
     dialogdelete.ui \
     dialogdownloadfile.ui \
@@ -87,6 +90,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 DISTFILES += \
+    ../LogoBig.png \
     icons/Computer_Amiga.png \
     icons/Computer_Generic.png \
     icons/Computer_Linux.png \
@@ -101,4 +105,5 @@ DISTFILES += \
 
 RESOURCES += \
     Fonts.qrc \
+    Images.qrc \
     icons.qrc

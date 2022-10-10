@@ -16,6 +16,7 @@
 #include "dialogconsole.h"
 #include "dialogdelete.h"
 #include "dialogpreferences.h"
+#include "aboutdialog.h"
 #include "remotefiletableview.h"
 #include "remotefiletablemodel.h"
 #include "diskvolume.h"
@@ -72,6 +73,7 @@ public slots:
     void onMkdirSlot();
     void onRebootSlot();
     void onDeleteSlot();
+    void onAboutSlot();
     void onRenameSlot();
     void onDownloadSelectedSlot();
 
@@ -150,6 +152,9 @@ private:
     QSharedPointer<DialogDownloadFile> m_DialogDownloadFile;
     QSharedPointer<DialogUploadFile> m_DialogUploadFile;
     DialogDelete m_DialogDelete;
+
+    //About Dialog
+    AboutDialog m_AboutDialog;
 
     //Throughput book keeping
     quint32 m_IncomingByteCount;
