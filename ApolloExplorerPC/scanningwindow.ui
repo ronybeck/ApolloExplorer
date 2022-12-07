@@ -24,7 +24,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="icons.qrc">
-    <normaloff>:/browser/icons/VampireHW.png</normaloff>:/browser/icons/VampireHW.png</iconset>
+    <normaloff>:/browser/icons/Apollo_Explorer_24x24.png</normaloff>:/browser/icons/Apollo_Explorer_24x24.png</iconset>
   </property>
   <property name="styleSheet">
    <string notr="true">QWidget
@@ -35,6 +35,7 @@
 	color:  white;
 	font: 700 10pt &quot;Comfortaa&quot;;
 }
+
 QPushButton
 {
 	margin: 5px;
@@ -83,8 +84,11 @@ QListView::item
 	padding: 10px;
 }</string>
   </property>
-  <property name="documentMode">
-   <bool>false</bool>
+  <property name="iconSize">
+   <size>
+    <width>24</width>
+    <height>24</height>
+   </size>
   </property>
   <property name="unifiedTitleAndToolBarOnMac">
    <bool>true</bool>
@@ -284,11 +288,28 @@ QListView::item
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="pushButtonSettings">
-         <property name="text">
-          <string>settings</string>
-         </property>
-        </widget>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QPushButton" name="pushButtonSettings">
+           <property name="text">
+            <string>settings</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButtonAbout">
+           <property name="maximumSize">
+            <size>
+             <width>80</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>About</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>

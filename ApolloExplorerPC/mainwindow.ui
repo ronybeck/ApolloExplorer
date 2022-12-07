@@ -15,7 +15,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="icons.qrc">
-    <normaloff>:/browser/icons/VampireHW.png</normaloff>:/browser/icons/VampireHW.png</iconset>
+    <normaloff>:/browser/icons/FirebirdHW.png</normaloff>:/browser/icons/FirebirdHW.png</iconset>
   </property>
   <property name="styleSheet">
    <string notr="true">QWidget

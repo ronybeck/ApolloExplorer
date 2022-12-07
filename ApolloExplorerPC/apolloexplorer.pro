@@ -101,7 +101,9 @@ DISTFILES += \
     icons/refresh.png \
     icons/VampireHW.png \
     icons/IcedrakeHW.png \
-    icons/FirebirdHW.png
+    icons/FirebirdHW.png \
+    icons/Apollo_Explorer_icon.png \
+    icons/Apollo_Explorer_24x24.png
 
 RESOURCES += \
     Fonts.qrc \

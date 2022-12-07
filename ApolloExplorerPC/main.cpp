@@ -23,11 +23,14 @@ int main(int argc, char *argv[])
 
     //Add the fonts
     QFontDatabase::addApplicationFont(":/comfortaa");
+    QApplication::setWindowIcon( QIcon( ":/browser/icons/Apollo_Explorer_icon.png" ) );
+    a.setWindowIcon( QIcon( ":/browser/icons/Apollo_Explorer_icon.png" ) );
+
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
     for (const QString &locale : uiLanguages) {
-        const QString baseName = "VnetPC_" + QLocale(locale).name();
+        const QString baseName = "ApolloExplorer_" + QLocale(locale).name();
         if (translator.load(":/i18n/" + baseName)) {
             a.installTranslator(&translator);
             break;

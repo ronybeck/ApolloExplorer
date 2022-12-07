@@ -68,6 +68,7 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     connect( ui->checkBoxOpenAutomatically, &QCheckBox::released, this, &ScanningWindow::onAutoConnectCheckboxToggledSlot );
     connect( ui->pushButton, &QPushButton::released, this, &ScanningWindow::onConnectButtonReleasedSlot );
     connect( ui->pushButtonSettings, &QPushButton::released, &m_DialogPreferences, &DialogPreferences::show );
+    connect( ui->pushButtonAbout, &QPushButton::released, &m_AboutDialog, &AboutDialog::show );
 
     //Show the system try
     m_SystemTrayIcon.show();

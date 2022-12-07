@@ -277,7 +277,7 @@ void RemoteFileTableModel::sortEntries()
             case SORT_NAME:
                 std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
                 {
-                    return a->Name() > b->Name();
+                    return a->Name().toLower() > b->Name().toLower();
                 });
             break;
             case SORT_TYPE:

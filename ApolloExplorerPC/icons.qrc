@@ -13,6 +13,10 @@
         <file>icons/IcedrakeHW.png</file>
         <file>icons/go-up.png</file>
         <file>icons/refresh.png</file>
+        <file>icons/Apollo_Explorer_icon.png</file>
+        <file>icons/Apollo_Explorer_24x24.ico</file>
+        <file>icons/Apollo_Explorer_24x24.xpm</file>
+        <file>icons/Apollo_Explorer_24x24.png</file>
     </qresource>
     <qresource prefix="/"/>
 </RCC>
