@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
+#include <clib/wb_protos.h>
 #include <sys/ioctl.h>
 
 #include "protocolTypes.h"
@@ -11,6 +12,7 @@
 #include "AEUtil.h"
 #include "AEClientThread.h"
 #include "AEDiscoveryThread.h"
+#include "wbicon.h"
 
 UBYTE *ver = "\0$VER: ApolloExplorerSrv " VERSION_STRING;
 
@@ -127,6 +129,59 @@ int main(int argc, char *argv[])
 	AddPort( g_AEServerMessagePort );
 	dbglog( "[master] Master Message Port: 0x%08x\n", (unsigned int)g_AEServerMessagePort );
 
+	//Setup the desktop icon
+	//First the text
+	char iconText[] = "Stop ApolloExplorer";
+
+
+#if 1
+	UWORD iconWidth = 41;
+	UWORD iconHeight = 45;
+	UWORD *wbIconImageData = NULL;
+	//Copy the icon object into chipram
+	dbglog( "[master] Copying the workbench image data\n" );
+	wbIconImageData = AllocVec( sizeof( iconData ), MEMF_CHIP|MEMF_CLEAR );
+	memcpy( wbIconImageData, &iconData, sizeof( iconData ) );
+#endif
+
+	//Setup the image struct
+	dbglog( "[master] Setup the image struct for the workbench icon\n" );
+#if 1
+	struct Image wbIconImage;
+	wbIconImage.Width = iconWidth;
+	wbIconImage.Height = iconHeight;
+	wbIconImage.Depth = 2;
+	wbIconImage.PlaneOnOff = 0x0000;
+	wbIconImage.PlanePick = 0x0003;
+	wbIconImage.NextImage = NULL;
+	wbIconImage.ImageData = wbIconImageData;
+#endif
+
+#if 1
+	//Now setup the disk object
+	dbglog( "[master] Setup the DiskObject for the workbench icon\n" );
+	struct DiskObject iconDiskObject;
+	memset( &iconDiskObject, 0, sizeof( iconDiskObject ) );
+	iconDiskObject.do_Gadget.Width = 36;
+	iconDiskObject.do_Gadget.Height = 36;
+	iconDiskObject.do_Gadget.GadgetRender = &wbIconImage;
+	iconDiskObject.do_CurrentX = NO_ICON_POSITION;
+	iconDiskObject.do_CurrentY = NO_ICON_POSITION;
+#endif
+
+#if 1
+	//Add the app icon to the workbench
+	dbglog( "[master] Adding the app icon to workbench.\n" );
+	struct AppIcon *appIcon = NULL;
+	appIcon = AddAppIcon( 0,
+								0,
+								iconText,
+								g_AEServerMessagePort,
+								0,
+								&iconDiskObject,
+		                        TAG_END );
+#endif
+
 	//Start announcing our presence on the network
 	startDiscoveryThread();
 
@@ -169,9 +224,13 @@ int main(int argc, char *argv[])
 		{
 			//If this is a terminate message, start shutting down the clients
 			struct AEMessage *aeMsg = (struct AEMessage *)newMessage;
-			if( aeMsg->messageType == AEM_Shutdown )
+			if( aeMsg->messageType == AEM_Shutdown || aeMsg->messageType == WB_ICON_DOUBLE_CLICKED )
 			{
 				dbglog( "[master] Got a shutdown message.\n" );
+
+				//remove the icon immediately
+				RemoveAppIcon( appIcon );
+				appIcon = NULL;
 
 				//Kill the discovery thread
 				Forbid();
@@ -298,6 +357,10 @@ int main(int argc, char *argv[])
 	shutdown:
 	dbglog( "[master] Shutting down.\n" );
 	Delay( 10 );
+
+	//Remove the app icon
+	if( appIcon != NULL ) RemoveAppIcon( appIcon );
+	if( wbIconImageData != NULL ) FreeVec( wbIconImageData );
 
 	//Clear out and then free the message port
 	dbglog( "[master] Removing message port.\n" );

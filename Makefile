@@ -19,7 +19,7 @@ ApolloExplorerTool=ApolloExplorerTool
 ApolloExplorerTool_SRC = Amiga/ApolloExplorerTool.c
 
 ${ApolloExplorerServer}: 
-	$(AE_CC) ${AE_CFLAGS} ${AE_Includes} -I./Amiga/ -I. ${ApolloExplorerServer_SRC} -lamiga -o ${ApolloExplorerServer}
+	$(AE_CC) ${AE_CFLAGS} ${AE_Includes} -I./Amiga/ -I. ${ApolloExplorerServer_SRC} -lamiga  -o ${ApolloExplorerServer}
 	
 ${ApolloExplorerTool}:
 	$(AE_CC) ${AE_CFLAGS} ${AE_Includes} -I./Amiga/ -I. ${ApolloExplorerTool_SRC} -lamiga -o ${ApolloExplorerTool}

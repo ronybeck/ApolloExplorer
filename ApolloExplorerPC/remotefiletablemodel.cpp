@@ -268,6 +268,16 @@ void RemoteFileTableModel::showInfoFiles(bool enable)
 void RemoteFileTableModel::sortEntries()
 {
     LOCK;
+    bool ignoreCase = false;
+
+    //Are we ignoring case?
+    if( !m_Settings.isNull() )
+    {
+        m_Settings->beginGroup( SETTINGS_BROWSER );
+        ignoreCase = m_Settings->value( SETTINGS_SORTING_IGNORE_CASE, false ).toBool();
+        m_Settings->endGroup();
+    }
+
 
     //Perform the sort
     if( m_ReverseOrder )
@@ -275,10 +285,21 @@ void RemoteFileTableModel::sortEntries()
         switch( m_SortColumn )
         {
             case SORT_NAME:
-                std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
+            {
+                if( ignoreCase )
                 {
-                    return a->Name().toLower() > b->Name().toLower();
-                });
+                    std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
+                    {
+                        return a->Name().toLower() > b->Name().toLower();
+                    });
+                }else
+                {
+                    std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
+                    {
+                        return a->Name() > b->Name();
+                    });
+                }
+            }
             break;
             case SORT_TYPE:
                 std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
@@ -298,10 +319,21 @@ void RemoteFileTableModel::sortEntries()
         switch( m_SortColumn )
         {
             case SORT_NAME:
-                std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
+            {
+                if( ignoreCase )
                 {
-                    return a->Name() < b->Name();
-                });
+                    std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
+                    {
+                        return a->Name().toLower() < b->Name().toLower();
+                    });
+                }else
+                {
+                    std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
+                    {
+                        return a->Name() < b->Name();
+                    });
+                }
+            }
             break;
             case SORT_TYPE:
                 std::sort( m_FileList.begin(), m_FileList.end(), []( QSharedPointer<DirectoryListing> a, QSharedPointer<DirectoryListing> b )
@@ -347,6 +379,24 @@ void RemoteFileTableModel::getHeaderSelection(int &column, bool &reversed)
 {
     column = m_SortColumn;
     reversed = m_ReverseOrder;
+}
+
+void RemoteFileTableModel::setSettings( QSharedPointer<QSettings> settings )
+{
+    m_Settings = settings;
+
+    //Now we should set the default sort now
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    QString defaultSortString = m_Settings->value( SETTINGS_SORTING_DEFAULT, SETTINGS_SORTING_TYPE ).toString();
+    m_Settings->endGroup();
+    if( !defaultSortString.compare( SETTINGS_SORTING_NAME ) )
+        m_SortColumn = SORT_NAME;
+    else if( !defaultSortString.compare( SETTINGS_SORTING_SIZE ) )
+        m_SortColumn = SORT_SIZE;
+    else
+        m_SortColumn = SORT_TYPE;
+
+    sortEntries();
 }
 
 void RemoteFileTableModel::onHeaderSectionClicked( int section )

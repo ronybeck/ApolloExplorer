@@ -35,9 +35,9 @@
 #define VREG_BOARD_ICEDRAKE     0x04      // V4-Icedrake
 #define VREG_BOARD_V4SA         0x05      // V4SA
 #define VREG_BOARD_V1200        0x06      // V1200
-#define VREG_BOARD_V4000        0x07      // V4000
-#define VREG_BOARD_VCD32        0x08      // VCD32
-#define VREG_BOARD_Future       0x09      // Future
+#define VREG_BOARD_V4_V600      0x07      // V4-V600 = MantiCore
+#define VREG_BOARD_Future_1     0x08      // Future
+#define VREG_BOARD_Future_2     0x09      // Future
 
 #define VREG_BOARD              0xDFF3FC  // [16-bits] BoardID [HIGH-Byte: MODEL, LOW-Byte: xFREQ]
 
@@ -53,6 +53,14 @@ static void readApolloOSVer( char *version, LONG len )
 	{
 		FGets( versionFileHandle, version, len );
 		Close( versionFileHandle );
+	}else
+	{
+		BPTR versionFileHandle = Open( "ENV:ABVERSION", MODE_OLDFILE );
+		if( versionFileHandle != 0 )
+		{
+			FGets( versionFileHandle, version, len );
+			Close( versionFileHandle );
+		}
 	}
 }
 
@@ -252,11 +260,8 @@ static void getHardwareName( char *name, LONG len )
 		case VREG_BOARD_V1200:
 			snprintf( name, len, "%s", "V2 1200" );
 			break;
-		case VREG_BOARD_V4000:
-			snprintf( name, len, "%s", "V4000" );
-			break;
-		case VREG_BOARD_VCD32:
-			snprintf( name, len, "%s", "VCD32" );
+		case VREG_BOARD_V4_V600:
+			snprintf( name, len, "%s", "Manticore" );
 			break;
 		default:
 			snprintf( name, len, "%s", "Amiga" );
@@ -481,7 +486,12 @@ static void discoveryThread()
 
 	//Let's see what is in the tool types
 	dbglog( "[discoverySocket] Opening disk object\n" );
+
 	struct DiskObject *diskObject = GetDiskObject( "ApolloExplorerSrv" );
+	if( diskObject == NULL )
+	{
+		diskObject = GetDiskObject( "ApolloExplorer" );
+	}
 	if( diskObject )
 	{
 		dbglog( "[discoverySocket] Opened disk object\n" );
@@ -541,6 +551,27 @@ static void discoveryThread()
 			}
 		}
 		FreeDiskObject( diskObject );
+	}else
+	{
+		getOSName( osName, sizeof( osName ) );
+		if( strlen( osName ) > 0 )
+		{
+			dbglog( "[discoverySocket] detected osname: %s\n", osName );
+			strncpy( announceMessage->osName, osName, sizeof( announceMessage->name ) );
+		}
+		getOSVersion( osVersion, sizeof( osVersion ) );
+		if( strlen( osVersion ) > 0 )
+		{
+			dbglog( "[discoverySocket] detected osversion: %s\n", osVersion );
+			strncpy( announceMessage->osVersion, osVersion, sizeof( announceMessage->osVersion ) );
+		}
+
+		getHardwareName( hardwareName, sizeof( hardwareName ) );
+		if( strlen( hardwareName ) > 0 )
+		{
+			dbglog( "[discoverySocket] detected hardware: %s\n", hardwareName );
+			strncpy( announceMessage->hardware, hardwareName, sizeof( announceMessage->hardware ) );
+		}
 	}
 
 	//Make sure that all the strings are NULL terminated correctly

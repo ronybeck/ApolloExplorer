@@ -493,6 +493,8 @@ static void clientThread()
 	LONG bytesAvailable = 0;
 	while( keepThisConnectionRunning )
 	{
+
+		//Check if there is any
 		IoctlSocket( newClientSocket,FIONREAD ,&bytesAvailable );
 		if( bytesAvailable == 0 )
 		{

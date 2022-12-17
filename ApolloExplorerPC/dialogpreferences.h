@@ -23,6 +23,8 @@ public:
     void onHelloTimeoutChangedSlot( int newValue );
     void onDNDSizeChangedSlot( int newValue );
     void onDNDOperationComboboxChangedSlot( const QString selection );
+    void onDefaultSortCombobBoxChangedSlot( const QString selection );
+    void onIgnoreCaseCheckBoxClickedSlot( const bool checked );
 
 private:
     Ui::DialogPreferences *ui;

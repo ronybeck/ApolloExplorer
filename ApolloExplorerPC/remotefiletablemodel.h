@@ -7,6 +7,8 @@
 #include <QObject>
 #include <QVector>
 #include <QMutexLocker>
+#include <QSharedPointer>
+#include <QSettings>
 
 class RemoteFileTableModel : public QAbstractTableModel
 {
@@ -35,6 +37,7 @@ public:
     void showInfoFiles( bool enable );
     void sortEntries();
     void getHeaderSelection( int &column, bool &reversed );
+    void setSettings( QSharedPointer<QSettings> settings );
 
     QSharedPointer<DirectoryListing> getRootDirectoryListing() const;
 
@@ -49,6 +52,7 @@ private:
     QStringList m_HeaderNames;
     QSharedPointer<DirectoryListing> m_DirectoryListing;
     QVector<QSharedPointer<DirectoryListing>> m_FileList;
+    QSharedPointer<QSettings> m_Settings;
     SortColumn m_SortColumn;
     bool m_ReverseOrder;
     bool m_ShowInfoFiles;

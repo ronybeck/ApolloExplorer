@@ -1246,10 +1246,12 @@ void MainWindow::updateFilebrowser()
         if( m_FileTableModel )
         {
             m_FileTableModel->updateListing( m_DirectoryListings[ selectedPath ] );
+            m_FileTableModel->setSettings( m_Settings );
         }
         else
         {
             m_FileTableModel = new RemoteFileTableModel( m_DirectoryListings[ selectedPath ] );
+            m_FileTableModel->setSettings( m_Settings);
             m_FileTableModel->showInfoFiles( !m_HideInfoFiles );
             m_FileTableView->setModel( m_FileTableModel );
             connect( m_FileTableView->horizontalHeader(), &QHeaderView::sectionClicked, m_FileTableModel, &RemoteFileTableModel::onHeaderSectionClicked  );

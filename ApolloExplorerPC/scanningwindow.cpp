@@ -23,6 +23,10 @@ static QPixmap getPixmap( QSharedPointer<AmigaHost> host )
     {
         return QPixmap( ":/browser/icons/IcedrakeHW.png" );
     }
+    else if( host->Hardware().contains( "Manticore", Qt::CaseInsensitive ))
+    {
+        return QPixmap( ":/browser/icons/ManticoreHW.png" );
+    }
 
     return QPixmap( ":/browser/icons/CommodoreHW.png" );
 }

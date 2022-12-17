@@ -278,6 +278,7 @@ void RemoteFileTableView::setUploadDialog(QSharedPointer<DialogUploadFile> dialo
 void RemoteFileTableView::setSettings(QSharedPointer<QSettings> settings)
 {
     m_Settings = settings;
+    dynamic_cast<RemoteFileTableModel*>( this->model() )->setSettings( settings );
 }
 
 void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )

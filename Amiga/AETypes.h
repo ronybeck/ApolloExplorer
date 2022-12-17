@@ -8,6 +8,8 @@
 #ifndef AMIGA_AETYPES_H_
 #define AMIGA_AETYPES_H_
 
+#define WB_ICON_DOUBLE_CLICKED 0x00080000
+
 typedef enum
 {
 	AEM_NewClient,

@@ -17,6 +17,7 @@
         <file>icons/Apollo_Explorer_24x24.ico</file>
         <file>icons/Apollo_Explorer_24x24.xpm</file>
         <file>icons/Apollo_Explorer_24x24.png</file>
+        <file>icons/ManticoreHW.png</file>
     </qresource>
     <qresource prefix="/"/>
 </RCC>
