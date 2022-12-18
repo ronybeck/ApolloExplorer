@@ -4,6 +4,8 @@ TARGET=ApolloExplorer
 linux: QT += x11extras
 linux: LIBS += -lX11
 
+win32:RC_ICONS += icons/FirebirdHW.ico
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11

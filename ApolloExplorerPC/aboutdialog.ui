@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>374</width>
-    <height>455</height>
+    <width>384</width>
+    <height>508</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -134,7 +134,7 @@ QMenu::indicator:checked {
      <property name="maximumSize">
       <size>
        <width>16777215</width>
-       <height>100</height>
+       <height>150</height>
       </size>
      </property>
      <property name="frameShape">
@@ -182,8 +182,8 @@ p, li { white-space: pre-wrap; }
   </layout>
  </widget>
  <resources>
-  <include location="icons.qrc"/>
   <include location="Images.qrc"/>
+  <include location="icons.qrc"/>
  </resources>
  <connections>
   <connection>
