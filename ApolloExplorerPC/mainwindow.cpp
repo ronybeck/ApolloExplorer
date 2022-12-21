@@ -1246,7 +1246,7 @@ void MainWindow::updateFilebrowser()
         if( m_FileTableModel )
         {
             m_FileTableModel->updateListing( m_DirectoryListings[ selectedPath ] );
-            m_FileTableModel->setSettings( m_Settings );
+            //m_FileTableModel->setSettings( m_Settings );
         }
         else
         {

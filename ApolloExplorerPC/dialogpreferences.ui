@@ -74,11 +74,17 @@ QComboBox
 
 QSpinBox
 {
-	margin: 5px;
-	padding: 5px;
+	margin: 1px;
+	padding: 1px;
 	border: 1px solid rgb(136, 138, 133);
     border-radius: 2px;
 	text-align: center;
+}
+
+QSpinBox::up-button
+{
+	margin: 0px;
+	padding: 0px;
 }
 
 QPushButton::pressed
@@ -203,6 +209,12 @@ QGroupBox::Title
         </item>
         <item>
          <widget class="QSpinBox" name="spinBoxDeleteDelay">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>30</height>
+           </size>
+          </property>
           <property name="toolTip">
            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some combinations of OS, file system and drive type can have strange effects when deleting lots of files in quick succession.  This allows a configurable delay between each file to help combat such issues.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
@@ -249,6 +261,12 @@ QGroupBox::Title
         </item>
         <item>
          <widget class="QSpinBox" name="spinBoxHelloTimeout">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>30</height>
+           </size>
+          </property>
           <property name="toolTip">
            <string>This is the time within the Amiga must send a hello message to be considered &quot;online&quot; still.  Failing to do so will cause the client to drop all connections with the Amiga.</string>
           </property>
@@ -292,6 +310,12 @@ QGroupBox::Title
         </item>
         <item>
          <widget class="QSpinBox" name="spinBoxDNDSize">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>30</height>
+           </size>
+          </property>
           <property name="toolTip">
            <string>The Qt Framework (which this is written in) provides a basic Drag-and-Drop mechanism.  This is troublesome for large files or directories.  On Linux, file transfers tend to timeout resulting in the downloaded files landing nowhere.  On windows, the desktop can freeze until the download is complete.  This allows the drag-and-drop operation to automatically open a download requestor if the files are too big hence avoiding this issue.</string>
           </property>

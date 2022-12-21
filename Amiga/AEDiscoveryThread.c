@@ -48,19 +48,26 @@ static void discoveryThread();
 
 static void readApolloOSVer( char *version, LONG len )
 {
-	BPTR versionFileHandle = Open( "ENV:VBLVERSION", MODE_OLDFILE );
+	BPTR versionFileHandle = Open( "ENV:APOLLOVERSION", MODE_OLDFILE );
 	if( versionFileHandle != 0 )
 	{
 		FGets( versionFileHandle, version, len );
 		Close( versionFileHandle );
-	}else
+		return;
+	}
+
+	versionFileHandle = Open( "ENV:VBLVERSION", MODE_OLDFILE );
+	if( versionFileHandle != 0 )
 	{
-		BPTR versionFileHandle = Open( "ENV:ABVERSION", MODE_OLDFILE );
-		if( versionFileHandle != 0 )
-		{
-			FGets( versionFileHandle, version, len );
-			Close( versionFileHandle );
-		}
+		FGets( versionFileHandle, version, len );
+		Close( versionFileHandle );
+	}
+
+	versionFileHandle = Open( "ENV:ABVERSION", MODE_OLDFILE );
+	if( versionFileHandle != 0 )
+	{
+		FGets( versionFileHandle, version, len );
+		Close( versionFileHandle );
 	}
 }
 

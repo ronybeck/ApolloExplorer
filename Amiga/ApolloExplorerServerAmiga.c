@@ -28,8 +28,40 @@ char g_KeepServerRunning = 1;
 
 char* g_MessagePortName __attribute((aligned(4))) = MASTER_MSGPORT_NAME;
 struct MsgPort *g_AEServerMessagePort = NULL;
+char g_ShowWBIcon = 1;
 
 /*****************************************************************************/
+
+#define ARGS_TEMPLATE "NOICON/s"
+BOOL readArguments( )
+{
+	LONG result[2] = { 0, 0 };
+
+	//Get the string supplied at execution
+	STRPTR cmdLineArgs = GetArgStr();
+	if( cmdLineArgs == NULL )
+	{
+		printf( "Failed to get the command line arguments.\n" );
+		return FALSE;
+	}
+
+	//Parse the command line arguments
+	if ( ReadArgs(ARGS_TEMPLATE, result, NULL) == NULL )
+	{
+		printf( "Failed to read command line arguments.\n" );
+		return FALSE;
+	}
+
+	//Get the arguments we need
+	if( (BOOL)result[ 0 ] )
+	{
+		dbglog( "Disabling workbench icon.\n");
+		g_ShowWBIcon = 0;
+		return TRUE;
+	}
+
+	return TRUE;
+}
 
 int main(int argc, char *argv[])
 {
@@ -42,6 +74,9 @@ int main(int argc, char *argv[])
 	//Maybe the TCP/Stack is starting in the back ground
 	//and we need to give it a few seconds to start
 	int numberOfRestartAttempts = 15;
+
+	//Read the arguments passed at the CMD
+	readArguments();
 
 	//Initialise the client thread list
 	initialiseClientThreadList();
@@ -134,53 +169,50 @@ int main(int argc, char *argv[])
 	char iconText[] = "Stop ApolloExplorer";
 
 
-#if 1
 	UWORD iconWidth = 41;
 	UWORD iconHeight = 45;
 	UWORD *wbIconImageData = NULL;
-	//Copy the icon object into chipram
-	dbglog( "[master] Copying the workbench image data\n" );
-	wbIconImageData = AllocVec( sizeof( iconData ), MEMF_CHIP|MEMF_CLEAR );
-	memcpy( wbIconImageData, &iconData, sizeof( iconData ) );
-#endif
-
-	//Setup the image struct
-	dbglog( "[master] Setup the image struct for the workbench icon\n" );
-#if 1
 	struct Image wbIconImage;
-	wbIconImage.Width = iconWidth;
-	wbIconImage.Height = iconHeight;
-	wbIconImage.Depth = 2;
-	wbIconImage.PlaneOnOff = 0x0000;
-	wbIconImage.PlanePick = 0x0003;
-	wbIconImage.NextImage = NULL;
-	wbIconImage.ImageData = wbIconImageData;
-#endif
-
-#if 1
-	//Now setup the disk object
-	dbglog( "[master] Setup the DiskObject for the workbench icon\n" );
 	struct DiskObject iconDiskObject;
-	memset( &iconDiskObject, 0, sizeof( iconDiskObject ) );
-	iconDiskObject.do_Gadget.Width = 36;
-	iconDiskObject.do_Gadget.Height = 36;
-	iconDiskObject.do_Gadget.GadgetRender = &wbIconImage;
-	iconDiskObject.do_CurrentX = NO_ICON_POSITION;
-	iconDiskObject.do_CurrentY = NO_ICON_POSITION;
-#endif
-
-#if 1
-	//Add the app icon to the workbench
-	dbglog( "[master] Adding the app icon to workbench.\n" );
 	struct AppIcon *appIcon = NULL;
-	appIcon = AddAppIcon( 0,
+
+
+	if( g_ShowWBIcon )
+	{
+		//Copy the icon object into chipram
+		dbglog( "[master] Copying the workbench image data\n" );
+		wbIconImageData = AllocVec( sizeof( iconData ), MEMF_CHIP|MEMF_CLEAR );
+		memcpy( wbIconImageData, &iconData, sizeof( iconData ) );
+
+		//Setup the image struct
+		dbglog( "[master] Setup the image struct for the workbench icon\n" );
+		wbIconImage.Width = iconWidth;
+		wbIconImage.Height = iconHeight;
+		wbIconImage.Depth = 2;
+		wbIconImage.PlaneOnOff = 0x0000;
+		wbIconImage.PlanePick = 0x0003;
+		wbIconImage.NextImage = NULL;
+		wbIconImage.ImageData = wbIconImageData;
+
+		//Now setup the disk object
+		dbglog( "[master] Setup the DiskObject for the workbench icon\n" );
+		memset( &iconDiskObject, 0, sizeof( iconDiskObject ) );
+		iconDiskObject.do_Gadget.Width = iconWidth;
+		iconDiskObject.do_Gadget.Height = iconHeight;
+		iconDiskObject.do_Gadget.GadgetRender = &wbIconImage;
+		iconDiskObject.do_CurrentX = NO_ICON_POSITION;
+		iconDiskObject.do_CurrentY = NO_ICON_POSITION;
+
+		//Add the app icon to the workbench
+		dbglog( "[master] Adding the app icon to workbench.\n" );
+		appIcon = AddAppIcon(	0,
 								0,
 								iconText,
 								g_AEServerMessagePort,
 								0,
 								&iconDiskObject,
-		                        TAG_END );
-#endif
+								TAG_END );
+	}
 
 	//Start announcing our presence on the network
 	startDiscoveryThread();
