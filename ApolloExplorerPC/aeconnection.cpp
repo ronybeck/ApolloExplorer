@@ -28,7 +28,7 @@ AEConnection::AEConnection(QObject *parent) :
 #if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
     connect( &m_Socket, &QTcpSocket::errorOccurred, this, &AEConnection::onErrorSlot );
 #else
-    connect( &m_Socket, static_cast<void (QTcpSocket::*)(QAbstractSocket::SocketError)>(&QAbstractSocket::error), this, &AEConnection::onErrorSlot );
+    connect( &m_Socket, &QAbstractSocket::errorOccurred, this, &AEConnection::onErrorSlot );
 #endif
 
     //Set a message buffer

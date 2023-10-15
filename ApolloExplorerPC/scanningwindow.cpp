@@ -83,7 +83,7 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     m_SystemTrayHostsMenu.setTitle( "Amiga Hosts" );
     m_SystemTrayMenu.addSeparator();
     connect( &m_SystemTrayIcon, &QSystemTrayIcon::activated, this, &ScanningWindow::onSystemTrayIconClickedSlot );
-    QAction *quitAction = m_SystemTrayMenu.addAction( "Quit", this, &ScanningWindow::close );
+    //QAction *quitAction = m_SystemTrayMenu.addAction( "Quit", this, &ScanningWindow::close );
 
     //Restore the last window position
     m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );

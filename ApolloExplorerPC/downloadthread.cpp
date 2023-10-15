@@ -103,6 +103,8 @@ void DownloadThread::run()
     m_ThroughPutTimer = nullptr;
     delete m_ProtocolHandler;
     m_ProtocolHandler = nullptr;
+    delete m_OperationTimer;
+    m_OperationTimer = nullptr;
 }
 
 void DownloadThread::stopThread()

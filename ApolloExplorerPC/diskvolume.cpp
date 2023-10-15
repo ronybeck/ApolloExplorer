@@ -45,6 +45,11 @@ QPixmap DiskVolume::getPixmap()
     return m_PixMap;
 }
 
+void DiskVolume::setPixmap(QPixmap icon)
+{
+    m_PixMap = icon;
+}
+
 void DiskVolume::generatePixmap()
 {
     //Basic icon
@@ -71,4 +76,22 @@ void DiskVolume::generatePixmap()
     painter.setFont( QFont(":/comfortaa", 12, QFont::DemiBold) );
     painter.drawText( 35, 77, QString::number( percentFull ) + "%" );
     m_PixMap = QPixmap::fromImage( image );
+}
+
+QSharedPointer<AmigaInfoFile> DiskVolume::getAmigaInfoFile() const
+{
+    return m_AmigaInfoFile;
+}
+
+void DiskVolume::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile )
+{
+    m_AmigaInfoFile = newAmigaInfoFile;
+
+    //We should get the icon out of the info file and set that as our own
+    //Get the best image we can for the icon
+    if( m_AmigaInfoFile->getBestImage1().width() > 0 )
+    {
+        m_PixMap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToWidth( 64, Qt::SmoothTransformation ) );
+        return;
+    }
 }

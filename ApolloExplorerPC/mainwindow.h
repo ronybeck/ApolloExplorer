@@ -20,6 +20,8 @@
 #include "remotefiletableview.h"
 #include "remotefiletablemodel.h"
 #include "diskvolume.h"
+#include "iconcache.h"
+#include "../AmigaIconReader/AmigaInfoFile.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -64,6 +66,7 @@ public slots:
     void showContextMenu( QPoint );
     //void onSetHostSlot( QHostAddress host );
     void onAbortDeletionRequestedSlot();
+    void onIconUpdateSlot( QString filePath, QSharedPointer<AmigaInfoFile> icon );
 
     //Menu itmes
     void onSettingsMenuItemClickedSlot();
@@ -76,6 +79,7 @@ public slots:
     void onAboutSlot();
     void onRenameSlot();
     void onDownloadSelectedSlot();
+    void onInformationSelectedSlot();
 
     //Network slots
     void onConnectedToHostSlot();
@@ -115,6 +119,7 @@ signals:
     void browserWindowCloseSignal();
     void currentFileBeingDeleted( QString filepath );
     void deletionCompletedSignal();
+    void retrieveIconSignal( QString filepath );
 
 private:
     void updateFilebrowser();
@@ -152,6 +157,9 @@ private:
     QSharedPointer<DialogDownloadFile> m_DialogDownloadFile;
     QSharedPointer<DialogUploadFile> m_DialogUploadFile;
     DialogDelete m_DialogDelete;
+
+    //Icon cache
+    IconCache m_IconCache;
 
     //About Dialog
     AboutDialog m_AboutDialog;

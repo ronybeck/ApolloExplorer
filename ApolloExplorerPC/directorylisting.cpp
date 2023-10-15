@@ -102,7 +102,7 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
     }
 }
 
-QSharedPointer<DirectoryListing> DirectoryListing::findEntry(QString name)
+QSharedPointer<DirectoryListing> DirectoryListing::findEntry(QString name, bool recursive )
 {
     QVectorIterator<QSharedPointer<DirectoryListing>> iter( m_Entries );
     while( iter.hasNext() )
@@ -110,6 +110,18 @@ QSharedPointer<DirectoryListing> DirectoryListing::findEntry(QString name)
         QSharedPointer<DirectoryListing> nextEntry = iter.next();
         if( nextEntry->Name() == name )
             return nextEntry;
+
+        if( nextEntry->Path() == name )
+            return nextEntry;
+
+        //If this is a directory and recursion is activated, go into that directory
+        if( nextEntry->isDirectory() && recursive )
+        {
+            QSharedPointer<DirectoryListing> subdirEntry = nextEntry->findEntry( name, recursive );
+            if( subdirEntry != nullptr )
+                return subdirEntry;
+        }
+
     }
     return nullptr;
 }
@@ -201,6 +213,12 @@ void DirectoryListing::setIcon(QPixmap *newIcon)
     m_Icon = newIcon;
 }
 
+bool DirectoryListing::isDirectory()
+{
+    if( m_Type == DET_USERDIR ) return true;
+    return false;
+}
+
 const QVector<QSharedPointer<DirectoryListing> > &DirectoryListing::Entries() const
 {
     return m_Entries;
@@ -223,6 +241,7 @@ bool DirectoryListing::operator<(const DirectoryListing &other)
 {
     return this->Name() < other.Name();
 }
+
 
 const QString &DirectoryListing::Parent() const
 {
@@ -271,5 +290,26 @@ void DirectoryListing::reformPath()
     //There is only one posibility left.  The parent is a drive
     m_Path = m_Parent + ":" + m_Name;
     m_Parent += ":";
+}
+
+QSharedPointer<AmigaInfoFile> DirectoryListing::getAmigaInfoFile() const
+{
+    return m_AmigaInfoFile;
+}
+
+void DirectoryListing::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile )
+{
+    m_AmigaInfoFile = newAmigaInfoFile;
+
+    //If we don't have a pixmap already
+    if( m_Icon != nullptr ) delete m_Icon;
+
+    //We should get the icon out of the info file and set that as our own
+    //Get the best image we can for the icon
+    if( m_AmigaInfoFile->getBestImage1().width() > 0 )
+    {
+        m_Icon = new QPixmap( QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( 64, Qt::SmoothTransformation ) ) );
+        return;
+    }
 }
 

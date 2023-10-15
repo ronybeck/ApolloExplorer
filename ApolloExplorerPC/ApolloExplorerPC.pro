@@ -18,6 +18,8 @@ QMAKE_CXXFLAGS += -O0 -g
 INCLUDEPATH += ../
 
 SOURCES += \
+    ../AmigaIconReader/AmigaInfoFile.cpp \
+    ../AmigaIconReader/bitgetter.cpp \
     AEUtils.cpp \
     aboutdialog.cpp \
     aeconnection.cpp \
@@ -27,11 +29,14 @@ SOURCES += \
     dialogconsole.cpp \
     dialogdelete.cpp \
     dialogdownloadfile.cpp \
+    dialogfileinfo.cpp \
     dialogpreferences.cpp \
     dialoguploadfile.cpp \
     directorylisting.cpp \
     diskvolume.cpp \
     downloadthread.cpp \
+    iconcache.cpp \
+    iconthread.cpp \
     main.cpp \
     mainwindow.cpp \
     messagepool.cpp \
@@ -45,6 +50,8 @@ SOURCES += \
     uploadthread.cpp
 
 HEADERS += \
+    ../AmigaIconReader/AmigaInfoFile.h \
+    ../AmigaIconReader/bitgetter.h \
     ../protocolTypes.h \
     AEUtils.h \
     aboutdialog.h \
@@ -55,11 +62,14 @@ HEADERS += \
     dialogconsole.h \
     dialogdelete.h \
     dialogdownloadfile.h \
+    dialogfileinfo.h \
     dialogpreferences.h \
     dialoguploadfile.h \
     directorylisting.h \
     diskvolume.h \
     downloadthread.h \
+    iconcache.h \
+    iconthread.h \
     mainwindow.h \
     messagepool.h \
     mouseeventfilter.h \
@@ -76,6 +86,7 @@ FORMS += \
     dialogconsole.ui \
     dialogdelete.ui \
     dialogdownloadfile.ui \
+    dialogfileinfo.ui \
     dialogpreferences.ui \
     dialoguploadfile.ui \
     mainwindow.ui \

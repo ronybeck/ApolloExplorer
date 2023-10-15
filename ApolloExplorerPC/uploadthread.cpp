@@ -130,7 +130,7 @@ void UploadThread::run()
             }
 
             //If there aren't already too many inflight file chunks, send another.
-            if( m_InflightChunks.size() < m_MaxInflightChunks )
+            if( m_InflightChunks.size() < static_cast<int>( m_MaxInflightChunks ) )
             {
                 //Send the next file chunk
                 m_InflightChunks.append( m_CurrentChunk );
@@ -188,8 +188,10 @@ void UploadThread::run()
     RELOCK;
     m_ThroughPutTimer->stop();
     delete m_ThroughPutTimer;
+    delete m_UploadTimeoutTimer;
     delete m_ProtocolHandler;
     m_ThroughPutTimer = nullptr;
+    m_UploadTimeoutTimer = nullptr;
     m_ProtocolHandler = nullptr;
 }
 

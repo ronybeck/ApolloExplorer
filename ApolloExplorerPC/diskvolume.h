@@ -3,8 +3,10 @@
 
 #include <QObject>
 #include <QPixmap>
+#include <QSharedPointer>
 
 #include "protocolTypes.h"
+#include "../AmigaIconReader/AmigaInfoFile.h"
 
 class DiskVolume : public QObject
 {
@@ -16,6 +18,10 @@ public:
     quint64 getSizeInBytes();
     quint64 getUsedInBytes();
     QPixmap getPixmap();
+    void setPixmap( QPixmap icon );
+
+    QSharedPointer<AmigaInfoFile> getAmigaInfoFile() const;
+    void setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile );
 
 private:
     void generatePixmap();
@@ -35,6 +41,7 @@ private:
     quint64 m_SizeInBytes;
     QString m_Name;
     QPixmap m_PixMap;
+    QSharedPointer<AmigaInfoFile> m_AmigaInfoFile;
 };
 
 #endif // DISKVOLUME_H

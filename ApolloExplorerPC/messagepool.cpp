@@ -1,8 +1,9 @@
 #include "messagepool.h"
 
 #include <QDebug>
+#include "AEUtils.h"
 
-#define MESSAGE_POOL_SIZE 4
+#define MESSAGE_POOL_SIZE 256
 
 #define LOCK QMutexLocker locker( &m_Mutex )
 #define UNLOCK locker.unlock()
@@ -18,7 +19,7 @@ ProtocolMessage_t *MessagePool::newMessage()
 {
     LOCK;
 
-    //qDebug() << "MessagePool: " << m_UsedList.size() << " used.  " << m_FreeList.size() << " free.";
+    DBGLOG << "MessagePool: " << m_UsedList.size() << " used.  " << m_FreeList.size() << " free.";
 
     while( m_FreeList.isEmpty() )
     {

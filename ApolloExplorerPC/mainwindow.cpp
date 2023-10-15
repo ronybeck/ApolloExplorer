@@ -16,6 +16,7 @@
 #include <QDialog>
 #include <QRegExp>
 #include "messagepool.h"
+#include "dialogfileinfo.h"
 
 #include "AEUtils.h"
 
@@ -33,27 +34,28 @@
 MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<AmigaHost> amigaHost, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow),
-      m_ProtocolHandler( ),
-      m_DirectoryListings(),
-      m_Volumes( ),
-      m_AcknowledgeState( ProtocolHandler::AS_Unknown ),
-      m_ReconnectTimer( this ),
-      m_VolumeRefreshTimer( this ),
-      m_AmigaHost( amigaHost ),
-      m_FileTableView( nullptr ),
-      m_FileTableModel( nullptr ),
-      m_Settings( settings ),
-      m_DialogPreferences( m_Settings ),
-      m_ConfirmWindowClose( true ),
-      m_HideInfoFiles( true ),
-      m_ShowFileSizes( false ),
-      m_ViewType( VIEW_LIST ),
-      m_IncomingByteCount( ),
-      m_OutgoingByteCount( ),
-      m_ThroughputTimer( ),
-      //m_OpenCLIHereAction( "Open CLI" ),
-      m_Mutex( QMutex::Recursive ),
-      m_AbortDeleteRequested( false )
+    m_ProtocolHandler( ),
+    m_DirectoryListings(),
+    m_Volumes( ),
+    m_AcknowledgeState( ProtocolHandler::AS_Unknown ),
+    m_ReconnectTimer( this ),
+    m_VolumeRefreshTimer( this ),
+    m_AmigaHost( amigaHost ),
+    m_FileTableView( nullptr ),
+    m_FileTableModel( nullptr ),
+    m_Settings( settings ),
+    m_DialogPreferences( m_Settings ),
+    m_ConfirmWindowClose( true ),
+    m_HideInfoFiles( true ),
+    m_ShowFileSizes( false ),
+    m_ViewType( VIEW_LIST ),
+    m_IconCache( this ),
+    m_IncomingByteCount( ),
+    m_OutgoingByteCount( ),
+    m_ThroughputTimer( ),
+    //m_OpenCLIHereAction( "Open CLI" ),
+    m_Mutex( QMutex::Recursive ),
+    m_AbortDeleteRequested( false )
 {
     ui->setupUi(this);
 
@@ -125,6 +127,10 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( m_DialogUploadFile.get(), &DialogUploadFile::allFilesUploadedSignal, this, &MainWindow::onRefreshButtonReleasedSlot );
     connect( m_DialogDownloadFile.get(), &DialogDownloadFile::incomingBytesSignal, this, &MainWindow::onIncomingByteCountUpdateSlot );
     connect( m_DialogUploadFile.get(), &DialogUploadFile::outgoingBytesSignal, this, &MainWindow::onOutgoingByteCountUpdateSlot );
+
+    //Icon Cache
+    connect( &m_IconCache, &IconCache::iconSignal, this, &MainWindow::onIconUpdateSlot );
+    connect( this, &MainWindow::retrieveIconSignal, &m_IconCache, &IconCache::retrieveIconSlot );
 
     //Deletion dialog
     connect( &m_DialogDelete, &DialogDelete::cancelDeletionSignal, this, &MainWindow::onAbortDeletionRequestedSlot );
@@ -561,6 +567,7 @@ void MainWindow::showContextMenu(QPoint pos )
     myMenu.addAction( "Make Directory", this, &MainWindow::onMkdirSlot );
     myMenu.addAction( "Rename", this, &MainWindow::onRenameSlot );
     myMenu.addAction( "Download Files", this, &MainWindow::onDownloadSelectedSlot );
+    myMenu.addAction( "Information", this, &MainWindow::onInformationSelectedSlot );
 
     //If we are currently downloading, we should turn these options off
     if( m_DialogDownloadFile->isCurrentlyDownloading() )
@@ -585,6 +592,67 @@ void MainWindow::onSetHostSlot(QHostAddress host)
 void MainWindow::onAbortDeletionRequestedSlot()
 {
     m_AbortDeleteRequested = true;
+}
+
+void MainWindow::onIconUpdateSlot(QString filePath, QSharedPointer<AmigaInfoFile> icon)
+{
+    //First let's detirmin if the this is for a volume or for a file/directory path
+    if( filePath.endsWith("Disk" ) || filePath.endsWith( "Disk.info" ) )
+    {
+        //Get the volume name
+        QString volumeName = filePath;
+        volumeName = volumeName.left( volumeName.indexOf( ':' ) );
+
+        //This is clearly a volume.  Find the volume and update the icon
+        QListIterator<QSharedPointer<DiskVolume>> volumeIter( m_Volumes );
+        while( volumeIter.hasNext() )
+        {
+            QSharedPointer<DiskVolume> entry = volumeIter.next();
+
+            //Is this the volume?
+            if( volumeName.compare( entry->getName() ) == 0 )
+            {
+                //Set the icon
+                entry->setAmigaInfoFile( icon );
+
+                //Now refresh the gui
+                updateDrivebrowser();
+                DBGLOG << "Updated icon for " << volumeName << ".";
+                return;
+            }
+        }
+    }
+
+    //Then it must be a file/directory path.  Find this path
+    for( auto nextListing = m_DirectoryListings.begin(); nextListing != m_DirectoryListings.end(); nextListing++ )
+    {
+        //Is this already the path we are looking for?
+        if( nextListing.key() == filePath )
+        {
+            //Set the icon
+            nextListing.value()->setAmigaInfoFile( icon );
+
+            //Update the gui
+            updateFilebrowser();
+            DBGLOG << "Updating icon for " << filePath << ".";
+            return;
+        }
+
+        //Otherwise let's search the subdirectories until we find the path
+        QSharedPointer<DirectoryListing> subListing = nextListing.value()->findEntry( filePath, true );
+        if( subListing != nullptr )
+        {
+            //Set the icon
+            subListing->setAmigaInfoFile( icon );
+
+            //Update the gui
+            updateFilebrowser();
+            DBGLOG << "Updated icon for " << filePath << ".";
+            return;
+        }
+    }
+
+    DBGLOG << "We never found the file path " << filePath << " in our volumes or directory listings.";
 }
 
 void MainWindow::onSettingsMenuItemClickedSlot()
@@ -672,7 +740,6 @@ void MainWindow::onDeleteSlot()
     LOCK;
 
     m_Settings->beginGroup( SETTINGS_BROWSER );
-    qint32 deleteDelay = m_Settings->value( SETTINGS_BROWSER_DELAY_BETWEEN_DELETES, 100 ).toInt();
     m_Settings->endGroup();
 
     QMessageBox msgBox( QMessageBox::Warning, "Delete", "Are you sure you want to delete this files", QMessageBox::Ok|QMessageBox::Cancel );
@@ -702,91 +769,7 @@ void MainWindow::onDeleteSlot()
 //Replace this here for icon mode
     }
 
-#if 1
     m_DialogDelete.onDeleteRemotePathsSlot( directoryListing );
-#else
-    //Go through each of the selected
-    QListIterator<QSharedPointer<DirectoryListing>> entryIter( directoryListing );
-    while( entryIter.hasNext() )
-    {
-        //Process the event queue
-        QApplication::processEvents();
-
-        //Check if an abort was issued
-        if( m_AbortDeleteRequested )
-            return;
-
-        //Wait between each delete as to not overwelm the amiga
-        QThread::msleep( deleteDelay );
-
-        //Get the next item in the list
-        QSharedPointer<DirectoryListing> directoryEntry = entryIter.next();
-
-        //If this is a directory......
-        if( directoryEntry->Type() == DET_USERDIR )
-        {
-            //Update the deletion dialog
-            QApplication::processEvents();
-
-            //Clear out and delete this directory
-            bool errorInSubdir = 0;
-            deleteDirectoryRecursive( directoryEntry->Path(), errorInSubdir );
-
-            //Did we succeed in deleting the sub directory?
-            if( errorInSubdir )
-            {
-                //Seems not.  Abort.  An error message for the user will have been presented in the deleteDirectoryRecursive() function
-                return;
-            }
-
-            //Now delete this directory            
-            QString errorMessage;
-            emit currentFileBeingDeleted( directoryEntry->Path() );
-            if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
-            {
-                qDebug() << "Failed to delete path " << directoryEntry->Path();
-                QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + directoryEntry->Path(), QMessageBox::Ok );
-                errorBox.exec();
-                return;
-            }
-
-            qDebug() << "Deleted file " << directoryEntry->Path();
-        }
-
-        //If it is a file to download
-        if( directoryEntry->Type() == DET_FILE )
-        {
-            //Update the deletion dialog
-            emit currentFileBeingDeleted( directoryEntry->Path() );
-            QApplication::processEvents();
-
-            //Send delete command for them
-            //emit deleteRemoteDirectorySignal( remoteDirPath );
-            QString errorMessage;
-            if( m_ProtocolHandler.deleteFile( directoryEntry->Path(), errorMessage ) == false )
-            {
-                qDebug() << "Failed to delete path " << directoryEntry->Path();
-                QMessageBox errorBox( QMessageBox::Critical,
-                                      "Failed to delete remote path",
-                                      "An error occurred while deleting remote directory" + directoryEntry->Path() +
-                                      ":" + errorMessage,
-                                      QMessageBox::Ok );
-                errorBox.exec();
-                return;
-            }
-            qDebug() << "Deleted file " << directoryEntry->Path();
-        }
-    }
-
-    //Hide the dialog
-    emit deletionCompletedSignal();
-
-    //Refresh the view
-    emit getRemoteDirectorySignal( currentDir );
-
-    //Hide the delete dialog
-    m_DialogDelete.hide();
-#endif
 }
 
 void MainWindow::onAboutSlot()
@@ -866,87 +849,36 @@ void MainWindow::onDownloadSelectedSlot()
     localDirPath = selectedDirs.at( 0 );
     QString currentDir = ui->lineEditPath->text();
 
-
-#if 1
     m_DialogDownloadFile->startDownload( remotePaths, localDirPath );
-#else
-    QMessageBox msgBox( this );
-    msgBox.setModal( false );
-    msgBox.setWindowTitle( "Collecting Files" );
-    msgBox.setText( "We are collecting the list of files from the server.\nThis may take some time.  Especially CDROMS or Floppies." );
-    msgBox.setStandardButtons( QMessageBox::NoButton );
-    msgBox.setIcon( QMessageBox::Information );
-    msgBox.open();
+}
 
-    //Go through each of the selected
-    QStringListIterator iter( selectedFileEntries );
-    while( iter.hasNext() )
+void MainWindow::onInformationSelectedSlot()
+{
+    LOCK;
+
+    static QString localDirPath = QDir::homePath();
+    QList<QSharedPointer<DirectoryListing>> remotePaths;
+
+    //Get the list of files selected
+    if( m_ViewType == VIEW_LIST )
     {
-
-        //Get the next item in the list
-        QString entryName = iter.next();
-        QString localFilePath = localDirPath + "/" + entryName;
-
-
-        //Otherwise, display what we have
-        QSharedPointer<DirectoryListing> directoryListing = m_DirectoryListings[ currentDir ];
-        QSharedPointer<DirectoryListing> directoryEntry = directoryListing->findEntry( entryName );
-
-        //If this is a directory that the user double clicked on
-        //then we need opene that directory
-        if( directoryEntry->Type() == DET_USERDIR )
-        {
-            //Form the remote path
-            QString remoteDirPath = currentDir;
-            if( remoteDirPath.endsWith( ":" ) || remoteDirPath.endsWith( "/" ) )
-                remoteDirPath += entryName;
-            else
-                remoteDirPath += "/" + entryName;
-
-            bool errorInSubdir = false;
-            auto dirFiles = downloadPrepareLocalDirectory( localFilePath, remoteDirPath, errorInSubdir );
-            if( errorInSubdir )
-            {
-                QMessageBox errorBox( QMessageBox::Critical, "Error creating local directory", "A local destination wasn't selected.", QMessageBox::Ok );
-                errorBox.exec();
-                msgBox.hide();
-                return;
-            }
-            fileList.append( dirFiles );
-        }
-
-        //If it is a file to download
-        if( directoryEntry->Type() == DET_FILE )
-        {
-            //Add the file to the list
-            QString remoteFilePath = directoryEntry->Path();
-            //qDebug() << "Download: Adding file " << localFilePath << " <------ " << remoteFilePath << " to the list";
-            fileList.push_back( QPair<QString,QString>( localFilePath, remoteFilePath ) );
-        }
-
-        //If we have hiden info files, we should automatically add these to the list if they exist
-        if( m_HideInfoFiles )
-        {
-            //Do we have an info file for this entry?
-            QString infoFileName = entryName + ".info";
-            QSharedPointer<DirectoryListing> infoEntry = directoryListing->findEntry( infoFileName );
-
-            //Do we have one?
-            if( !infoEntry.isNull() )
-            {
-                //It seems we do.  Let's add it to the list as well
-                QString remoteInfoFilePath = infoEntry->Path();
-                QString localInfoFilePath = localDirPath + "/" + infoEntry->Name();
-                fileList.push_back( QPair<QString,QString>( localInfoFilePath, remoteInfoFilePath ) );
-            }
-        }
+        remotePaths = m_FileTableView->getSelectedItems();
+    }else
+    {
+        //Do something here
     }
 
-    msgBox.hide();
+    //For each of the selected paths, open a info dialog
+    for( QList<QSharedPointer<DirectoryListing>>::Iterator iter = remotePaths.begin(); iter != remotePaths.end(); iter++ )
+    {
+        //Get the next entry
+        QSharedPointer<DirectoryListing> directoryListing = *iter;
 
-    //Now that we have a list, trigger the download
-    m_DialogDownloadFile->startDownload( fileList );
-#endif
+        //Create the dialog
+        DialogFileInfo dialog( directoryListing, this );
+        dialog.exec();
+    }
+
 }
 
 void MainWindow::onConnectedToHostSlot()
@@ -971,6 +903,9 @@ void MainWindow::onConnectedToHostSlot()
 
     //Connect the delete agent
     m_DialogDelete.connectToHost( serverAddress, port );
+
+    //Connect the icon cache
+    m_IconCache.onConnectToHostSlot( serverAddress, port );
 
     //Enable the gui
     ui->listWidgetFileBrowser->setEnabled( true );
@@ -1005,6 +940,7 @@ void MainWindow::onDisconnectedFromHostSlot()
     //m_DialogDownloadFile->disconnectFromhost();
     //m_DialogUploadFile->disconnectFromhost();
     m_DialogDelete.disconnectFromhost();
+    m_IconCache.onDisconnectFromHostSlot();
 
     //Grey out the gui
     ui->listWidgetFileBrowser->setEnabled( false );
@@ -1015,6 +951,7 @@ void MainWindow::onDisconnectedFromHostSlot()
 
 void MainWindow::onServerClosedConnectionSlot(QString message)
 {
+    Q_UNUSED( message )
     //QMessageBox errorBox( QMessageBox::Critical, "Server disconnected.", "The server disconnected with reason: " + message, QMessageBox::Ok );
     //errorBox.exec();
     onDisconnectedFromHostSlot();
@@ -1074,12 +1011,42 @@ void MainWindow::onDirectoryListingUpdateSlot( QSharedPointer<DirectoryListing> 
     {
         qDebug() << "Got an update for path " << newListing->Path() << " and current path is " << currentPath;
     }
+
+    //We should now get the icons
+    QVectorIterator<QSharedPointer<DirectoryListing>> dirIter( newListing->Entries() );
+    while( dirIter.hasNext() )
+    {
+        QSharedPointer<DirectoryListing> nextListing = dirIter.next();
+
+        //Is this an icon file?
+        if( nextListing->Path().endsWith( ".info" ) )
+        {
+            emit retrieveIconSignal( nextListing->Path() );
+            //m_IconCache.retrieveIconSlot( nextListing->Path() );
+        }
+    }
 }
 
 void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volumes )
 {
     m_Volumes = volumes;
+
+    //Update the drive view
     updateDrivebrowser();
+
+    //We should get the icons for the drives
+    for( QList<QSharedPointer<DiskVolume>>::Iterator iter = volumes.begin(); iter != volumes.end(); iter++ )
+    {
+        auto drive = *iter;
+
+        //Form the path to the disk icon
+        QString iconPath = drive->getName() + ":Disk.info";
+
+        //Now trigger the retrieval of the icon
+        emit retrieveIconSignal( iconPath );
+    }
+
+    //We should now check that at least one drive is selected and then fetch the contents of that drive.
     if( ( volumes.size() > 0 ) )
     {
         //Get the first drive in the list
@@ -1361,7 +1328,6 @@ void MainWindow::updateDrivebrowser()
         item->setToolTip( volume->getName() + " - " +
                           prettyFileSize( volume->getUsedInBytes() ) + "/" + prettyFileSize( volume->getSizeInBytes() ) +
                           " used." );
-
 
         //Add this to the view
         ui->listWidgetDrives->addItem( item );

@@ -110,11 +110,14 @@ void DeletionThread::onTimeoutSlot()
 
 void DeletionThread::onFileDeletedSlot(QString path)
 {
+    Q_UNUSED( path )
     emit startTimeoutTimerSignal();
 }
 
 void DeletionThread::onFileDeleteFailedSlot(QString path, DeleteFailureReason reason)
 {
+    Q_UNUSED( path )
+    Q_UNUSED( reason )
     emit stopTimeoutTimerSignal();
 }
 
