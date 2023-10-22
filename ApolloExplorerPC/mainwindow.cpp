@@ -499,6 +499,9 @@ void MainWindow::onBrowserItemsDoubleClickedSlot(QList<QSharedPointer<DirectoryL
     }
 
     //Ok, if we are here, then we didn't have the directory cached yet
+    char encodedText[ 128 ];
+    convertFromUTF8ToAmigaTextEncoding( selectedPath, encodedText, sizeof( encodedText ) );
+    //emit getRemoteDirectorySignal( encodedText );
     emit getRemoteDirectorySignal( selectedPath );
 }
 
@@ -511,6 +514,9 @@ void MainWindow::onDrivesItemSelectedSlot()
     QString entryName = item->text();
 
     ui->lineEditPath->setText( entryName );
+    char encodedText[128];
+    convertFromUTF8ToAmigaTextEncoding( entryName, encodedText, sizeof( encodedText ) );
+    //emit getRemoteDirectorySignal( encodedText );
     emit getRemoteDirectorySignal( entryName );
     //onRefreshButtonReleasedSlot();
     return;
@@ -1321,10 +1327,20 @@ void MainWindow::updateDrivebrowser()
         //Get the next volume
         QSharedPointer<DiskVolume> volume = iter.next();
 
+        //See if we have an icon for this drive in our cache
+        auto cachedIcon = m_IconCache.getIcon( volume->getName() + ":Disk.info" );
+
         //Create the entry for our view
         QListWidgetItem *item = new QListWidgetItem( volume->getName() + ":" );
-        QPixmap icon( volume->getPixmap() );
-        item->setIcon( icon );
+        if( cachedIcon.isNull() )
+        {
+            QPixmap icon( volume->getPixmap() );
+            item->setIcon( icon );
+        }else
+        {
+            QPixmap icon = QPixmap::fromImage( cachedIcon->getBestImage1().scaledToHeight( 64, Qt::SmoothTransformation) );
+            item->setIcon( icon );
+        }
         item->setToolTip( volume->getName() + " - " +
                           prettyFileSize( volume->getUsedInBytes() ) + "/" + prettyFileSize( volume->getSizeInBytes() ) +
                           " used." );

@@ -789,13 +789,12 @@ QImage AmigaInfoFile::drawIndexedOS35Icon(QByteArray imageData, QByteArray palet
             quint8 nextPixel = getUBYTEFromBuffer( imageData, imageOffset );
             if( nextPixel >= numberOfColours )
             {
-                qDebug() << "Pixel " << nextPixel << " is higher than the colour count";
+                //qDebug() << "Pixel " << nextPixel << " is higher than the colour count";
                 nextPixel = 0;  //Set this to the colour 0 as a work around.
             }
             //theImage.setPixel( x, y, nextPixel );
             theImage.setPixelColor( x, y, colourPalette[ nextPixel ] );
         }
-        std::cout << std::endl;
     }
 
     return theImage;

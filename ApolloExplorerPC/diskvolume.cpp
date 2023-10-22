@@ -16,7 +16,7 @@ DiskVolume::DiskVolume( VolumeEntry_t &entry, QObject *parent)
       m_BytesPerBlock( qFromBigEndian( entry.id_BytesPerBlock ) ),
       m_DiskType( qFromBigEndian( entry.id_DiskType ) ),
       m_InUse( qFromBigEndian( entry.id_InUse ) ),
-      m_Name( entry.name ),
+      m_Name( convertFromAmigaTextEncoding( entry.name ) ),
       m_PixMap( ":/browser/icons/Harddisk_Amiga.png" )
 {
     DBGLOG << "Volume Created: " << m_Name;

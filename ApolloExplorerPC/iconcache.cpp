@@ -4,8 +4,7 @@
 #define UNLOCK locker.unlock();
 #define RELOCK locker.relock();
 
-#define RAM_DISK_ICON_PATH_WITH_INFO "ENVARC:sys/def_ram.info"
-#define RAM_DISK_ICON_PATH "ENVARC:sys/def_ram"
+static QStringList g_RamDiskPaths = { "ENVARC:sys/def_ram.info", "ENVARC:sys/def_RAM.info" };
 
 IconCache::IconCache(QObject *parent)
     : QObject{parent},
@@ -80,17 +79,26 @@ void IconCache::retrieveIconSlot(QString filepath)
     LOCK;
     bool isInfoFile = false;
 
-    //Hack!  When getting the ram disk, look for the file elsewhere.  It is stored in ENVARC:
-    if( !filepath.compare( "Ram Disk:Disk.info" ) || !filepath.compare( "Ram Disk:Disk" ) )
-    {
-        filepath=RAM_DISK_ICON_PATH_WITH_INFO;
-    }
-
     //First normalise this and remove the ".info"
     if( filepath.endsWith( ".info" ) )
     {
         filepath = filepath.chopped( 5 );
         isInfoFile = true;
+    }
+
+    //Hack!  When getting the ram disk, look for the file elsewhere.  It is stored in ENVARC:
+    if( !filepath.compare( "Ram Disk:Disk", Qt::CaseInsensitive  ) )
+    {
+        //Store this particular varient of the ram disk name
+        m_RamDiskIconPath = filepath;
+
+        for( QStringList::Iterator iter = g_RamDiskPaths.begin(); iter != g_RamDiskPaths.end(); iter++ )
+        {
+            QString filePath = *iter;
+            retrieveIconSlot( filePath );
+        }
+
+        return;
     }
 
     //Check the cache first
@@ -111,6 +119,9 @@ void IconCache::retrieveIconSlot(QString filepath)
     filepath.append( ".info" );
     m_DownloadList.push_back( filepath );
 
+    //If we are not connected, we need to wait
+    if( m_Connected != true )   return;
+
     //Now if we are not already downloading something, we should kick that off now
     if( !m_DownloadInProgress )
     {
@@ -126,7 +137,23 @@ void IconCache::retrieveIconSlot(QString filepath)
 
 void IconCache::onConnectedToHostSlot()
 {
+    LOCK;
+
+    //Market our connection as online
     m_Connected = true;
+
+    //If we have things waiting in the queue to be downloaded, let's start now
+    if( !m_DownloadList.empty() )
+    {
+        //Get the first file from the list
+        QString nextIconPath = m_DownloadList.first();
+        m_DownloadList.pop_front();
+
+        //Emit the signal to trigger the download
+        m_DownloadInProgress = true;
+        emit getIconSignal( nextIconPath );
+    }
+
 }
 
 void IconCache::onDisconnectedFromHostSlot()
@@ -139,19 +166,19 @@ void IconCache::onIconReceivedSlot( QString filepath, QSharedPointer<AmigaInfoFi
 {
     LOCK;
 
-    //First we should add this to our cache
+    //Hack!  We need to translate the ram disk icon path back to "Ram Disk:Disk.info"
+    if( g_RamDiskPaths.contains( filepath ) )
+    {
+        //Reset this back to the ram disk path
+        filepath = m_RamDiskIconPath;
+    }
+
+    //We should add this to our cache.
     //But we want to store it without the .info in the file path
     //We can always search for both the file and file.info
     if( filepath.endsWith( ".info" ) )
     {
         filepath = filepath.chopped( 5 );
-    }
-
-    //Hack!  We need to translate the ram disk icon path back to "Ram Disk:Disk.info"
-    if( !filepath.compare( RAM_DISK_ICON_PATH_WITH_INFO ) || !filepath.compare( RAM_DISK_ICON_PATH ) )
-    {
-        //Reset this back to the ram disk path
-        filepath = "Ram Disk:Disk";
     }
 
     //Store this in our cace

@@ -10,7 +10,8 @@ DialogFileInfo::DialogFileInfo( QSharedPointer<DirectoryListing> directoryListin
     ui->setupUi(this);
 
     //Set the file path and file size
-    ui->labelFilePath->setText( "Path: " + m_DirectoryListing->Path() );
+    ui->groupBox->setTitle( m_DirectoryListing->Path() );
+    this->setWindowTitle( m_DirectoryListing->Path() );
     ui->labelFileSize->setText( "Size: " + prettyFileSize( m_DirectoryListing->Size(), true ) );
 
     //Get the infor file

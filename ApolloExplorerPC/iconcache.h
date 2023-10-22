@@ -52,6 +52,7 @@ private:
     bool m_Connected;
     bool m_DownloadInProgress;
     IconThread *m_IconThread;
+    QString m_RamDiskIconPath;      //Annoyingly, the ram disk has slight differences in the case between Amiga OS versions
 };
 
 #endif // ICONCACHE_H
