@@ -402,7 +402,7 @@ bool AmigaInfoFile::process(QByteArray data)
             qint16 transparentColour;
             decodeOS35Icon( data, offset, imageData, paletteData, width, height, numberOfColours, transparentColour  );
             //Sanity Check:  Sometimes the decoding goes wrong and we get insane dimensions
-            if( width < 500 && height < 500 )
+            if( width < 500 && height < 500 && numberOfColours > 0 )
             {
                 m_OS35Image1 = drawIndexedOS35Icon( imageData, paletteData, numberOfColours, width, height, transparentColour );
 
@@ -437,7 +437,7 @@ bool AmigaInfoFile::process(QByteArray data)
                 qint16 transparentColour;
                 decodeOS35Icon( data, offset, imageData, paletteData, width, height, numberOfColours, transparentColour );
                 //Sanity check.  Sometimes the decoding goes wrong and we get insane dimensions
-                if( width < 500 && height < 500 )
+                if( width < 500 && height < 500 && numberOfColours > 0 )
                 {
                     m_OS35Image2 = drawIndexedOS35Icon( imageData, paletteData, numberOfColours, width, height, transparentColour );
                 }
@@ -601,7 +601,8 @@ void AmigaInfoFile::decodeOS35Icon(QByteArray data, quint64 &offset, QByteArray 
     //Now get the image parameters
     length = getULONGFromBuffer( data, offset );
     transparentColour = getUBYTEFromBuffer( data, offset );
-    numberOfColours = getUBYTEFromBuffer( data, offset ) + 1;
+    numberOfColours = getUBYTEFromBuffer( data, offset );
+    if( numberOfColours < 255 ) numberOfColours++;          //This is dumb.  Some icons list 256 colours as 255. So we can't add 1
     imageFlags = getUBYTEFromBuffer( data, offset );
     imageFormat = getUBYTEFromBuffer( data, offset );
     paletteFormat = getUBYTEFromBuffer( data, offset );
@@ -757,6 +758,9 @@ QImage AmigaInfoFile::drawIndexedOS35Icon(QByteArray imageData, QByteArray palet
 {
     //First, create our image
     QImage theImage = QImage( width, height, QImage::Format_ARGB32 );
+
+    //Clear the bitmap
+    theImage.fill( QColor(0,0,0,0 ) );
 
     //Create an index of all the colours
     QList<QColor> colourPalette;

@@ -47,7 +47,7 @@ public:
     void setParent(const QString &newParent);
 
     QSharedPointer<AmigaInfoFile> getAmigaInfoFile() const;
-    void setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile );
+    void setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile, quint32 iconHeight );
 
 private:
     void reformPath();

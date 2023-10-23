@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QSharedPointer>
 #include <QSettings>
+#include <QTableWidget>
 
 namespace Ui {
 class DialogPreferences;
@@ -26,12 +27,18 @@ public:
     void onDefaultSortCombobBoxChangedSlot( const QString selection );
     void onIgnoreCaseCheckBoxClickedSlot( const bool checked );
 
+    //Icon Size
+    void onIconSizeSliderChangedSlot( quint32 value );
+    void onDownloadAmigaIconCheckboxSlot( bool selected );
+
 private:
     Ui::DialogPreferences *ui;
 
 
 private:
     QSharedPointer<QSettings> m_Settings;
+    QTableWidgetItem *m_TableItem1;
+    QTableWidgetItem *m_TableItem2;
 };
 
 #endif // DIALOGPREFERENCES_H

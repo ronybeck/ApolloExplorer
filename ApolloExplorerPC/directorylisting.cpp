@@ -297,7 +297,7 @@ QSharedPointer<AmigaInfoFile> DirectoryListing::getAmigaInfoFile() const
     return m_AmigaInfoFile;
 }
 
-void DirectoryListing::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile )
+void DirectoryListing::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFile, quint32 iconHeight )
 {
     m_AmigaInfoFile = newAmigaInfoFile;
 
@@ -308,7 +308,7 @@ void DirectoryListing::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaI
     //Get the best image we can for the icon
     if( m_AmigaInfoFile->getBestImage1().width() > 0 )
     {
-        m_Icon = new QPixmap( QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( 64, Qt::SmoothTransformation ) ) );
+        m_Icon = new QPixmap( QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( iconHeight, Qt::SmoothTransformation ) ) );
         return;
     }
 }

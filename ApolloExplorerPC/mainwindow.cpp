@@ -629,6 +629,11 @@ void MainWindow::onIconUpdateSlot(QString filePath, QSharedPointer<AmigaInfoFile
         }
     }
 
+    //Get the icon height from settings
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    quint32 iconSize = m_Settings->value( SETTINGS_ICON_VERTICAL_SIZE, 52 ).toUInt();
+    m_Settings->endGroup();
+
     //Then it must be a file/directory path.  Find this path
     for( auto nextListing = m_DirectoryListings.begin(); nextListing != m_DirectoryListings.end(); nextListing++ )
     {
@@ -636,7 +641,7 @@ void MainWindow::onIconUpdateSlot(QString filePath, QSharedPointer<AmigaInfoFile
         if( nextListing.key() == filePath )
         {
             //Set the icon
-            nextListing.value()->setAmigaInfoFile( icon );
+            nextListing.value()->setAmigaInfoFile( icon, iconSize );
 
             //Update the gui
             updateFilebrowser();
@@ -649,7 +654,7 @@ void MainWindow::onIconUpdateSlot(QString filePath, QSharedPointer<AmigaInfoFile
         if( subListing != nullptr )
         {
             //Set the icon
-            subListing->setAmigaInfoFile( icon );
+            subListing->setAmigaInfoFile( icon, iconSize );
 
             //Update the gui
             updateFilebrowser();
@@ -810,6 +815,15 @@ void MainWindow::onRenameSlot()
 
             //Tell the server to rename the
             m_ProtocolHandler.onRenameFileSlot( oldPathName, newPathName );
+
+            //What about if there was an info file as well?
+            QString oldInfoFilePath = oldPathName + ".info";
+            QString newInfoFilePath = newPathName + ".info";
+            //if( m_DirectoryListings.contains( oldPathName ) )
+            {
+                //Tell the server to rename the
+                m_ProtocolHandler.onRenameFileSlot( oldInfoFilePath, newInfoFilePath );
+            }
         }
     }else
     {
@@ -1009,6 +1023,10 @@ void MainWindow::onDirectoryListingUpdateSlot( QSharedPointer<DirectoryListing> 
     //First find the entry in our listing and update it
     m_DirectoryListings[ newListing->Path() ] = newListing;     //TODO: what about subdirectories???????
 
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    bool downloadAmigaIcons = m_Settings->value( SETTINGS_DOWNLOAD_AMIGA_ICONS, true ).toBool();
+    m_Settings->endGroup();
+
     //Now update the browser
     QString currentPath = ui->lineEditPath->text();
     if( newListing->Path() == currentPath )
@@ -1027,8 +1045,8 @@ void MainWindow::onDirectoryListingUpdateSlot( QSharedPointer<DirectoryListing> 
         //Is this an icon file?
         if( nextListing->Path().endsWith( ".info" ) )
         {
-            emit retrieveIconSignal( nextListing->Path() );
-            //m_IconCache.retrieveIconSlot( nextListing->Path() );
+            if( downloadAmigaIcons )
+                emit retrieveIconSignal( nextListing->Path() );
         }
     }
 }
@@ -1040,6 +1058,10 @@ void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volum
     //Update the drive view
     updateDrivebrowser();
 
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    bool downloadAmigaIcons = m_Settings->value( SETTINGS_DOWNLOAD_AMIGA_ICONS, true ).toBool();
+    m_Settings->endGroup();
+
     //We should get the icons for the drives
     for( QList<QSharedPointer<DiskVolume>>::Iterator iter = volumes.begin(); iter != volumes.end(); iter++ )
     {
@@ -1049,7 +1071,8 @@ void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volum
         QString iconPath = drive->getName() + ":Disk.info";
 
         //Now trigger the retrieval of the icon
-        emit retrieveIconSignal( iconPath );
+        if( downloadAmigaIcons )
+            emit retrieveIconSignal( iconPath );
     }
 
     //We should now check that at least one drive is selected and then fetch the contents of that drive.
@@ -1338,7 +1361,7 @@ void MainWindow::updateDrivebrowser()
             item->setIcon( icon );
         }else
         {
-            QPixmap icon = QPixmap::fromImage( cachedIcon->getBestImage1().scaledToHeight( 64, Qt::SmoothTransformation) );
+            QPixmap icon = QPixmap::fromImage( cachedIcon->getBestImage1().scaledToHeight( 72, Qt::SmoothTransformation) );
             item->setIcon( icon );
         }
         item->setToolTip( volume->getName() + " - " +

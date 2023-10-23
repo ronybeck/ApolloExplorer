@@ -245,7 +245,7 @@ QGroupBox::Title
          <widget class="QLabel" name="label_5">
           <property name="minimumSize">
            <size>
-            <width>100</width>
+            <width>95</width>
             <height>0</height>
            </size>
           </property>
@@ -340,7 +340,10 @@ QGroupBox::Title
       <item>
        <widget class="QPlainTextEdit" name="plainTextEditToolTypes">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
         </property>
        </widget>
       </item>

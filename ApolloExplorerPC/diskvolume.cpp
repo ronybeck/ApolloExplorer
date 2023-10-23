@@ -91,7 +91,7 @@ void DiskVolume::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFil
     //Get the best image we can for the icon
     if( m_AmigaInfoFile->getBestImage1().width() > 0 )
     {
-        m_PixMap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToWidth( 64, Qt::SmoothTransformation ) );
+        m_PixMap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1() );
         return;
     }
 }

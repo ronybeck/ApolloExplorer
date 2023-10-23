@@ -92,15 +92,22 @@ QMenu
 {
 	background-color: #444444;
 }
+QMenu::item:selected { /* when user selects item using mouse or keyboard */
+    background-color: #555555;
+}
 QMenu::indicator {
 	border: 1px solid rgb(136, 138, 133);
     border-radius: 2px;
-	width: 20px;
+	width: 15px;
+    height: 15px;
+	margin : -2px -2px -2px -2px;
+    padding : -4px -4px -4px -4px;
 }
 QMenu::indicator:checked {
     border: 1px inset white;
 	background: red;
-}</string>
+}
+</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -336,7 +343,7 @@ QMenu::indicator:checked {
             <bool>true</bool>
            </property>
            <property name="itemAlignment">
-            <set>Qt::AlignCenter|Qt::AlignHCenter|Qt::AlignJustify|Qt::AlignTop|Qt::AlignVCenter</set>
+            <set>Qt::AlignHCenter|Qt::AlignTop</set>
            </property>
            <property name="currentRow">
             <number>-1</number>
@@ -587,12 +594,18 @@ QMenu::indicator:checked {
    <property name="checked">
     <bool>true</bool>
    </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Show Drives</string>
    </property>
   </action>
   <action name="actionList_Mode">
    <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
     <bool>true</bool>
    </property>
    <property name="enabled">

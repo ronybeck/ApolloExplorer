@@ -40,5 +40,7 @@ QString prettyFileSize( quint64 size, bool withUnits = true );
 #define SETTINGS_IGNORE "Ignore"
 #define SETTINGS_DOWNLOAD "Download"
 #define SETTINGS_OPEN "Open"
+#define SETTINGS_ICON_VERTICAL_SIZE "IconVerticalSize"
+#define SETTINGS_DOWNLOAD_AMIGA_ICONS "DownloadAmigaIcons"
 
 #endif // AEUTILS_H
