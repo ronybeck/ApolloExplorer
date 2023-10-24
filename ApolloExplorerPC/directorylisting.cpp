@@ -303,6 +303,7 @@ void DirectoryListing::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaI
 
     //If we don't have a pixmap already
     if( m_Icon != nullptr ) delete m_Icon;
+    m_Icon == nullptr;
 
     //We should get the icon out of the info file and set that as our own
     //Get the best image we can for the icon

@@ -16,6 +16,7 @@ class RemoteFileTableView : public QTableView
     Q_OBJECT
 public:
     RemoteFileTableView( QWidget *parent );
+    ~RemoteFileTableView();
 
     void dragLeaveEvent( QDragLeaveEvent *e ) override;
     void dragEnterEvent( QDragEnterEvent *event ) override;

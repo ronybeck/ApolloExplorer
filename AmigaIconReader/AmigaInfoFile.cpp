@@ -396,10 +396,10 @@ bool AmigaInfoFile::process(QByteArray data)
             //Yep, we have an OS35 icon
             QByteArray imageData;
             QByteArray paletteData;
-            quint32 width;
-            quint32 height;
-            quint8 numberOfColours;
-            qint16 transparentColour;
+            quint32 width = 0;
+            quint32 height = 0;
+            quint8 numberOfColours = 0;
+            qint16 transparentColour = 0;
             decodeOS35Icon( data, offset, imageData, paletteData, width, height, numberOfColours, transparentColour  );
             //Sanity Check:  Sometimes the decoding goes wrong and we get insane dimensions
             if( width < 500 && height < 500 && numberOfColours > 0 )
@@ -625,8 +625,8 @@ void AmigaInfoFile::decodeOS35Icon(QByteArray data, quint64 &offset, QByteArray 
     {
         quint64 uncompressedImageDataOffset = 0;
         QByteArray uncompressedData;
-        quint8 nextByte;
-        quint8 nextPixel;
+        quint8 nextByte = 0;
+        quint8 nextPixel = 0;
         BitGetter bitGetter( imageData );
         quint64 uncompressedImageSize = width * height;
 
@@ -794,10 +794,10 @@ QImage AmigaInfoFile::drawIndexedOS35Icon(QByteArray imageData, QByteArray palet
             if( nextPixel >= numberOfColours )
             {
                 //qDebug() << "Pixel " << nextPixel << " is higher than the colour count";
-                nextPixel = 0;  //Set this to the colour 0 as a work around.
+            }else
+            {
+                theImage.setPixelColor( x, y, colourPalette[ nextPixel ] );
             }
-            //theImage.setPixel( x, y, nextPixel );
-            theImage.setPixelColor( x, y, colourPalette[ nextPixel ] );
         }
     }
 

@@ -53,6 +53,11 @@ RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
     setSelectionBehavior( QAbstractItemView::SelectRows );
     this->setGridStyle( Qt::PenStyle::NoPen );
 }
+RemoteFileTableView::~RemoteFileTableView()
+{
+    RemoteFileTableModel *model = dynamic_cast<RemoteFileTableModel*>( this->model() );
+    if( model != nullptr )  delete model;
+}
 
 void RemoteFileTableView::dragLeaveEvent(QDragLeaveEvent *e)
 {

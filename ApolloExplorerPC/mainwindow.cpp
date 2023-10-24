@@ -191,6 +191,9 @@ MainWindow::~MainWindow()
     m_DialogUploadFile->deleteLater();
     m_DialogDownloadFile->deleteLater();
 
+    //Clean up the views
+    if( m_FileTableView ) delete m_FileTableView;
+
     disconnect( &m_ProtocolHandler, &ProtocolHandler::disconnectedFromHostSignal, this, &MainWindow::onDisconnectedFromHostSlot );
     delete ui;
 }

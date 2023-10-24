@@ -86,6 +86,7 @@ void IconThread::run()
     RELOCK;
     delete m_ProtocolHandler;
     m_ProtocolHandler = nullptr;
+    delete m_OperationTimer;
 }
 
 void IconThread::stopThread()

@@ -29,6 +29,7 @@ RemoteFileTableModel::RemoteFileTableModel(  QSharedPointer<DirectoryListing> di
 
 RemoteFileTableModel::~RemoteFileTableModel()
 {
+    delete m_Mutex;
     DBGLOG << "Destroying";
 }
 

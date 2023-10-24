@@ -101,6 +101,16 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
 ScanningWindow::~ScanningWindow()
 {
     m_SystemTrayMenu.setVisible( false );
+
+    //Clean up menu
+    QList<QAction*> actions = m_SystemTrayHostsMenu.actions();
+    QListIterator<QAction*> actionIter( actions );
+    while( actionIter.hasNext() )
+    {
+        QAction *action = actionIter.next();
+        m_SystemTrayHostsMenu.removeAction( action );
+        delete action;
+    }
     delete ui;
 }
 
