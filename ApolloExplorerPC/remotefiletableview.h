@@ -2,6 +2,7 @@
 #define REMOTEFILETABLEVIEW_H
 
 #include "remotefilemimedata.h"
+#include "remotefiletablemodel.h"
 #include "dialogdownloadfile.h"
 #include "dialoguploadfile.h"
 
@@ -49,6 +50,7 @@ private:
     QDrag *m_CurrentDrag;
     QTimer m_DropTimer;
     QSharedPointer<QSettings> m_Settings;
+    RemoteFileTableModel *m_TemporaryModel;
 };
 
 #endif // REMOTEFILETABLEVIEW_H

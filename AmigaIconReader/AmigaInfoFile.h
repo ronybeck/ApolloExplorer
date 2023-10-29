@@ -140,22 +140,6 @@ class AmigaInfoFile : public QObject
     Q_OBJECT
 
 
-private:
-    OS2Icon_t m_Icon;
-    DrawerData_t m_DrawerData;
-    DrawerData2_t m_DrawerData2;
-    Image_t m_Image1;
-    Image_t m_Image2;
-    QImage m_OS2Image1;
-    QImage m_OS2Image2;
-    QImage m_OS35Image1;
-    QImage m_OS35Image2;
-    QString m_DefaultTool;
-    QVector<QString> m_ToolTypes;
-    qint16 m_Priority;
-    QString m_ToolWindow;
-
-
 public:
     AmigaInfoFile();
 
@@ -196,6 +180,21 @@ public:
 
     //Reset
     void reset();
+
+private:
+    OS2Icon_t m_Icon;
+    DrawerData_t m_DrawerData;
+    DrawerData2_t m_DrawerData2;
+    Image_t m_Image1;
+    Image_t m_Image2;
+    QImage m_OS2Image1;
+    QImage m_OS2Image2;
+    QImage m_OS35Image1;
+    QImage m_OS35Image2;
+    QString m_DefaultTool;
+    QVector<QString> m_ToolTypes;
+    qint16 m_Priority;
+    QString m_ToolWindow;
 
 };
 

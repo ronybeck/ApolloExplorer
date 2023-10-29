@@ -1,5 +1,4 @@
 #include "remotefiletableview.h"
-#include "remotefiletablemodel.h"
 #include "qdragremote.h"
 #include "mouseeventfilter.h"
 
@@ -32,8 +31,8 @@ RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
     //Create a dummy model so we can at least set the header width
     QSharedPointer<DirectoryListing> directoryListing( new DirectoryListing() );
     directoryListing->setName( "Waiting for server.");
-    RemoteFileTableModel *temporaryModel = new RemoteFileTableModel( directoryListing );
-    this->setModel( temporaryModel );
+    m_TemporaryModel = new RemoteFileTableModel( directoryListing );
+    this->setModel( m_TemporaryModel );
 
     verticalHeader()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
     verticalHeader()->setSizeAdjustPolicy( AdjustToContents );
@@ -55,8 +54,9 @@ RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
 }
 RemoteFileTableView::~RemoteFileTableView()
 {
-    RemoteFileTableModel *model = dynamic_cast<RemoteFileTableModel*>( this->model() );
-    if( model != nullptr )  delete model;
+    //RemoteFileTableModel *model = dynamic_cast<RemoteFileTableModel*>( this->model() );
+    //if( model != nullptr )  delete model;
+    delete m_TemporaryModel;
 }
 
 void RemoteFileTableView::dragLeaveEvent(QDragLeaveEvent *e)

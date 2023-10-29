@@ -193,6 +193,7 @@ MainWindow::~MainWindow()
 
     //Clean up the views
     if( m_FileTableView ) delete m_FileTableView;
+    if( m_FileTableModel ) delete m_FileTableModel;
 
     disconnect( &m_ProtocolHandler, &ProtocolHandler::disconnectedFromHostSignal, this, &MainWindow::onDisconnectedFromHostSlot );
     delete ui;
