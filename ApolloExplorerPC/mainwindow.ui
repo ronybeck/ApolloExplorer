@@ -30,6 +30,13 @@ QLabel{
 	padding-right: 3px;
 }
 
+QHeaderView::section {
+	background-color: #444444;
+	color:  white;
+	font: 700 10pt &quot;Comfortaa&quot;;
+	height: 30px;
+}
+
 QLineEdit
 {
 border: 1px solid rgb(136, 138, 133);
@@ -555,7 +562,7 @@ QMenu::indicator:checked {
      <x>0</x>
      <y>0</y>
      <width>774</width>
-     <height>21</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

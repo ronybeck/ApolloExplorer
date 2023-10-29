@@ -1173,6 +1173,7 @@ void MainWindow::updateFilebrowser()
     //Get the current file path
     QString selectedPath = ui->lineEditPath->text();
 
+
     //If the path is empty, then show the drives from the server
     if( selectedPath.length() == 0 )
     {
@@ -1257,6 +1258,11 @@ void MainWindow::updateFilebrowser()
         }
     }
 
+    //Get the icon height from settings
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    quint32 iconSize = m_Settings->value( SETTINGS_ICON_VERTICAL_SIZE, 52 ).toUInt();
+    m_Settings->endGroup();
+
     //List all the directories first
     QVectorIterator<QSharedPointer<DirectoryListing>> dirIter( listing->Entries() );
     while( dirIter.hasNext() )
@@ -1290,7 +1296,8 @@ void MainWindow::updateFilebrowser()
             //Create the entry for our view
             QString label = nextListEntry->Name() + "\n(" + QString::number( nextListEntry->Size()/1024 ) + "KB)";
             QListWidgetItem *item = new QListWidgetItem( nextListEntry->Name() );
-            item->setIcon( *nextListEntry->Icon() );
+            QImage scaledIconImage = nextListEntry->Icon()->toImage().scaledToHeight( iconSize );
+            item->setIcon( QPixmap::fromImage( scaledIconImage ) );
             item->setToolTip( label );
 
             //Add this to the view
@@ -1332,7 +1339,8 @@ void MainWindow::updateFilebrowser()
         }else
         {
             QListWidgetItem *item = new QListWidgetItem( fileNameLabel );
-            item->setIcon( *nextListEntry->Icon() );
+            QImage scaledIconImage = nextListEntry->Icon()->toImage().scaledToHeight( iconSize );
+            item->setIcon( QPixmap::fromImage( scaledIconImage ) );
             item->setToolTip( toolTip );
 
             //Add this to the view
@@ -1360,7 +1368,7 @@ void MainWindow::updateDrivebrowser()
         QListWidgetItem *item = new QListWidgetItem( volume->getName() + ":" );
         if( cachedIcon.isNull() )
         {
-            QPixmap icon( volume->getPixmap() );
+            QPixmap icon( volume->getPixmap().scaledToHeight( 72, Qt::SmoothTransformation ) );
             item->setIcon( icon );
         }else
         {

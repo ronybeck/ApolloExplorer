@@ -17,17 +17,14 @@
    <string notr="true">QWidget
 {	
 	background-color: #444444;
+	font: bold 12px;
 	color:  white;
 	font: 700 10pt &quot;Comfortaa&quot;;
-	padding: 1px;
-	margin: 1px;
 }
 
-QCSpinBox
+QLineEdit
 {
-	background-color: #444444;
-	color:  white;
-	margin: 0px;
+border: 1px solid rgb(136, 138, 133);
 }
 
 QPushButton
@@ -38,30 +35,6 @@ QPushButton
     border-radius: 2px;
 	text-align: center;
 }
-QComboBox
-{
-	margin: 5px;
-	padding: 5px;
-	border: 1px solid rgb(136, 138, 133);
-    border-radius: 2px;
-	text-align: center;
-}
-
-QSpinBox
-{
-	margin: 1px;
-	padding: 1px;
-	border: 1px solid rgb(136, 138, 133);
-    border-radius: 2px;
-	text-align: center;
-}
-
-QSpinBox::up-button
-{
-	margin: 0px;
-	padding: 0px;
-}
-
 QPushButton::pressed
 {
 	background-color: #555555;
@@ -70,20 +43,40 @@ QPushButton::hover
 {
 	border: 1px solid #aaaaaa;
 }
-
 QGroupBox
 {
-	padding: 5px;
+	padding: 2px;
+    padding-top: 10px;
 	border: 1px solid  rgb(136, 138, 133);
-	margin: 2px;
+	margin: 5px;
+    margin-top: 10px;
 	border-radius: 2px;
 }
 QGroupBox::Title
 {
 	subcontrol-origin: margin;
     subcontrol-position: top center;
-	margin: 0px;
+	font: 700 10pt &quot;Comfortaa&quot;;
 }
+
+QTableView
+{
+	background-color: #444444;
+}
+
+QListView
+{
+	margin: 2px;
+	padding: 2px;
+}
+
+QHeaderView::section
+{
+	margin: 2px;
+	padding: 2px;
+	background-color: #444444;
+}
+
 </string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -100,6 +93,9 @@ QGroupBox::Title
           <width>128</width>
           <height>128</height>
          </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true"/>
         </property>
         <property name="text">
          <string/>
@@ -147,10 +143,22 @@ QGroupBox::Title
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QLabel" name="label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="minimumSize">
            <size>
             <width>100</width>
             <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>100</width>
+            <height>16777215</height>
            </size>
           </property>
           <property name="text">
@@ -178,6 +186,12 @@ QGroupBox::Title
            <size>
             <width>100</width>
             <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>100</width>
+            <height>16777215</height>
            </size>
           </property>
           <property name="text">
@@ -243,10 +257,22 @@ QGroupBox::Title
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
          <widget class="QLabel" name="label_5">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="minimumSize">
            <size>
-            <width>95</width>
+            <width>100</width>
             <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>100</width>
+            <height>16777215</height>
            </size>
           </property>
           <property name="text">
@@ -341,6 +367,9 @@ QGroupBox::Title
        <widget class="QPlainTextEdit" name="plainTextEditToolTypes">
         <property name="enabled">
          <bool>true</bool>
+        </property>
+        <property name="toolTipDuration">
+         <number>-2</number>
         </property>
         <property name="textInteractionFlags">
          <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>

@@ -53,6 +53,11 @@ QVariant RemoteFileTableModel::data(const QModelIndex &index, int role) const
     //Get the directory listing in question
     QSharedPointer<DirectoryListing> directoryListing = m_FileList[ index.row() ];
 
+    //Get the icon height from settings
+    m_Settings->beginGroup( SETTINGS_BROWSER );
+    quint32 iconSize = m_Settings->value( SETTINGS_ICON_VERTICAL_SIZE, 52 ).toUInt();
+    m_Settings->endGroup();
+
     switch( role )
     {
         case Qt::DisplayRole:
@@ -117,7 +122,7 @@ QVariant RemoteFileTableModel::data(const QModelIndex &index, int role) const
             //Get the icon
             if( directoryListing.isNull() || index.column() != 0 )
                 return QVariant();
-            return directoryListing->Icon()->toImage();
+            return directoryListing->Icon()->toImage().scaledToHeight( iconSize, Qt::SmoothTransformation );
             break;
         }
         case Qt::EditRole:
@@ -128,7 +133,7 @@ QVariant RemoteFileTableModel::data(const QModelIndex &index, int role) const
         {
             //DBGLOG << "Getting size hint.";
             //DBGLOG << "Icon size is: " << directoryListing->Icon()->size();
-            return directoryListing->Icon()->size();
+            return directoryListing->Icon()->scaledToHeight( iconSize, Qt::SmoothTransformation ).size();
             break;
         }
         case Qt::FontRole:

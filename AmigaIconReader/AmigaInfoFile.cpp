@@ -778,7 +778,6 @@ QImage AmigaInfoFile::drawIndexedOS35Icon(QByteArray imageData, QByteArray palet
 
         //Create the colour
         QColor pixelColour( red, green, blue,  alpha );
-        //theImage.setColor( i, pixelColour.rgb() );
         colourPalette.push_back( pixelColour );
 
         //qDebug() << "Colour " << i << " is defined as " << pixelColour;

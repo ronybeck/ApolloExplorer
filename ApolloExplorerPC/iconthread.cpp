@@ -216,6 +216,7 @@ void IconThread::onAcknowledgeSlot( quint8 responseCode )
 
 void IconThread::onStartOfFileSendSlot(quint64 fileSize, quint32 numberOfChunks, QString filename)
 {
+    Q_UNUSED( filename )
     //DBGLOG << "Got the start-of-download message for " << filename << "with " << numberOfChunks << " chunks and filesize " << fileSize;
 
     //Special case.  File to be downloaded if zero bytes in size

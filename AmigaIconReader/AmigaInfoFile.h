@@ -10,35 +10,37 @@
 #include <QImage>
 #include <QPixmap>
 
+#ifndef __MINGW32__
 typedef quint32 APTR;
+typedef quint8 UBYTE;
 typedef qint32 LONG;
 typedef quint32 ULONG;
 typedef qint16 WORD;
 typedef quint16 UWORD;
 typedef qint8 BYTE;
-typedef quint8 UBYTE;
+#endif
 
 
 typedef struct
 {
-    WORD LeftEdge;    /* starting offset relative to some origin */
-    WORD TopEdge;     /* starting offsets relative to some origin */
-    WORD Width;       /* pixel size (though data is word-aligned) */
-    WORD Height;
-    WORD Depth;       /* >= 0, for images you create		*/
-    APTR ImageData; /* pointer to the actual word-aligned bits */
-    UBYTE PlanePick;
-    UBYTE PlaneOnOff;
-    APTR NextImage;
+    qint16 LeftEdge;    /* starting offset relative to some origin */
+    qint16 TopEdge;     /* starting offsets relative to some origin */
+    qint16 Width;       /* pixel size (though data is word-aligned) */
+    qint16 Height;
+    qint16 Depth;       /* >= 0, for images you create		*/
+    quint32 ImageData; /* pointer to the actual word-aligned bits */
+    quint8 PlanePick;
+    quint8 PlaneOnOff;
+    quint32 NextImage;
 } __attribute__((packed)) Image_t;
 
 typedef struct {
-    APTR    ga_Next;   //always 0
-    WORD    ga_LeftEdge;
-    WORD    ga_TopEdge;
-    WORD    ga_Width;
-    WORD    ga_Height;
-    UWORD   ga_Flags;
+    quint32 ga_Next;   //always 0
+    qint16  ga_LeftEdge;
+    qint16  ga_TopEdge;
+    qint16  ga_Width;
+    qint16  ga_Height;
+    quint16 ga_Flags;
     /*
         bit 2 always set (image 1 is an image ;-)
         bit 1 if set, we use 2 image-mode,
@@ -48,15 +50,15 @@ typedef struct {
         outside (color 0) of image is not inverted
         As you see, it makes no sense having bit 0 and 1 set.
     */
-    UWORD   ga_Activation;      //undefined
-    UWORD   ga_GadgetType;      //<undefined>
-    APTR    ga_GadgetRender;    //<boolean> unused??? always true
-    APTR    ga_SelectRender;    //<boolean> (true if second image present)
-    APTR    ga_GadgetText;      //<undefined> always 0 ???
-    LONG    ga_MutualExclude;   //<undefined>
-    APTR    ga_SpecialInfo;     //<undefined>
-    UWORD   ga_GadgetID;        //<undefined>
-    APTR    ga_UserData;
+    quint16 ga_Activation;      //undefined
+    quint16 ga_GadgetType;      //<undefined>
+    quint32 ga_GadgetRender;    //<boolean> unused??? always true
+    quint32 ga_SelectRender;    //<boolean> (true if second image present)
+    quint32 ga_GadgetText;      //<undefined> always 0 ???
+    qint32  ga_MutualExclude;   //<undefined>
+    quint32 ga_SpecialInfo;     //<undefined>
+    quint16 ga_GadgetID;        //<undefined>
+    quint32 ga_UserData;
 } __attribute__((packed)) Gadget_t;
 
 struct NewWindow
@@ -110,18 +112,18 @@ typedef enum
 } __attribute__((packed)) IconType_t;
 
 typedef struct {
-    UWORD       do_Magic;           //magic number at start of file. Always 0xE310
-    UWORD       do_Version;         //Always 1
+    quint16     do_Magic;           //magic number at start of file. Always 0xE310
+    quint16     do_Version;         //Always 1
     Gadget_t    do_Gadget;
-    UBYTE       do_Type;
-    UBYTE       pad1;
-    APTR        do_DefaultTool;    //To be interpreted from disk as a boolean
-    APTR        do_ToolTypes;     //To be interpreted from disk as a boolean
-    LONG        do_CurrentX;
-    LONG        do_CurrentY;
-    APTR        do_DrawerData;
-    APTR        do_ToolWindow;     //only applies to tools
-    LONG        do_StackSize;       //only applies to tools
+    quint8      do_Type;
+    quint8      pad1;
+    quint32     do_DefaultTool;    //To be interpreted from disk as a boolean
+    quint32     do_ToolTypes;     //To be interpreted from disk as a boolean
+    qint32      do_CurrentX;
+    qint32      do_CurrentY;
+    quint32     do_DrawerData;
+    quint32     do_ToolWindow;     //only applies to tools
+    qint32      do_StackSize;       //only applies to tools
 
     //DrawerData_t      drawData;       //if ic_DrawerData is not zero (see below)
     //Image_t           firstImage;
