@@ -1,26 +1,26 @@
-#ifndef REMOTEFILETABLEVIEW_H
-#define REMOTEFILETABLEVIEW_H
-
+#ifndef REMOTEFILELISTVIEW_H
+#define REMOTEFILELISTVIEW_H
 
 #include "remotefiletablemodel.h"
 #include "dialogdownloadfile.h"
 #include "dialoguploadfile.h"
 
-#include <QTableView>
+#include <QListView>
 #include <QTimer>
 #include <QObject>
 #include <QSharedPointer>
 #include <QSettings>
 
-class RemoteFileTableView : public QTableView
+class RemoteFileListView : public QListView
 {
     Q_OBJECT
 public:
-    RemoteFileTableView( QWidget *parent );
-    ~RemoteFileTableView();
+    RemoteFileListView( QWidget *parent );
+    ~RemoteFileListView();
+
 
     void dragLeaveEvent( QDragLeaveEvent *e ) override;
-    void dragEnterEvent( QDragEnterEvent *event ) override;
+    void dragEnterEvent( QDragEnterEvent *e ) override;
     void dropEvent( QDropEvent *e ) override;
     void dragMoveEvent( QDragMoveEvent *e ) override;
     void startDrag(Qt::DropActions supportedActions) override;
@@ -51,6 +51,7 @@ private:
     QTimer m_DropTimer;
     QSharedPointer<QSettings> m_Settings;
     RemoteFileTableModel *m_TemporaryModel;
+
 };
 
-#endif // REMOTEFILETABLEVIEW_H
+#endif // REMOTEFILELISTVIEW_H

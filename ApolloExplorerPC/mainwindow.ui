@@ -76,12 +76,6 @@ QTableView
 	background-color: #444444;
 }
 
-QListView
-{
-	margin: 2px;
-	padding: 2px;
-}
-
 QHeaderView::section
 {
 	margin: 2px;
@@ -114,6 +108,27 @@ QMenu::indicator:checked {
     border: 1px inset white;
 	background: red;
 }
+
+QListView
+{
+	margin: 5px;
+	padding: 5px;
+}
+
+QListView::item {
+    margin : 5px;
+    padding : 5px;
+}
+
+QListView::item::title {
+    margin : 5px;
+    padding : -5px;
+	subcontrol-origin: margin;
+    subcontrol-position: bottom center;
+}
+
+
+
 </string>
   </property>
   <widget class="QWidget" name="centralwidget">
@@ -452,61 +467,7 @@ QMenu::indicator:checked {
           </layout>
          </item>
          <item>
-          <layout class="QVBoxLayout" name="verticalLayoutFileBrowser">
-           <item>
-            <widget class="QListWidget" name="listWidgetFileBrowser">
-             <property name="frameShape">
-              <enum>QFrame::NoFrame</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Plain</enum>
-             </property>
-             <property name="lineWidth">
-              <number>0</number>
-             </property>
-             <property name="dragEnabled">
-              <bool>true</bool>
-             </property>
-             <property name="dragDropMode">
-              <enum>QAbstractItemView::DragDrop</enum>
-             </property>
-             <property name="defaultDropAction">
-              <enum>Qt::CopyAction</enum>
-             </property>
-             <property name="selectionMode">
-              <enum>QAbstractItemView::ExtendedSelection</enum>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>80</width>
-               <height>80</height>
-              </size>
-             </property>
-             <property name="movement">
-              <enum>QListView::Snap</enum>
-             </property>
-             <property name="resizeMode">
-              <enum>QListView::Adjust</enum>
-             </property>
-             <property name="viewMode">
-              <enum>QListView::ListMode</enum>
-             </property>
-             <property name="wordWrap">
-              <bool>true</bool>
-             </property>
-             <item>
-              <property name="text">
-               <string>Waiting for server</string>
-              </property>
-              <property name="icon">
-               <iconset>
-                <normalon>:/browser/icons/Harddisk_Amiga.png</normalon>
-               </iconset>
-              </property>
-             </item>
-            </widget>
-           </item>
-          </layout>
+          <layout class="QVBoxLayout" name="verticalLayoutFileBrowser"/>
          </item>
         </layout>
        </widget>
@@ -562,7 +523,7 @@ QMenu::indicator:checked {
      <x>0</x>
      <y>0</y>
      <width>774</width>
-     <height>20</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -616,7 +577,7 @@ QMenu::indicator:checked {
     <bool>true</bool>
    </property>
    <property name="enabled">
-    <bool>false</bool>
+    <bool>true</bool>
    </property>
    <property name="text">
     <string>List Mode</string>

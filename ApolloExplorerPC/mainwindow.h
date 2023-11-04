@@ -18,6 +18,7 @@
 #include "dialogpreferences.h"
 #include "aboutdialog.h"
 #include "remotefiletableview.h"
+#include "remotefilelistview.h"
 #include "remotefiletablemodel.h"
 #include "diskvolume.h"
 #include "iconcache.h"
@@ -33,8 +34,8 @@ class MainWindow : public QMainWindow
 
     typedef enum
     {
-        VIEW_LIST,
-        VIEW_ICON
+        VIEW_TABLE,
+        VIEW_LIST
     } ViewType;
 
 public:
@@ -143,6 +144,7 @@ private:
 
     //Custom Views
     RemoteFileTableView *m_FileTableView;
+    RemoteFileListView *m_FileListView;
     RemoteFileTableModel *m_FileTableModel;
 
     //Preferences

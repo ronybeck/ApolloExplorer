@@ -43,6 +43,7 @@ SOURCES += \
     mouseeventfilter.cpp \
     protocolhandler.cpp \
     qdragremote.cpp \
+    remotefilelistview.cpp \
     remotefilemimedata.cpp \
     remotefiletablemodel.cpp \
     remotefiletableview.cpp \
@@ -75,6 +76,7 @@ HEADERS += \
     mouseeventfilter.h \
     protocolhandler.h \
     qdragremote.h \
+    remotefilelistview.h \
     remotefilemimedata.h \
     remotefiletablemodel.h \
     remotefiletableview.h \

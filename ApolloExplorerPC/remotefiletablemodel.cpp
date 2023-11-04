@@ -18,7 +18,8 @@ RemoteFileTableModel::RemoteFileTableModel(  QSharedPointer<DirectoryListing> di
       m_SortColumn( SORT_TYPE ),
       m_ReverseOrder( false ),
       m_ShowInfoFiles( false ),
-      m_RowCount( 0 )
+      m_RowCount( 0 ),
+      m_HeightPadding( 0 )
 {
     //Setup the header names
     m_HeaderNames << "Name" << "Type" << "Size";
@@ -133,7 +134,10 @@ QVariant RemoteFileTableModel::data(const QModelIndex &index, int role) const
         {
             //DBGLOG << "Getting size hint.";
             //DBGLOG << "Icon size is: " << directoryListing->Icon()->size();
-            return directoryListing->Icon()->scaledToHeight( iconSize, Qt::SmoothTransformation ).size();
+            QSize itemSize = directoryListing->Icon()->scaledToHeight( iconSize, Qt::SmoothTransformation ).size();
+            itemSize.setHeight( itemSize.height() + m_HeightPadding );
+            itemSize.setWidth( itemSize.width() + m_WidthPadding );
+            return itemSize;
             break;
         }
         case Qt::FontRole:
@@ -403,6 +407,16 @@ void RemoteFileTableModel::setSettings( QSharedPointer<QSettings> settings )
         m_SortColumn = SORT_TYPE;
 
     sortEntries();
+}
+
+void RemoteFileTableModel::setIconHeightPadding(quint32 padding)
+{
+    m_HeightPadding = padding;
+}
+
+void RemoteFileTableModel::setIconWidthPadding(quint32 padding)
+{
+    m_WidthPadding = padding;
 }
 
 void RemoteFileTableModel::onHeaderSectionClicked( int section )

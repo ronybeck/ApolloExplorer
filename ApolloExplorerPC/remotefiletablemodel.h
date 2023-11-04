@@ -38,6 +38,8 @@ public:
     void sortEntries();
     void getHeaderSelection( int &column, bool &reversed );
     void setSettings( QSharedPointer<QSettings> settings );
+    void setIconHeightPadding( quint32 padding );
+    void setIconWidthPadding( quint32 padding );
 
     QSharedPointer<DirectoryListing> getRootDirectoryListing() const;
 
@@ -57,6 +59,9 @@ private:
     bool m_ReverseOrder;
     bool m_ShowInfoFiles;
     qint32 m_RowCount;
+    quint32 m_HeightPadding;
+    quint32 m_WidthPadding;
 };
 
 #endif // REMOTEFILETABLEMODEL_H
+

@@ -1,4 +1,4 @@
-#include "remotefiletableview.h"
+#include "remotefilelistview.h"
 #include "qdragremote.h"
 #include "mouseeventfilter.h"
 #include "remotefilemimedata.h"
@@ -11,21 +11,39 @@
 #include <QFileInfo>
 #include <QHeaderView>
 #include <QDir>
+#include <QStyledItemDelegate>
+#include <QImage>
 
 #define DEBUG 0
 #include "AEUtils.h"
 
-RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
-    QTableView( parent )
+
+class ItemStyleDelegate : public QStyledItemDelegate {
+ public:
+  ItemStyleDelegate(QObject* parent)
+    : QStyledItemDelegate(parent) {}
+
+  QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const {
+    QFontMetrics fm(option.font);
+    const QAbstractItemModel* model = index.model();
+    QString Text = model->data(index, Qt::DisplayRole).toString();
+    QRect neededsize = fm.boundingRect( option.rect, Qt::TextWordWrap,Text );
+    QRect iconSize = model->data(index, Qt::DecorationRole ).toRect();
+    return QSize(option.rect.width(), neededsize.height());
+  }
+};
+
+ItemStyleDelegate *g_ItemStyleDelegate = nullptr;
+
+RemoteFileListView::RemoteFileListView( QWidget *parent ) :
+    QListView( parent )
 {
     this->setDragEnabled( true );
-    //this->setDragDropMode( DragDrop );
     this->setAcceptDrops( true );
     m_DropTimer.setSingleShot( false );
 
     //Signals and slots
-    connect( this, &RemoteFileTableView::doubleClicked, this, &RemoteFileTableView::onItemDoubleClicked );
-    //connect( &m_DropTimer, &QTimer::timeout, this, &RemoteFileTableView::dropTimerTimeoutSlot );
+    connect( this, &RemoteFileListView::doubleClicked, this, &RemoteFileListView::onItemDoubleClicked );
 
     //Create a dummy model so we can at least set the header width
     QSharedPointer<DirectoryListing> directoryListing( new DirectoryListing() );
@@ -33,42 +51,40 @@ RemoteFileTableView::RemoteFileTableView( QWidget *parent ) :
     m_TemporaryModel = new RemoteFileTableModel( directoryListing );
     this->setModel( m_TemporaryModel );
 
-    verticalHeader()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
-    verticalHeader()->setSizeAdjustPolicy( AdjustToContents );
-    //For some reason, the stylesheet isn't propogated here in the DEB package.
-    DBGLOG << "Header Style: " << horizontalHeader()->styleSheet();
-//    this->setStyleSheet( "QHeaderView::section { background-color: red;}");
-//    this->horizontalHeader()->setStyleSheet( "background-color: red;" );
-    DBGLOG << "Header Style: " << this->styleSheet();
-    //horizontalHeader()->setSectionResizeMode( QHeaderView::Stretch );
-    this->horizontalHeader()->setSectionResizeMode(0,QHeaderView::ResizeMode::Stretch);
-    this->horizontalHeader()->setSectionResizeMode(1,QHeaderView::ResizeMode::ResizeToContents );
-    this->horizontalHeader()->setSectionResizeMode(2,QHeaderView::ResizeMode::ResizeToContents );
-    this->verticalHeader()->setEnabled( false );
-    this->verticalHeader()->setVisible( false );
-    setSizeAdjustPolicy( QAbstractScrollArea::AdjustToContents );
+    //Setup how the icons should be displayed$
+    //g_ItemStyleDelegate = new ItemStyleDelegate( this );
+    //setItemDelegate( g_ItemStyleDelegate );
+    setViewMode( QListView::IconMode );
+    setSpacing( 10 );
+    setGridSize( QSize( 160, 100 ) );
+    setWrapping( true );
+    setWordWrap( true );
+    setStyleSheet( parent->styleSheet() );
+
+
+    //setSizeAdjustPolicy( QAbstractScrollArea::AdjustToContents );
+    setSizeAdjustPolicy( AdjustToContents );
     setSelectionMode( QAbstractItemView::ExtendedSelection );
-    setSelectionBehavior( QAbstractItemView::SelectRows );
-    this->setGridStyle( Qt::PenStyle::NoPen );
+    //setSelectionBehavior( QAbstractItemView::SelectRows );
 }
-RemoteFileTableView::~RemoteFileTableView()
+
+RemoteFileListView::~RemoteFileListView()
 {
     delete m_TemporaryModel;
 }
 
-void RemoteFileTableView::dragLeaveEvent(QDragLeaveEvent *e)
+void RemoteFileListView::dragLeaveEvent( QDragLeaveEvent *e )
 {
-    DBGLOG << "Action: " << e->type();
     e->accept();
 }
 
-void RemoteFileTableView::dragEnterEvent(QDragEnterEvent *e)
+void RemoteFileListView::dragEnterEvent( QDragEnterEvent *e )
 {
     //DBGLOG << "Drag enter event: " << e->type();
     e->accept();
 }
 
-void RemoteFileTableView::dropEvent(QDropEvent *e)
+void RemoteFileListView::dropEvent( QDropEvent *e )
 {
     DBGLOG << "Action: " << e->type();
     //if( e->source() == this )   return;     //Don't drop to yourself.
@@ -86,7 +102,8 @@ void RemoteFileTableView::dropEvent(QDropEvent *e)
         //Check if this is a file or a directory
         if( model->getDirectoryListingForIndex( index )->Type() == DET_USERDIR )
         {
-            this->selectRow( index.row() );
+            //this->selectRow( index.row() );
+            this->setCurrentIndex( index );
             destinationListing = model->getDirectoryListingForIndex( index );
         }
     }
@@ -110,7 +127,7 @@ void RemoteFileTableView::dropEvent(QDropEvent *e)
     }
 }
 
-void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
+void RemoteFileListView::dragMoveEvent(QDragMoveEvent *e)
 {
     DBGLOG << "Action: " << e->type();
     //e->setDropAction( Qt::MoveAction );
@@ -128,7 +145,8 @@ void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
         //Check if this is a file or a directory
         if( model->getDirectoryListingForIndex( index )->Type() == DET_USERDIR )
         {
-            this->selectRow( index.row() );
+            //this->selectRow( index.row() );
+            this->setCurrentIndex( index );
             destinationListing = model->getDirectoryListingForIndex( index );
         }else
         {
@@ -137,7 +155,7 @@ void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
     }
 }
 
-void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
+void RemoteFileListView::startDrag(Qt::DropActions supportedActions)
 {
     Q_UNUSED( supportedActions )
     DBGLOG << "startDrag event.";
@@ -185,7 +203,7 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
 
     }else if( DNDOperation == SETTINGS_DND_OPERATION_DOWNLOAD_DIALOG )
     {
-        connect( newMimeData, &RemoteFileMimeData::dropHappenedSignal, this, &RemoteFileTableView::downloadViaDownloadDialogSignal );
+        connect( newMimeData, &RemoteFileMimeData::dropHappenedSignal, this, &RemoteFileListView::downloadViaDownloadDialogSignal );
         newMimeData->setSendURLS( false );
 
         //Create the new drag action
@@ -201,7 +219,7 @@ void RemoteFileTableView::startDrag( Qt::DropActions supportedActions )
 #endif
 }
 
-void RemoteFileTableView::mouseMoveEvent(QMouseEvent *e)
+void RemoteFileListView::mouseMoveEvent(QMouseEvent *e)
 {
     DBGLOG << "MouseMoveEvent: " << e->type();
     if( ! (e->buttons() | Qt::LeftButton ) )
@@ -212,35 +230,20 @@ void RemoteFileTableView::mouseMoveEvent(QMouseEvent *e)
     {
         DBGLOG << "Mouse drop event outside of the application";
     }
-    QTableView::mouseMoveEvent( e );
+    QListView::mouseMoveEvent( e );
 }
 
-void RemoteFileTableView::mouseReleaseEvent(QMouseEvent *e )
+void RemoteFileListView::mouseReleaseEvent(QMouseEvent *e)
 {
     DBGLOG << "MouseReleaseEvent: " << e->type();
     if( ! (e->buttons() | Qt::LeftButton ) )
     {
         DBGLOG << "Mouse event: Left mouse button did something.";
     }
-    QTableView::mouseReleaseEvent( e );
+    QListView::mouseReleaseEvent( e );
 }
 
-//void RemoteFileTableView::leaveEvent(QEvent *event)
-//{
-//    DBGLOG << "Leave event.";
-
-//    //If the mouse button is down and an item is selected start the drag timer
-//    if( MouseEventFilterSingleton::getInstance()->isLeftMouseButtonDown() &&
-//            this->getSelectedItems().count() > 0 )
-//    {
-//        DBGLOG << "Drop timer started.";
-//        m_DropTimer.start( 10 );
-//    }
-
-//    QTableView::leaveEvent( event );
-//}
-
-QList<QSharedPointer<DirectoryListing> > RemoteFileTableView::getSelectedItems()
+QList<QSharedPointer<DirectoryListing> > RemoteFileListView::getSelectedItems()
 {
     //Get the list of selected items
     QList<QSharedPointer<DirectoryListing>> selectedDirectoryListings;
@@ -267,23 +270,23 @@ QList<QSharedPointer<DirectoryListing> > RemoteFileTableView::getSelectedItems()
     return selectedDirectoryListings;
 }
 
-void RemoteFileTableView::setDownloadDialog(QSharedPointer<DialogDownloadFile> dialog)
+void RemoteFileListView::setDownloadDialog(QSharedPointer<DialogDownloadFile> dialog)
 {
     m_DownloadDialog = dialog;
 }
 
-void RemoteFileTableView::setUploadDialog(QSharedPointer<DialogUploadFile> dialog)
+void RemoteFileListView::setUploadDialog(QSharedPointer<DialogUploadFile> dialog)
 {
     m_UploadDialog = dialog;
 }
 
-void RemoteFileTableView::setSettings(QSharedPointer<QSettings> settings)
+void RemoteFileListView::setSettings(QSharedPointer<QSettings> settings)
 {
     m_Settings = settings;
     dynamic_cast<RemoteFileTableModel*>( this->model() )->setSettings( settings );
 }
 
-void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )
+void RemoteFileListView::onItemDoubleClicked(const QModelIndex &index)
 {
     Q_UNUSED( index)
     //Get the list of selected items
@@ -313,7 +316,7 @@ void RemoteFileTableView::onItemDoubleClicked( const QModelIndex &index )
     emit itemsDoubleClicked( selectedDirectoryListings );
 }
 
-void RemoteFileTableView::dropTimerTimeoutSlot()
+void RemoteFileListView::dropTimerTimeoutSlot()
 {
     //Check if the mouse has been released
     if( !MouseEventFilterSingleton::getInstance()->isLeftMouseButtonDown() )
