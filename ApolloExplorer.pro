@@ -1,2 +1,3 @@
 TEMPLATE=subdirs
-SUBDIRS=ApolloExplorerPC AmigaIconReader
+SUBDIRS=ApolloExplorerPC AmigaIconReader \
+    acp

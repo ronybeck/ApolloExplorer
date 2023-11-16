@@ -3,7 +3,7 @@
 #include <QtEndian>
 #include <QEventLoop>
 
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 ProtocolHandler::ProtocolHandler(QObject *parent) :

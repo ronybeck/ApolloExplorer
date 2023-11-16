@@ -21,7 +21,7 @@
 #define __BSDSOCKET_NOLIBBASE__
 #include <proto/bsdsocket.h>
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #include "protocol.h"
 #include "AEUtil.h"
@@ -287,7 +287,7 @@ void startDiscoveryThread()
 	{
 		//Start a client thread
 		struct TagItem tags[] __attribute__((aligned(4))) = {
-				{ NP_StackSize,		8192 },
+				{ NP_StackSize,		16384 },
 				{ NP_Name,			(ULONG)"AEDiscoveryThread" },
 				{ NP_Entry,			(ULONG)discoveryThread },
 				//{ NP_Output,		(ULONG)consoleHandle },
@@ -494,11 +494,34 @@ static void discoveryThread()
 	//Let's see what is in the tool types
 	dbglog( "[discoverySocket] Opening disk object\n" );
 
-	struct DiskObject *diskObject = GetDiskObject( "ApolloExplorerSrv" );
+	//We need to know the full path of the executable
+	BPTR exeDirLock = GetProgramDir();
+	char *exeDirPath = AllocVec( 256, MEMF_CLEAR );
+	NameFromLock( exeDirLock, exeDirPath, 256 );
+	dbglog( "[discoverySocket] executable root dir is %s\n", exeDirPath );
+
+	//WHY DOESNT THIS WORK?
+	//We need the name of the exe (becaus some people change it)
+	//char exeName[128];
+	//GetProgramName( exeName, sizeof( exeName ) );
+	//dbglog( "[discoverySocket] executable name is %s\n", exeName );
+
+
+	//Now form the full file path of the executable
+	char *exeFilePath = AllocVec( 256, MEMF_CLEAR );
+	snprintf( exeFilePath, 256, "%s/ApolloExplorer", exeDirPath );
+
+	//Try to open the info file using the name
+	struct DiskObject *diskObject = GetDiskObject( exeFilePath );
 	if( diskObject == NULL )
 	{
-		diskObject = GetDiskObject( "ApolloExplorer" );
+		snprintf( exeFilePath, 256, "%s/ApolloExplorerSrv", exeDirPath );
+		diskObject = GetDiskObject( exeFilePath );
 	}
+	dbglog( "[discoverySocket] executable file path is %s\n", exeFilePath );
+	FreeVec( exeFilePath );
+	FreeVec( exeDirPath );
+
 	if( diskObject )
 	{
 		dbglog( "[discoverySocket] Opened disk object\n" );
