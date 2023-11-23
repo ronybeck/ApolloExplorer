@@ -39,10 +39,6 @@ public slots:
 
 
 private:
-    void startNextFile();
-
-
-private:
     QStringList m_SourcePaths;
     QString m_DestinationPath;
     QHostAddress m_DestinationHost;

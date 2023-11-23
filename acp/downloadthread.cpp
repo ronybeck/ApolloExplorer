@@ -3,7 +3,7 @@
 #include <QtEndian>
 #include <QApplication>
 
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 

@@ -12,6 +12,7 @@
 #include "hostlister.h"
 #include "directorylister.h"
 #include "fileuploader.h"
+#include "filedownloader.h"
 
 
 QStringList getHostList( QSharedPointer<QSettings> settings, const QStringList positionArguments )
@@ -66,6 +67,78 @@ QStringList getHostList( QSharedPointer<QSettings> settings, const QStringList p
     return hosts;
 }
 
+bool performDownload( QSharedPointer<QSettings> settings, QStringList arguments, bool recursive )
+{
+    //How many arguments do we have?
+    int numberOfArguments = arguments.size();
+    QString sourcePath = arguments[ 0 ];
+    QString destinationPath = arguments[ 1 ];
+
+    //We need to get the host and remote path out of the last argument
+    QStringList elements = sourcePath.split( ":" );
+    QString host = elements[ 0 ];
+    QString remotePath = elements[ 1 ];
+
+    //If the host is already an IP address, no lookup is needed
+    QRegExp ipAddressRegExp( "^(?:[0-9]{1,3}.){3}[0-9]{1,3}$" );
+    QString ipAddressString = host;
+    if( !ipAddressRegExp.exactMatch( host ) )
+    {
+        //Now check for a host with this hostname
+        QStringList hosts = getHostList( settings, QStringList { host } );
+        if( hosts.size() != 1 )
+        {
+            std::cerr << "Either the hostname " << host.toStdString() << " is ambiguous or could not be found." << std::endl;
+            return false;
+        }
+
+        //We need the ip address
+        QStringList elements = hosts[ 0 ].split( " " );
+        if( elements.size() != 2 )
+        {
+            std::cerr << "We couldn't find an IP address for host " << host.toStdString() << "." << std::endl;
+            return false;
+        }
+        ipAddressString = elements[ 1 ];
+    }
+
+    //Create the file uploader object
+    std::unique_ptr<FileDownloader> fileDownloader( new FileDownloader( remotePath, destinationPath, ipAddressString ) );
+    fileDownloader->setRecursive( recursive );
+
+
+    //Connect to the host
+    if( !fileDownloader->connectToHost() )
+    {
+        std::cerr << "Failed to connect to host" << std::endl;
+        return false;
+    }
+    DBGLOG << "Connected!";
+
+    //Wait for the hostlist signal to come
+    bool uploadEnded = false;
+    bool error = false;
+    QObject::connect( fileDownloader.get(), &FileDownloader::downloadAbortedSignal, [&]( QString reason ) {
+        uploadEnded = true;
+        error = true;
+        std::cerr << "Error: " << reason.toStdString() << std::endl;
+    });
+    QObject::connect( fileDownloader.get(), &FileDownloader::downloadCompletedSignal, [&]() {
+        uploadEnded = true;
+    });
+
+    //Perform the wait
+    fileDownloader->startDownload();
+    while( !uploadEnded )
+    {
+        QThread::msleep( 10 );
+        QCoreApplication::processEvents();
+    }
+
+    //Return
+    if( error ) return false;
+    return true;
+}
 
 bool performUpload( QSharedPointer<QSettings> settings, QStringList arguments, bool recursive )
 {
@@ -235,10 +308,10 @@ int main(int argc, char *argv[])
     cmdParser.addVersionOption();
     const QCommandLineOption listHostOption( {"l","list-hosts"},"List all hosts" );
     const QCommandLineOption listDirOption( {"d","list-directory"},"List all contents in a given path", "" );
-    const QCommandLineOption recusiveOption( {"r","recursive"},"Copy recursively", "" );
+    const QCommandLineOption recursiveOption( {"r","recursive"},"Copy recursively", "" );
     cmdParser.addOption( listHostOption );
     cmdParser.addOption( listDirOption );
-    cmdParser.addOption( recusiveOption );
+    cmdParser.addOption( recursiveOption );
     cmdParser.addPositionalArgument( "source", "From where to copy" );
     cmdParser.addPositionalArgument( "destination", "To where to copy" );
 
@@ -307,7 +380,13 @@ int main(int argc, char *argv[])
         //Uploads will have a ":" in the path
         if( argN.contains( ":" ) )
         {
-            performUpload( settings, cmdParser.positionalArguments(), cmdParser.isSet( recusiveOption ) );
+            performUpload( settings, cmdParser.positionalArguments(), cmdParser.isSet( recursiveOption ) );
+        }
+
+        //Downloads will have a ":" in the first argument
+        if( arg1.contains( ":" ) )
+        {
+            performDownload( settings, cmdParser.positionalArguments(), cmdParser.isSet( recursiveOption ) );
         }
     }
 

@@ -17,6 +17,7 @@ SOURCES += \
         directorylisting.cpp \
         diskvolume.cpp \
         downloadthread.cpp \
+        filedownloader.cpp \
         fileuploader.cpp \
         hostlister.cpp \
         main.cpp \
@@ -42,6 +43,7 @@ HEADERS += \
     directorylisting.h \
     diskvolume.h \
     downloadthread.h \
+    filedownloader.h \
     fileuploader.h \
     hostlister.h \
     messagepool.h \
