@@ -4,8 +4,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <iostream>
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <unistd.h>
 
-#define DEBUG 0
+#define DEBUG 1
 #include "AEUtils.h"
 
 FileUploader::FileUploader( QStringList localSources, QString remoteDestination, QString remoteHost, QObject *parent )
@@ -13,7 +16,12 @@ FileUploader::FileUploader( QStringList localSources, QString remoteDestination,
       m_SourcePaths( localSources ),
       m_DestinationPath( remoteDestination ),
       m_DestinationHost( remoteHost ),
-      m_UploadThread( new UploadThread( this ) )
+      m_UploadThread( new UploadThread( this ) ),
+    m_FileList( ),
+    m_CurrentLocalPath( "" ),
+    m_CurrentRemotePath( "" ),
+    m_Recursive( false ),
+    m_DisconnectRequested( false )
 {
 
     //Connect this object with the uploader thread
@@ -72,11 +80,17 @@ bool FileUploader::connectToHost()
         return false;
     }
 
+    //It seems beneficial to put a wait here. Seems to fix a crash
+    QThread::msleep( 500 );
+
     return true;
 }
 
 void FileUploader::disconnectFromHost()
 {
+    //This is a requested disconnect so we don't want to fire alarms
+    m_DisconnectRequested = true;
+
     //We will want to wait for the connection to happen. So we need some tracking for that
     bool connectedToHost = true;
 
@@ -280,16 +294,22 @@ void FileUploader::fileUploadFailedSlot(UploadThread::UploadFailureType failure)
 
 void FileUploader::uploadProgressSlot(quint8 percent, quint64 progressBytes, quint64 throughput)
 {
-#define FILE_NAME_WIDTH 30
+    int consoleWidth = 40;
+#if __linux__
+    struct winsize w;
+    ioctl( STDOUT_FILENO, TIOCGWINSZ, &w );
+    if( w.ws_col/2 > consoleWidth)
+        consoleWidth = w.ws_col/2;
+#endif
 
     //Stick to a maximum length of 30 characters
     QString displayName = m_CurrentLocalPath;
-    if( displayName.length() > FILE_NAME_WIDTH )
+    if( displayName.length() > consoleWidth )
     {
-        displayName = m_CurrentLocalPath.right( FILE_NAME_WIDTH );
+        displayName = m_CurrentLocalPath.right( consoleWidth );
         displayName.replace( 0,3,"..." );
     }
-    while( displayName.length() < FILE_NAME_WIDTH )
+    while( displayName.length() < consoleWidth )
         displayName.append( " " );
 
     //Print the file name
@@ -315,8 +335,9 @@ void FileUploader::connectedToServerSlot()
 
 void FileUploader::disconnectedFromServerSlot()
 {
-    //give up?
-    emit  uploadAbortedSignal( "Disconnected from server" );
+    //Did the server throw us out or did we disconenct ourselves?
+    if( !m_DisconnectRequested )
+        emit  uploadAbortedSignal( "Disconnected from server" );
 }
 
 void FileUploader::directoryCreationCompletesSlot()

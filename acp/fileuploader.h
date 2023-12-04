@@ -47,6 +47,7 @@ private:
     QString m_CurrentLocalPath;
     QString m_CurrentRemotePath;
     bool m_Recursive;
+    bool m_DisconnectRequested;
 };
 
 #endif // FILEUPLOADER_H

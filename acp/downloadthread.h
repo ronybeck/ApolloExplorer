@@ -73,6 +73,7 @@ signals:
     void connectedToServerSignal();
     void abortedSignal( QString message );
     void directoryListingSignal( QSharedPointer<DirectoryListing> listing );
+    void failedSignal( QString reason );
 
     //Used internally
     void directoryListingReceivedSignal();

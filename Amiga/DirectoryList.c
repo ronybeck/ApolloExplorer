@@ -8,7 +8,7 @@
 #include "DirectoryList.h"
 
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #if DBGOUT
@@ -86,6 +86,11 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 	//get the number of entries
 	directoryListSize = getDirectoryNumberOfEntries( path, &filenameBufferSize );
 	dbglog( "[getDirectoryList] Directory '%s' contains %d entries and requires %d bytes to store the names.\n", path, directoryListSize, filenameBufferSize );
+	if( directoryListSize == 0 )
+	{
+		//This path obiously doesn't exist.
+		return NULL;
+	}
 
 	//The first entry we want to have contains the path we requested.  So increase our counts accordingly
 	directoryListSize++;
@@ -131,6 +136,7 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 	if( returnCode )
 	{
 		dbglog( "[getDirectoryList] We couldn't find any files in path %s.\n", path );
+		MatchEnd( ap );
 		FreeVec( dirListMsg );
 		FreeVec( ap );
 		return NULL;

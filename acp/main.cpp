@@ -127,12 +127,19 @@ bool performDownload( QSharedPointer<QSettings> settings, QStringList arguments,
         uploadEnded = true;
     });
 
-    //Perform the wait
-    fileDownloader->startDownload();
-    while( !uploadEnded )
+    //Did we find something to download?
+    if( fileDownloader->startDownload() )
     {
-        QThread::msleep( 10 );
-        QCoreApplication::processEvents();
+        //Perform the wait
+        while( !uploadEnded )
+        {
+            QThread::msleep( 10 );
+            QCoreApplication::processEvents();
+        }
+
+        //Disconnect
+        fileDownloader->disconnectFromHost();
+        QThread::msleep( 500 );
     }
 
     //Return
@@ -214,6 +221,10 @@ bool performUpload( QSharedPointer<QSettings> settings, QStringList arguments, b
         QThread::msleep( 10 );
         QCoreApplication::processEvents();
     }
+
+    //Disconnect
+    fileUploader->disconnectFromHost();
+    QThread::msleep( 500 );
 
     //Return
     if( error ) return false;

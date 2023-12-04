@@ -49,6 +49,7 @@ void DownloadThread::run()
     connect( m_ProtocolHandler, &ProtocolHandler::outgoingByteCountSignal, this, &DownloadThread::onOutgoingBytesUpdateSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::incomingByteCountSignal, this, &DownloadThread::onIncomingBytesUpdateSlot );
     connect( m_ProtocolHandler, &ProtocolHandler::newDirectoryListingSignal, this, &DownloadThread::onDirectoryListingSlot );
+    connect( m_ProtocolHandler, &ProtocolHandler::failedWithReasonSignal, this, &DownloadThread::failedSignal );
     connect( this, &DownloadThread::sendMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendMessageSlot );
     connect( this, &DownloadThread::sendAndReleaseMessageSignal, m_ProtocolHandler, &ProtocolHandler::onSendAndReleaseMessageSlot );
     connect( this, &DownloadThread::connectToHostSignal, m_ProtocolHandler, &ProtocolHandler::onConnectToHostRequestedSlot );
@@ -207,6 +208,7 @@ QSharedPointer<DirectoryListing> DownloadThread::onGetDirectoryListingSlot( QStr
     timer.setSingleShot(true);
     QEventLoop loop;
     connect( this, &DownloadThread::directoryListingReceivedSignal, &loop, &QEventLoop::quit );
+    connect( m_ProtocolHandler, &ProtocolHandler::failedSignal, &loop, &QEventLoop::quit );
     connect( &timer, &QTimer::timeout, &loop, &QEventLoop::quit );
     timer.start( waitTime );
     emit getRemoteDirectorySignal( remotePath );

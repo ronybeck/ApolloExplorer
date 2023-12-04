@@ -636,7 +636,15 @@ static void clientThread()
 				if( list == NULL )
 				{
 					dbglog( "[child] Unable to get directory listing '%s'.\n", getDir->path );
-					//TODO: perhaps it would be better to send feedback here to the client.
+					char *errorMessage = "That path doesn't exist.";
+					unsigned int messageLength = sizeof( ProtocolMessage_Failed_t ) + strlen( errorMessage );
+					ProtocolMessage_Failed_t *failedMessage = AllocVec( messageLength, MEMF_CLEAR|MEMF_FAST );
+					failedMessage->header.length = messageLength;
+					failedMessage->header.token = MAGIC_TOKEN;
+					failedMessage->header.type = PMT_FAILED;
+					CopyMem( errorMessage, failedMessage->message, strlen( errorMessage ) );
+					sendMessage( SocketBase, newClientSocket,(ProtocolMessage_t*)failedMessage );
+					FreeVec( failedMessage );
 					break;
 				}
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)list );

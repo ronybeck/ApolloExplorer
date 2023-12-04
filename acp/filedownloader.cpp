@@ -1,12 +1,16 @@
 #include "filedownloader.h"
 
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QRegExp>
 #include <iostream>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <unistd.h>
 
 FileDownloader::FileDownloader( QString remoteSources, QString localDestination, QString remoteHost, QObject *parent  )
     : QObject{parent},
@@ -26,6 +30,7 @@ FileDownloader::FileDownloader( QString remoteSources, QString localDestination,
     connect( this, &FileDownloader::startDownloadSignal, m_DownloadThread.get(), &DownloadThread::onStartFileSlot );
     connect( m_DownloadThread.get(), &DownloadThread::downloadProgressSignal, this, &FileDownloader::ondownloadProgressSlot );
     connect( m_DownloadThread.get(), &DownloadThread::downloadCompletedSignal, this, &FileDownloader::onDownloadCompletedSlot );
+    connect( m_DownloadThread.get(), &DownloadThread::operationTimedOutSignal, this, &FileDownloader::onOperationTimedoutSlot );
 
     //If the local path is specified as "." or some other relative path, we should try and detirmine the absolute path
     QDir destinationDir( m_LocalDestination );
@@ -78,12 +83,34 @@ bool FileDownloader::connectToHost()
         return false;
     }
 
+    //It seems beneficial to put a wait here. Seems to fix a crash
+    QThread::msleep( 500 );
+
     return true;
 }
 
 void FileDownloader::disconnectFromHost()
 {
+    //We will want to wait for the connection to happen. So we need some tracking for that
+    bool connectedToHost = true;
 
+    connect( m_DownloadThread.get(), &DownloadThread::disconnectFromHostSignal, [&]( )
+            {
+                connectedToHost = false;
+            });
+
+    //Connect to the remote host
+    m_DownloadThread->onDisconnectFromHostRequestedSlot();
+
+    //Wait for the connection to happen
+    for( int i = 0; i < 1000; i++ )
+    {
+        if( !connectedToHost )   break;
+        QThread::msleep( 10 );
+        QCoreApplication::processEvents();
+    }
+
+    return;
 }
 
 bool FileDownloader::startDownload()
@@ -91,6 +118,15 @@ bool FileDownloader::startDownload()
     //Set the starting point for the download
     m_CurrentLocalPath = m_LocalDestination;
     m_CurrentRemotePath = m_RemoteSource;
+    bool remotePathIsWildCard = false;
+
+    //Does the local destination exist?
+    QDir localDestinationDir( m_LocalDestination );
+    if( !localDestinationDir.exists() )
+    {
+        std::cerr << "The local path " << m_LocalDestination.toStdString() << " doesn't exist" << std::endl;
+        return false;
+    }
 
     //We need to reformat the remote path to an amiga style DRIVE:DIR/DIR/FILE.EXT
     //Do we have any "/" characters?  If not, this is a drive we are trying to download
@@ -108,21 +144,31 @@ bool FileDownloader::startDownload()
 
     //We need to sanitise the remote path a little before requesting a directory listing from the server
     //If patterns or wild cards are used, we will need to get the root path first
-    QString pathToGet = m_CurrentRemotePath;
-    QString lastElement = pathToGet.right( pathToGet.length() - pathToGet.lastIndexOf( "/" ) - 1 );
-    if( !pathToGet.contains( "/" ) )
+    QString pathToGet;
+    QString lastElement;
+    if( !m_CurrentRemotePath.contains( "/" ) )
     {
-        lastElement = pathToGet.right( pathToGet.length() - pathToGet.indexOf( ":" ) - 1 );
+        lastElement = m_CurrentRemotePath.right( m_CurrentRemotePath.length() - m_CurrentRemotePath.indexOf( ":" ) - 1 );
+        pathToGet = m_CurrentRemotePath.left( m_CurrentRemotePath.indexOf( ":" ) + 1 );
+    }else
+    {
+        lastElement = m_CurrentRemotePath.right( m_CurrentRemotePath.length() - m_CurrentRemotePath.lastIndexOf( "/" ) - 1 );
+        pathToGet = m_CurrentRemotePath.left( m_CurrentRemotePath.lastIndexOf( "/" ) + 1);
     }
+
+    //Now setup the pattern matching.  If we have a precise file name, that is the pattern we will use.
+    //If we don't have a filename or a wildcard, we will assume a wildcard (because the user obviously wanted the whole directory).
+    m_FileMatchPattern = lastElement;
     if( lastElement.contains( "*" ) || lastElement.contains( "#?" ) )
     {
         //Ok we have a search pattern
-        m_FileMatchPattern = lastElement;
         m_FileMatchPattern.replace( "#?", "*" );
 
-        //We now need to adjust our path to be the parent of this
-        if( pathToGet.contains( "/" ) ) pathToGet = pathToGet.left( pathToGet.lastIndexOf( "/" ) );
-        else pathToGet = pathToGet.left( pathToGet.lastIndexOf( ":" ) + 1 );
+        //Mark this as a wildcard path
+        remotePathIsWildCard = true;
+    }else if( lastElement.length() == 0 )
+    {
+        m_FileMatchPattern = "*";
     }
 
     //We should use this pathToGet as the parent path for relative path calculations later
@@ -147,7 +193,6 @@ bool FileDownloader::startDownload()
     //Add all the files we have to the list
     for( auto entry: listing->Entries() )
     {
-        //TODO: Match the pattern
         DBGLOG << "Examining path " << entry->Path();
 
         if( m_FileMatchPattern.length() )
@@ -172,6 +217,13 @@ bool FileDownloader::startDownload()
             QString localFilePath = m_LocalDestination + "/" + entry->Name();
             m_DownloadList[ localFilePath ] = entry;
         }
+    }
+
+    //Did we find something to download?
+    if( m_DownloadList.isEmpty() && m_RemoteDirectoriesToProcess.isEmpty() )
+    {
+        std::cerr << "No files of directories found" << std::endl;
+        return false;
     }
 
     //Now call the onDownloadCompleteSlot to start the next file
@@ -217,16 +269,22 @@ void FileDownloader::onDownloadCompletedSlot()
 
 void FileDownloader::ondownloadProgressSlot( quint8 percent, quint64 progressBytes, quint64 throughput )
 {
-#define FILE_NAME_WIDTH 30
+    int consoleWidth = 30;
+#if __linux__
+    struct winsize w;
+    ioctl( STDOUT_FILENO, TIOCGWINSZ, &w );
+    if( w.ws_col/2 > consoleWidth)
+        consoleWidth = w.ws_col/2;
+#endif
 
     //Stick to a maximum length of 30 characters
-    QString displayName = m_CurrentLocalPath;
-    if( displayName.length() > FILE_NAME_WIDTH )
+    QString displayName = m_CurrentRemotePath;
+    if( displayName.length() > consoleWidth )
     {
-        displayName = m_CurrentLocalPath.right( FILE_NAME_WIDTH );
+        displayName = m_CurrentRemotePath.right( consoleWidth );
         displayName.replace( 0,3,"..." );
     }
-    while( displayName.length() < FILE_NAME_WIDTH )
+    while( displayName.length() < consoleWidth )
         displayName.append( " " );
 
     //Print the file name
@@ -260,9 +318,32 @@ void FileDownloader::onDirectoryListingSlot( QSharedPointer<DirectoryListing> li
 
 }
 
-void FileDownloader::onAbortSignal(QString reason)
+void FileDownloader::onAbortSlot(QString reason)
 {
+    std::cerr << "The operation was aborted: " << reason.toStdString() << std::endl;
+    emit downloadCompletedSignal();
+}
 
+void FileDownloader::onOperationTimedoutSlot()
+{
+    std::cout << "Operation timed out." << std::endl << "Reconnecting." << std::endl;
+
+    //Try to reconnect
+    disconnectFromHost();
+    if( !connectToHost() )
+    {
+        std::cerr << "Failed to reconnect to host" << std::endl;
+        emit downloadCompletedSignal();
+        emit downloadAbortedSignal( "Failed to reconnet to host." );
+        return;
+    }
+
+    //A short delay between connecting and sending the next command seems to help
+    QThread::msleep( 500 );
+
+    //Now that we are connected, we should start the download again.
+    DBGLOG << "Downloading " << m_CurrentRemotePath << " to " << m_CurrentLocalPath;
+    emit startDownloadSignal( m_CurrentLocalPath, m_CurrentRemotePath );
 }
 
 bool FileDownloader::getNextDirectory()

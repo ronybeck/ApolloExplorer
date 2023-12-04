@@ -25,7 +25,8 @@ public slots:
     void onDisconnectedFromServerSlot();
     void onConnectedToServerSlot();
     void onDirectoryListingSlot( QSharedPointer<DirectoryListing> listing );
-    void onAbortSignal( QString reason );
+    void onAbortSlot( QString reason );
+    void onOperationTimedoutSlot();
 
 signals:
     void downloadCompletedSignal();
