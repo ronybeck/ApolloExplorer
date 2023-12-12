@@ -1,3 +1,8 @@
+apolloexplorer (1.1.0-0) UNRELEASED; urgency=low
+  * Added support for Amiga Iconf files
+  * Added icon mode to the file explorer
+  * Fixed some bugs
+
 apolloexplorer (1.0.12-0) STABLE; urgency=low
   * Adapted several GUIs to be more asthetically correct
   * Added option to ignore case when sorting files by name

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION=$1
-VERSION=${VERSION:-'1.0.12'}
+VERSION=${VERSION:-'1.1.0'}
 BUILDDIR="apolloexplorer-${VERSION}"
 TARFILE="apolloexplorer_${VERSION}.orig.tar.gz"
 

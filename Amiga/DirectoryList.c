@@ -8,7 +8,7 @@
 #include "DirectoryList.h"
 
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #ifdef __GNUC__
 #if DBGOUT

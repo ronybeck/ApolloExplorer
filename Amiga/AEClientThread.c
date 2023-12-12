@@ -5,7 +5,7 @@
  *      Author: rony
  */
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #ifdef __GNUC__
 #include <stdio.h>
@@ -487,6 +487,9 @@ static void clientThread()
 	//Let's reserve some memory for each of the messages
 	ProtocolMessage_t *message __attribute__((aligned(4))) = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
 
+	//Create a filesend context
+	FileSendContext_t *fileSendContext = allocateFileSendContext();
+
 	//Start reading all inbound messages
 	int bytesRead = 0;
 	volatile char keepThisConnectionRunning = 1;
@@ -673,20 +676,22 @@ static void clientThread()
 				dbglog( "[child] Get file called for file '%s'\n", filePath );
 
 				//Can this file be sent?
-				ProtocolMessage_Ack_t *acknowldgeMessage = requestFileSend( filePath );
+				ProtocolMessage_Ack_t *acknowldgeMessage = requestFileSend( filePath, fileSendContext );
+				if( acknowldgeMessage == NULL )	break;
 				dbglog( "[child] sending acknowledge message address: 0x%08x\n", (unsigned int)acknowldgeMessage );
 				char response = acknowldgeMessage->response;
 				dbglog( "[child] sending acknowledge with response: %d\n", response );
 				bytesSent = sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)acknowldgeMessage );
 				if( response == 0  || bytesSent < 0 )
 				{
-					dbglog( "[child] File simply cannot be sent.\n" );
+					dbglog( "[child] File simply cannot be sent (response: %d).\n", response );
 					break;		//This file can't be opened.  Nothing more to do
 				}
 
 				//Send the start of the file transfer
 				dbglog( "[child] Sending start of file\n" );
-				ProtocolMessage_StartOfFileSend_t *startOfSendfileMessage = getStartOfFileSend( filePath );
+				ProtocolMessage_StartOfFileSend_t *startOfSendfileMessage = getStartOfFileSend( filePath, fileSendContext );
+				if( startOfSendfileMessage == 0 )	break;
 #if 0
 				dbglog( "[child] StartOfFile Message address: 0x%08x\n", (unsigned int)startOfSendfileMessage );
 				dbglog( "[child] StartOfFile Message token: 0x%08x\n", startOfSendfileMessage->header.token );
@@ -702,7 +707,7 @@ static void clientThread()
 					dbglog( "[child] Somehow, the file can nolonger be sent.  Cleaning up and stopping.\n" );
 					dbglog( "[child] Bytes sent: %d.\n", bytesSent );
 					dbglog( "[child] File Size: %d.\n", startOfSendfileMessage->fileSize );
-					cleanupFileSend();
+					cleanupFileSend( fileSendContext );
 					break;		//This file can't be sent for some reason.
 				}
 
@@ -711,7 +716,7 @@ static void clientThread()
 				ProtocolMessage_FileChunk_t *nextFileChunk = NULL;
 				dbglog( "[child] Starting file chunk sending\n" );
 				LONG bytesAvailable __attribute__((aligned(4))) = 0;
-				while( ( nextFileChunk = getNextFileSendChunk( filePath ) ) )
+				while( ( nextFileChunk = getNextFileSendChunk( filePath, fileSendContext ) ) )
 				{
 					bytesAvailable = 0;
 					dbglog( "[child] Sending the next chunk %d of %d (size %db/%db)\n", nextFileChunk->chunkNumber, numberOfChunks, nextFileChunk->bytesContained, nextFileChunk->header.length );
@@ -738,7 +743,7 @@ static void clientThread()
 							{
 								dbglog( "found!\n");
 								dbglog( "[child] Got a request to abort the file download.  Cleaning up and stopping.\n" );
-								cleanupFileSend();
+								cleanupFileSend( fileSendContext );
 								break;
 							}
 						}
@@ -751,7 +756,7 @@ static void clientThread()
 
 				//Clean up
 				dbglog( "[child] Cleaning up after sending file.\n" );
-				cleanupFileSend();
+				cleanupFileSend( fileSendContext );
 				Delay( 2 );
 
 				break;
@@ -1064,6 +1069,9 @@ static void clientThread()
 	}
 
 exit_child: ;
+
+	//Free the file send context
+	freeFileSendContext( fileSendContext );
 
 	//Remove this client from the list
 	dbglog( "[client] Locking the client list.\n" );
