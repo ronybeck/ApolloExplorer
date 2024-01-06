@@ -243,7 +243,7 @@ void FileDownloader::onDownloadCompletedSlot()
     std::cout << std::endl;
 
     //Is the file download queue empty?
-    if( m_DownloadList.empty() )
+    while( m_DownloadList.empty() && !m_RemoteDirectoriesToProcess.empty() )
     {
         //Now process the next directory while ever we still have stuff to process
         while( !getNextDirectory() && !m_RemoteDirectoriesToProcess.empty() ) {}
@@ -255,6 +255,14 @@ void FileDownloader::onDownloadCompletedSlot()
             emit downloadCompletedSignal();
             return;
         }
+    }
+
+    //One last check
+    if( m_DownloadList.empty() )
+    {
+        //I guess we are finished here
+        emit downloadCompletedSignal();
+        return;
     }
 
     //Otherwise, we should get the next file in the list
@@ -354,6 +362,7 @@ bool FileDownloader::getNextDirectory()
     //Get the next directory from the list
     QString remotePath = m_RemoteDirectoriesToProcess.front();
     m_RemoteDirectoriesToProcess.pop_front();
+    DBGLOG << "Getting directory " << remotePath;
 
     //Workout what the relative local path would be now based on this paths relative location to the original path.
     QString relativeRemotePath = remotePath;

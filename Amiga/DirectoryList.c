@@ -29,7 +29,7 @@
 #define DIR_MSG_LENGTH MAX_MESSAGE_LENGTH*5
 ProtocolMessageDirectoryList_t *dirListMsg = NULL;
 
-static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameBufferLen  )
+static signed getDirectoryNumberOfEntries( char *path, unsigned int *filenameBufferLen  )
 {
 	LONG returnCode = 0;
 	struct AnchorPath *ap = NULL;
@@ -46,7 +46,7 @@ static unsigned getDirectoryNumberOfEntries( char *path, unsigned int *filenameB
 		dbglog( "[getDirectoryNumberOfEntries] We couldn't find any files in path %s.\n", path );
 		MatchEnd(ap);
     	FreeVec(ap);
-		return directoryListSize;
+		return -1;
 	}
 	ap->ap_Flags |= APF_DODIR;
 	returnCode = MatchNext( ap );
@@ -86,7 +86,7 @@ ProtocolMessageDirectoryList_t *getDirectoryList( char *path )
 	//get the number of entries
 	directoryListSize = getDirectoryNumberOfEntries( path, &filenameBufferSize );
 	dbglog( "[getDirectoryList] Directory '%s' contains %d entries and requires %d bytes to store the names.\n", path, directoryListSize, filenameBufferSize );
-	if( directoryListSize == 0 )
+	if( directoryListSize == -1 )
 	{
 		//This path obiously doesn't exist.
 		return NULL;
