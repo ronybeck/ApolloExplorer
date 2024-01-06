@@ -629,6 +629,8 @@ void AmigaInfoFile::decodeOS35Icon(QByteArray data, quint64 &offset, QByteArray 
         quint8 nextPixel = 0;
         BitGetter bitGetter( imageData );
         quint64 uncompressedImageSize = width * height;
+        quint32 debugHeight = 0;
+        quint32 debugWidth = 0;
 
         while( uncompressedImageDataOffset < uncompressedImageSize  )
         {
@@ -661,6 +663,10 @@ void AmigaInfoFile::decodeOS35Icon(QByteArray data, quint64 &offset, QByteArray 
                     putUBYTEInBuffer( uncompressedData, uncompressedImageDataOffset, nextPixel );
                 }
             }
+
+            //Debug
+            debugHeight = uncompressedImageDataOffset / width;
+            debugWidth = uncompressedImageDataOffset % width;
         }
 
         //Now do the bitplanar to chunky conversion
@@ -756,6 +762,8 @@ QImage AmigaInfoFile::drawIndexedOS2Icon( QByteArray data, quint32 width, quint3
 
 QImage AmigaInfoFile::drawIndexedOS35Icon(QByteArray imageData, QByteArray paletteData, quint8 numberOfColours, quint32 width, quint32 height, qint16 transparentColour )
 {
+    qint32 bytesConsumedFromImageData = 0;
+
     //First, create our image
     QImage theImage = QImage( width, height, QImage::Format_ARGB32 );
 
@@ -797,7 +805,16 @@ QImage AmigaInfoFile::drawIndexedOS35Icon(QByteArray imageData, QByteArray palet
             {
                 theImage.setPixelColor( x, y, colourPalette[ nextPixel ] );
             }
+
+            //Make sure we only take bytes for what is available
+            bytesConsumedFromImageData++;
+            if( bytesConsumedFromImageData >= imageData.size() )
+                break;
         }
+
+        //Make sure we only take bytes for what is available
+        if( bytesConsumedFromImageData >= imageData.size() )
+            break;
     }
 
     return theImage;
