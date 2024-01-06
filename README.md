@@ -7,6 +7,9 @@ ApolloExplorer is a file sharing utitlity for getting files to and from your Ami
 This is released und the MIT license.
 
 # Screen Shots
+![Icons](/ApolloExplorerPC/images/AE_Icon_Example.png)
+
+![acp](/ApolloExplorerPC/images/acp_exampl.png)
 
 ![Linux Client](/Screenshots/ApolloExplorer_Linux.png)
 
