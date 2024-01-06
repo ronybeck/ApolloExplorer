@@ -32,6 +32,7 @@ SOURCES += \
     dialogfileinfo.cpp \
     dialogpreferences.cpp \
     dialoguploadfile.cpp \
+    dialogwhatsnew.cpp \
     directorylisting.cpp \
     diskvolume.cpp \
     downloadthread.cpp \
@@ -66,6 +67,7 @@ HEADERS += \
     dialogfileinfo.h \
     dialogpreferences.h \
     dialoguploadfile.h \
+    dialogwhatsnew.h \
     directorylisting.h \
     diskvolume.h \
     downloadthread.h \
@@ -91,6 +93,7 @@ FORMS += \
     dialogfileinfo.ui \
     dialogpreferences.ui \
     dialoguploadfile.ui \
+    dialogwhatsnew.ui \
     mainwindow.ui \
     scanningwindow.ui
 

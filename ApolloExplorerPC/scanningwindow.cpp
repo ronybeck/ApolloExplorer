@@ -96,6 +96,16 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
                 m_Settings->value( SETTINGS_WINDOW_POSY, pos().y() ).toInt()
                 );
     m_Settings->endGroup();
+
+    //Show the "Whats New" dialog
+    m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
+    QString seenWhatsNewVersion = m_Settings->value( SETTINGS_SEEN_WHATS_NEW_VERSION, "" ).toString();
+    if( seenWhatsNewVersion != QString( VERSION_STRING ) )
+    {
+        m_DialogWhatsnew.show();
+        m_Settings->setValue( SETTINGS_SEEN_WHATS_NEW_VERSION, VERSION_STRING );
+    }
+    m_Settings->endGroup();
 }
 
 ScanningWindow::~ScanningWindow()

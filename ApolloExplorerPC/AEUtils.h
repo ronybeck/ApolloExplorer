@@ -28,6 +28,7 @@ QString prettyFileSize( quint64 size, bool withUnits = true );
 #define SETTINGS_DND_OPERATION_DOWNLOAD_DIALOG "Download Dialog"
 #define SETTINGS_DND_OPERATION_CONTINUE "Drag and Drop"
 #define SETTINGS_SCANNING_WINDOW "ScanningWindow"
+#define SETTINGS_SEEN_WHATS_NEW_VERSION "SeenWhatsNewVersion"
 #define SETTINGS_WINDOW_WIDTH "WindowWidth"
 #define SETTINGS_WINDOW_HEIGHT "WindowHeight"
 #define SETTINGS_WINDOW_POSX "WindowX"

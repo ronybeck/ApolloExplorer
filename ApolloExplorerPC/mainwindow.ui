@@ -523,7 +523,7 @@ QListView::item::title {
      <x>0</x>
      <y>0</y>
      <width>774</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -531,6 +531,7 @@ QListView::item::title {
      <string>File</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="actionWhats_New"/>
     <addaction name="actionCreate_Directory"/>
     <addaction name="actionReboot_Amiga"/>
     <addaction name="actionDelete"/>
@@ -623,6 +624,11 @@ QListView::item::title {
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
+   </property>
+  </action>
+  <action name="actionWhats_New">
+   <property name="text">
+    <string>Whats New</string>
    </property>
   </action>
  </widget>

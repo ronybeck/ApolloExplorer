@@ -17,6 +17,7 @@
 
 #include "dialogpreferences.h"
 #include "aboutdialog.h"
+#include "dialogwhatsnew.h"
 
 namespace Ui {
 class ScanningWindow;
@@ -63,6 +64,7 @@ private:
     QSharedPointer<AmigaHost> m_SelectedHost;
     DialogPreferences m_DialogPreferences;
     AboutDialog m_AboutDialog;
+    DialogWhatsNew m_DialogWhatsnew;
 };
 
 #endif // SCANNINGWINDOW_H

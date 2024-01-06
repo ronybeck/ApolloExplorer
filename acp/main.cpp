@@ -105,7 +105,7 @@ bool performDownload( QSharedPointer<QSettings> settings, QStringList arguments,
     //Create the file uploader object
     std::unique_ptr<FileDownloader> fileDownloader( new FileDownloader( remotePath, destinationPath, ipAddressString ) );
     fileDownloader->setRecursive( recursive );
-
+    std::cout << "Downloading from " << host.toStdString().c_str() << ":" << remotePath.toStdString().c_str() << " to " << destinationPath.toStdString().c_str() << std::endl;
 
     //Connect to the host
     if( !fileDownloader->connectToHost() )
@@ -192,6 +192,7 @@ bool performUpload( QSharedPointer<QSettings> settings, QStringList arguments, b
     //Create the file uploader object
     std::unique_ptr<FileUploader> fileUploader( new FileUploader(sourcePaths, remotePath, ipAddressString ) );
     fileUploader->setRecursive( recursive );
+    std::cout << "Uploading to " << host.toStdString().c_str() << ":" << remotePath.toStdString().c_str() << std::endl;
 
 
     //Connect to the host
@@ -340,6 +341,7 @@ int main(int argc, char *argv[])
     if( cmdParser.isSet( listHostOption ) )
     {
         QStringList hosts = getHostList( settings, cmdParser.positionalArguments() );
+        std::cout << "ApolloExplorer Hosts found" << std::endl;
 
         QStringListIterator iter( hosts );
         while( iter.hasNext() )
@@ -365,6 +367,7 @@ int main(int argc, char *argv[])
 
         //Ok, get the directory listing
         QStringList contents = getDirectoryListing( settings, cmdParser.positionalArguments() );
+        std::cout << "Directory contents" << std::endl;
 
         //Print the directory listing
         QStringListIterator iter( contents );

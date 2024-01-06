@@ -1,5 +1,8 @@
 <RCC>
     <qresource prefix="/images">
         <file>images/LogoBig.png</file>
+        <file>images/acp_exampl.png</file>
+        <file>images/AE_Icon_Example.png</file>
+        <file>images/Scanner_Example.png</file>
     </qresource>
 </RCC>

@@ -16,6 +16,7 @@
 #include "dialogconsole.h"
 #include "dialogdelete.h"
 #include "dialogpreferences.h"
+#include "dialogwhatsnew.h"
 #include "aboutdialog.h"
 #include "remotefiletableview.h"
 #include "remotefilelistview.h"
@@ -159,6 +160,7 @@ private:
     QSharedPointer<DialogDownloadFile> m_DialogDownloadFile;
     QSharedPointer<DialogUploadFile> m_DialogUploadFile;
     DialogDelete m_DialogDelete;
+    DialogWhatsNew m_DialogWhatsNew;
 
     //Icon cache
     IconCache m_IconCache;
