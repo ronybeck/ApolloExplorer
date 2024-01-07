@@ -52,29 +52,54 @@ void DiskVolume::setPixmap(QPixmap icon)
 
 void DiskVolume::generatePixmap()
 {
+    QPainterPath path;
+
+    //Setup the boundaries of our new image
+    quint32 imageWidth = 85;
+    quint32 imageHeight = 100;
+    quint32 fontHeight = 12;
+    quint32 barHeight = fontHeight + 4;
+
     //Basic icon
-    QImage image( 100, 85, QImage::Format_ARGB32 );
+    QImage image( imageWidth, imageHeight, QImage::Format_ARGB32 );
     image.fill( 0x00000000 );
     QPainter painter( &image );
-    QPixmap diskImage( ":/browser/icons/Harddisk_Amiga.png" );
 
-    //Now the bar indicating disk usage
-    quint32 percentFull = 0;
-    if( m_NumBlocksUsed > 0 ) percentFull = (quint64)m_NumBlocksUsed * (qint64)100 / (quint64)m_NumBlocks;
-    painter.drawPixmap( 6,0, diskImage );
-    QPainterPath path;
+    //Setup up colours
     QPen barFillPen( Qt::darkGray );
     QPen barBoarderPen( 0xff181818 );
     QPen textPen( Qt::white );
-    path.addRect( QRect( 0, 60, percentFull, 20 ) );
-    painter.setPen( barFillPen );
-    painter.fillPath( path, barFillPen.color() );
-    painter.setPen( barBoarderPen );
-    painter.drawRect( 0, 60, 99, 20 );
-    painter.drawRect( 1, 61, 97, 18 );
+
+    //Draw the disk icon image in our new image.
+    QPixmap diskImage;
+    if( m_AmigaInfoFile.isNull() )
+        diskImage.loadFromData( ":/browser/icons/Harddisk_Amiga.png" );
+    else
+        diskImage = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( imageHeight - barHeight - 5, Qt::SmoothTransformation ) );
+    //Center the image
+    quint32 imagePositionLeft = (imageWidth - diskImage.width() ) / 2;
+    painter.drawPixmap( imagePositionLeft, 0, diskImage );
+
+    //Do the percentage full fill
+    quint32 percentFull = 0;
+    if( m_NumBlocksUsed > 0 )
+    {
+        percentFull = (quint64)m_NumBlocksUsed * (qint64)imageWidth / (quint64)m_NumBlocks;
+        path.addRect( QRect( 0, imageHeight - barHeight - 1, percentFull, barHeight ) );
+        painter.setPen( barFillPen );
+        painter.fillPath( path, barFillPen.color() );
+    }
+
+    //Write the percent full text
     painter.setPen( textPen );
-    painter.setFont( QFont(":/comfortaa", 12, QFont::DemiBold) );
-    painter.drawText( 35, 77, QString::number( percentFull ) + "%" );
+    painter.setFont( QFont(":/comfortaa", fontHeight, QFont::DemiBold) );
+    painter.drawText( imageWidth/3, imageHeight - 3, QString::number( percentFull ) + "%" );
+
+    //Draw the border
+    painter.setPen( barBoarderPen );
+    painter.drawRect( 0, imageHeight - barHeight - 1, imageWidth - 1, barHeight );
+
+    //Set our new image as our icon image
     m_PixMap = QPixmap::fromImage( image );
 }
 
@@ -91,7 +116,8 @@ void DiskVolume::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFil
     //Get the best image we can for the icon
     if( m_AmigaInfoFile->getBestImage1().width() > 0 )
     {
-        m_PixMap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1() );
+        //m_PixMap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1() );
+        generatePixmap();
         return;
     }
 }

@@ -4,7 +4,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <iostream>
+#if __linux || __APPLE__
 #include <sys/ioctl.h>
+#endif
 #include <stdio.h>
 #include <unistd.h>
 
@@ -295,7 +297,7 @@ void FileUploader::fileUploadFailedSlot(UploadThread::UploadFailureType failure)
 void FileUploader::uploadProgressSlot(quint8 percent, quint64 progressBytes, quint64 throughput)
 {
     int consoleWidth = 40;
-#if __linux__
+#if __linux__ || __APPLE__
     struct winsize w;
     ioctl( STDOUT_FILENO, TIOCGWINSZ, &w );
     if( w.ws_col/2 > consoleWidth)

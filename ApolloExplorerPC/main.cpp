@@ -5,15 +5,12 @@
 #include <QLocale>
 #include <QTranslator>
 #include <QFontDatabase>
-#include "protocolTypes.h"
 #include "directorylisting.h"
 #include "mouseeventfilter.h"
 
 int main(int argc, char *argv[])
 {
     //Register the new datatype to QT
-    //Q_DECLARE_METATYPE( ProtocolMessageType_t );
-    //qRegisterMetaType<ProtocolMessageType_t>();
     QApplication a(argc, argv);
     qRegisterMetaType<QHostAddress>();
     qRegisterMetaType<QSharedPointer<DirectoryListing>>();
@@ -36,8 +33,6 @@ int main(int argc, char *argv[])
             break;
         }
     }
-    //MainWindow w;
-    //w.show();
 
     //Start the scanning window
     ScanningWindow sw;

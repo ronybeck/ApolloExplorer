@@ -111,7 +111,8 @@ AmigaInfoFile::AmigaInfoFile() :
     m_DefaultTool(),
     m_ToolTypes(),
     m_Priority( 0 ),    //Note: default priority depends on the OS
-    m_ToolWindow( )
+    m_ToolWindow( ),
+    m_HasImage( false )
 {
     QObject();
 
@@ -173,6 +174,9 @@ bool AmigaInfoFile::process(QByteArray data)
         //Copy this to the other image
         m_OS35Image2 = m_OS35Image1;
 
+        //we have at least this image
+        m_HasImage = true;
+
         return true;
     }
 
@@ -232,7 +236,6 @@ bool AmigaInfoFile::process(QByteArray data)
         qDebug() << "Width: " << m_Image1.Width;
         qDebug() << "Height: " << m_Image1.Height;
         qDebug() << "Depth: " << m_Image1.Depth;
-        //return false;
     }else
     {
         //Adjust the offset
@@ -268,7 +271,6 @@ bool AmigaInfoFile::process(QByteArray data)
                 qDebug() << "Width: " << m_Image2.Width;
                 qDebug() << "Height: " << m_Image2.Height;
                 qDebug() << "Depth: " << m_Image2.Depth;
-                //return false;
             }else
             {
                 //Adjust the offset
@@ -281,6 +283,9 @@ bool AmigaInfoFile::process(QByteArray data)
                 m_OS2Image2 = drawIndexedOS2Icon( indexedImageData, m_Image2.Width, m_Image2.Height );
             }
         }
+
+        //we have at least this image
+        m_HasImage = true;
     }
 
     //Now we should get the texts out
@@ -408,6 +413,9 @@ bool AmigaInfoFile::process(QByteArray data)
 
                 //Automatically copy the first image to the second in case there isn't a second image
                 m_OS35Image2 = m_OS35Image1;
+
+                //we have at least this image
+                m_HasImage = true;
             }
         }
 
@@ -440,6 +448,9 @@ bool AmigaInfoFile::process(QByteArray data)
                 if( width < 500 && height < 500 && numberOfColours > 0 )
                 {
                     m_OS35Image2 = drawIndexedOS35Icon( imageData, paletteData, numberOfColours, width, height, transparentColour );
+
+                    //we have at least this image
+                    m_HasImage = true;
                 }
             }
         }
@@ -860,6 +871,11 @@ QImage AmigaInfoFile::getBestImage2()
 
     //Otherwise return an emptyimage;
     return QImage();
+}
+
+bool AmigaInfoFile::hasImage()
+{
+    return m_HasImage;
 }
 
 

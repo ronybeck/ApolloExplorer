@@ -1155,98 +1155,6 @@ void MainWindow::updateFilebrowser()
     //Apply the model to the views
     m_FileTableView->setModel( m_FileTableModel );
     m_FileListView->setModel( m_FileTableModel );
-
-#ifdef IS_THIS_NEEDED
-    //Get the icon height from settings
-    m_Settings->beginGroup( SETTINGS_BROWSER );
-    quint32 iconSize = m_Settings->value( SETTINGS_ICON_VERTICAL_SIZE, 52 ).toUInt();
-    m_Settings->endGroup();
-
-    //List all the directories first
-    QVectorIterator<QSharedPointer<DirectoryListing>> dirIter( listing->Entries() );
-    while( dirIter.hasNext() )
-    {
-        //Get the next entry
-        QSharedPointer<DirectoryListing> nextListEntry = dirIter.next();
-
-        //If this is a file, ignore it on this pass
-        if( nextListEntry->Type() != DET_USERDIR )
-            continue;
-
-        //If we have elected to hide info files, we shouldn't show info files
-        if( nextListEntry->Name().endsWith( ".info" ) && m_HideInfoFiles )
-            continue;
-
-        if( m_ViewType == VIEW_TABLE )
-        {
-#if REPLACE_ME
-            //Create the row items
-            QTableWidgetItem *iconItem = new QTableWidgetItem( *nextListEntry->Icon(), nextListEntry->Name() );
-            QTableWidgetItem *fileSizeItem = new QTableWidgetItem( getSizeAsFormatedString( nextListEntry->Size() ) );
-
-
-            quint32 rowCount = ui->tableWidgetFileBrowser->rowCount();
-            ui->tableWidgetFileBrowser->insertRow( rowCount );
-            ui->tableWidgetFileBrowser->setItem( rowCount, 0, iconItem );
-            ui->tableWidgetFileBrowser->setItem( rowCount, 1, fileSizeItem );
-#endif
-        }else
-        {
-            //Create the entry for our view
-            QString label = nextListEntry->Name() + "\n(" + QString::number( nextListEntry->Size()/1024 ) + "KB)";
-            QListWidgetItem *item = new QListWidgetItem( nextListEntry->Name() );
-            QImage scaledIconImage = nextListEntry->Icon()->toImage().scaledToHeight( iconSize );
-            item->setIcon( QPixmap::fromImage( scaledIconImage ) );
-            item->setToolTip( label );
-
-            //Add this to the view
-            ui->listWidgetFileBrowser->addItem( item );
-        }
-    }
-
-    //Now list files
-    QVectorIterator<QSharedPointer<DirectoryListing>> fileIter( listing->Entries() );
-    while( fileIter.hasNext() )
-    {
-        //Get the next entry
-        QSharedPointer<DirectoryListing> nextListEntry = fileIter.next();
-
-        //If this is a file, ignore it on this pass
-        if( nextListEntry->Type() == DET_USERDIR )
-            continue;
-
-        //If we have elected to hide info files, we shouldn't show info files
-        if( nextListEntry->Name().endsWith( ".info" ) && m_HideInfoFiles )
-            continue;
-
-        //Create the entry for our view
-        QString fileSizeText = prettyFileSize( nextListEntry->Size() );
-        QString fileNameLabel = nextListEntry->Name();
-        QString toolTip = nextListEntry->Name() + "\n" + fileSizeText;
-
-        if( m_ViewType == VIEW_TABLE )
-        {
-#if REPLACE_ME
-            //Create the row items
-            QTableWidgetItem *iconItem = new QTableWidgetItem( *nextListEntry->Icon(), nextListEntry->Name() );
-            QTableWidgetItem *fileSizeItem = new QTableWidgetItem( getSizeAsFormatedString( nextListEntry->Size() ) );
-            quint32 rowCount = ui->tableWidgetFileBrowser->rowCount();
-            ui->tableWidgetFileBrowser->insertRow( rowCount );
-            ui->tableWidgetFileBrowser->setItem( rowCount, 0, iconItem );
-            ui->tableWidgetFileBrowser->setItem( rowCount, 1, fileSizeItem );
-#endif
-        }else
-        {
-            QListWidgetItem *item = new QListWidgetItem( fileNameLabel );
-            QImage scaledIconImage = nextListEntry->Icon()->toImage().scaledToHeight( iconSize );
-            item->setIcon( QPixmap::fromImage( scaledIconImage ) );
-            item->setToolTip( toolTip );
-
-            //Add this to the view
-            ui->listWidgetFileBrowser->addItem( item );
-        }
-    }
-#endif
 }
 
 void MainWindow::updateDrivebrowser()
@@ -1261,18 +1169,10 @@ void MainWindow::updateDrivebrowser()
         //Get the next volume
         QSharedPointer<DiskVolume> volume = iter.next();
 
-        //See if we have an icon for this drive in our cache
-        auto cachedIcon = m_IconCache.getIcon( volume->getName() + ":Disk.info" );
-
         //Create the entry for our view
         QListWidgetItem *item = new QListWidgetItem( volume->getName() + ":" );
-        if( cachedIcon.isNull() )
         {
-            QPixmap icon( volume->getPixmap().scaledToHeight( 72, Qt::SmoothTransformation ) );
-            item->setIcon( icon );
-        }else
-        {
-            QPixmap icon = QPixmap::fromImage( cachedIcon->getBestImage1().scaledToHeight( 72, Qt::SmoothTransformation) );
+            QPixmap icon( volume->getPixmap() );
             item->setIcon( icon );
         }
         item->setToolTip( volume->getName() + " - " +

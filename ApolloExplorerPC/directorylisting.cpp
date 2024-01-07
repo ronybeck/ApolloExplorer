@@ -66,6 +66,12 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
             setType( 0 );
             setSize( 0 );
 
+            //The icon needs to be added as well
+            if( entry->type == DET_USERDIR )
+                setIcon( new QPixmap( "://browser/icons/directory.png" ) );
+            else
+                setIcon( new QPixmap( "://browser/icons/file.png" ) );
+
             //Time for the next one
             entry = reinterpret_cast<ProtocolMessage_DirEntry_t*>( ((char*)entry) + entry->entrySize );
             continue;
@@ -301,16 +307,19 @@ void DirectoryListing::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaI
 {
     m_AmigaInfoFile = newAmigaInfoFile;
 
-    //If we don't have a pixmap already
-    if( m_Icon != nullptr ) delete m_Icon;
-    m_Icon = nullptr;
-
     //We should get the icon out of the info file and set that as our own
     //Get the best image we can for the icon
-    if( m_AmigaInfoFile->getBestImage1().width() > 0 )
+    if( m_AmigaInfoFile->hasImage() && m_AmigaInfoFile->getBestImage1().width() > 0 )
     {
+        //If we don't have a pixmap already
+        if( m_Icon != nullptr ) delete m_Icon;
+
+        //Now use the supplied icon
         m_Icon = new QPixmap( QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( iconHeight, Qt::SmoothTransformation ) ) );
         return;
+    }else
+    {
+        DBGLOG << "We got an .info file for " << this->Name() << " but we didn't get any icon image data.";
     }
 }
 

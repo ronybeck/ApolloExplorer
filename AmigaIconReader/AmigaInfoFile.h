@@ -177,6 +177,7 @@ public:
     QImage getOS35Image2();
     QImage getBestImage1();
     QImage getBestImage2();
+    bool hasImage();
 
     //Reset
     void reset();
@@ -195,6 +196,7 @@ private:
     QVector<QString> m_ToolTypes;
     qint16 m_Priority;
     QString m_ToolWindow;
+    bool m_HasImage;
 
 };
 
