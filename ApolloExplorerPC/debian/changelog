@@ -1,4 +1,12 @@
+apolloexplorer (1.1.1-0) UNRELEASED; urgency=low
+  * Fix crash on corrupt icons
+  * Restored usage guage on drive icons
+
 apolloexplorer (1.1.0-0) UNRELEASED; urgency=low
+  * Added support for Amiga Iconf files
+  * Added icon mode to the file explorer
+  * Fixed some bugs
+
   * Added support for Amiga Iconf files
   * Added icon mode to the file explorer
   * Fixed some bugs

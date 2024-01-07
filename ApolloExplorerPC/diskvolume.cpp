@@ -71,14 +71,13 @@ void DiskVolume::generatePixmap()
     QPen textPen( Qt::white );
 
     //Draw the disk icon image in our new image.
-    QPixmap diskImage;
-    if( m_AmigaInfoFile.isNull() )
-        diskImage.loadFromData( ":/browser/icons/Harddisk_Amiga.png" );
-    else
-        diskImage = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( imageHeight - barHeight - 5, Qt::SmoothTransformation ) );
+    QPixmap diskPixmap( ":/browser/icons/Harddisk_Amiga.png" );
+    diskPixmap = diskPixmap.scaled( QSize( imageWidth, imageHeight - barHeight - 5 ), Qt::KeepAspectRatio,Qt::SmoothTransformation );
+    if( !m_AmigaInfoFile.isNull() && m_AmigaInfoFile->hasImage() )
+        diskPixmap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( imageHeight - barHeight - 5, Qt::SmoothTransformation ) );
     //Center the image
-    quint32 imagePositionLeft = (imageWidth - diskImage.width() ) / 2;
-    painter.drawPixmap( imagePositionLeft, 0, diskImage );
+    quint32 imagePositionLeft = (imageWidth - diskPixmap.width() ) / 2;
+    painter.drawPixmap( imagePositionLeft, 0, diskPixmap );
 
     //Do the percentage full fill
     quint32 percentFull = 0;
@@ -114,10 +113,11 @@ void DiskVolume::setAmigaInfoFile( QSharedPointer<AmigaInfoFile> newAmigaInfoFil
 
     //We should get the icon out of the info file and set that as our own
     //Get the best image we can for the icon
-    if( m_AmigaInfoFile->getBestImage1().width() > 0 )
+    if( !m_AmigaInfoFile->hasImage() )
     {
         //m_PixMap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1() );
-        generatePixmap();
-        return;
+        m_AmigaInfoFile = nullptr;
     }
+
+    generatePixmap();
 }
