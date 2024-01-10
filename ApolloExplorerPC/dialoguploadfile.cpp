@@ -98,11 +98,20 @@ void DialogUploadFile::startUpload( QSharedPointer<DirectoryListing> remotePath,
         //Get the file information for this path
         QFileInfo localFileInfo( localFilePath );
 
+        //get the Filename
+        QString localFilename = localFileInfo.fileName();
+        if( localFileInfo.isDir() )
+        {
+            //Due to a bug in Qt5 on MacOS, I can't rely on QFileInfo::filename() to get the name of the directory (without the path)
+            const QDir localDirectory(localFilePath);
+            localFilename = localDirectory.dirName();
+        }
+
         //We need to add the subdirectory/filename to the remote path
         if( remoteFilePath.endsWith( ":" ) )
-            remoteFilePath += localFileInfo.fileName();
+            remoteFilePath += localFilename;
         else
-            remoteFilePath += "/" + localFileInfo.fileName();
+            remoteFilePath += "/" + localFilename;
 
         //If this is a directory, we need to create it
         if( localFileInfo.isDir() )
