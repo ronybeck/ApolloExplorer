@@ -35,8 +35,8 @@ class MainWindow : public QMainWindow
 
     typedef enum
     {
-        VIEW_TABLE,
-        VIEW_LIST
+        VIEW_LIST,
+        VIEW_ICONS
     } ViewType;
 
 public:
@@ -144,8 +144,8 @@ private:
     QSharedPointer<AmigaHost> m_AmigaHost;
 
     //Custom Views
-    RemoteFileTableView *m_FileTableView;
-    RemoteFileListView *m_FileListView;
+    RemoteFileTableView *m_FileListView;
+    RemoteFileListView *m_FileIconView;
     RemoteFileTableModel *m_FileTableModel;
 
     //Preferences

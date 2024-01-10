@@ -12,7 +12,7 @@
 #include <clib/exec_protos.h>
 #include <clib/dos_protos.h>
 
-UBYTE *ver = "\0$VER: ApolloExplorerTool 1.0.8";
+UBYTE *ver = "\0$VER: ApolloExplorerTool" VERSION_STRING;
 
 typedef enum
 {
@@ -183,7 +183,13 @@ int main( int argc, char **argv )
 		WaitPort( replyMsgPort );
 		dbglog( "Reply received.\n" );
 		struct Message *newMessage = GetMsg( replyMsgPort );
-		ReplyMsg( newMessage );
+		if( newMessage == NULL )
+		{
+			printf( "We got a NULL message reply.  This should never happen.\n" );
+		}else
+		{
+			ReplyMsg( newMessage );
+		}
 	}
 
 	dbglog( "Terminating.\n" );

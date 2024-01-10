@@ -65,6 +65,8 @@ BOOL readArguments( )
 
 int main(int argc, char *argv[])
 {
+	dbglog( "starting ApolloExplorer.\n" );
+
 	struct sockaddr_in addr __attribute__((aligned(4)));
 	//SOCKET s = 0;
 	SOCKET serverSocket __attribute__((aligned(4))) = 0;
@@ -261,7 +263,7 @@ int main(int argc, char *argv[])
 				dbglog( "[master] Got a shutdown message.\n" );
 
 				//remove the icon immediately
-				RemoveAppIcon( appIcon );
+				if( appIcon != NULL ) RemoveAppIcon( appIcon );
 				appIcon = NULL;
 
 				//Kill the discovery thread
@@ -294,7 +296,7 @@ int main(int argc, char *argv[])
 				unlockClientThreadList();
 				dbglog( "[master] Signalling each client to terminate.\n" );
 				ClientThread_t *client = clientList->next;
-				while( client->next )
+				while( client->next  )
 				{	
 					//Send a signal to the client thread to terminate
 					char ipAddress[17] = "";
@@ -345,7 +347,7 @@ int main(int argc, char *argv[])
 
 				//Allocate the bytes needed to store this.
 				dbglog( "[master] Form the reply message.\n" );
-				LONG messageSize = sizeof( struct AEClientList ) * clientCount;	//Bigger than necessary but keeps the maths simple.
+				LONG messageSize = sizeof( struct AEClientList ) * clientCount + sizeof( struct AEClientList ); 	//Bigger than necessary but keeps the maths simple.
 				struct AEClientList *clientListMessage = (struct AEClientList *)AllocVec( messageSize, MEMF_FAST|MEMF_CLEAR );
 				clientListMessage->msg.mn_Length = messageSize;
 				clientListMessage->msg.mn_Node.ln_Type = NT_MESSAGE;

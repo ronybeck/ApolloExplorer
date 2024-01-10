@@ -41,14 +41,14 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     m_ReconnectTimer( this ),
     m_VolumeRefreshTimer( this ),
     m_AmigaHost( amigaHost ),
-    m_FileTableView( nullptr ),
+    m_FileListView( nullptr ),
     m_FileTableModel( nullptr ),
     m_Settings( settings ),
     m_DialogPreferences( m_Settings ),
     m_ConfirmWindowClose( true ),
     m_HideInfoFiles( true ),
     m_ShowFileSizes( false ),
-    m_ViewType( VIEW_TABLE ),
+    m_ViewType( VIEW_LIST ),
     m_IconCache( this ),
     m_IncomingByteCount( ),
     m_OutgoingByteCount( ),
@@ -83,20 +83,20 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     m_DialogUploadFile = QSharedPointer<DialogUploadFile>( new DialogUploadFile() );
 
     //Setup the custom table view
-    m_FileTableView = new RemoteFileTableView( this );
-    m_FileTableView->setDownloadDialog( m_DialogDownloadFile );
-    m_FileTableView->setUploadDialog( m_DialogUploadFile );
-    m_FileTableView->setSettings( m_Settings );
-    m_FileTableView->setEnabled( false );
-    ui->verticalLayoutFileBrowser->addWidget( m_FileTableView );
-
-    //Setup the custom list view
-    m_FileListView = new RemoteFileListView( this );
+    m_FileListView = new RemoteFileTableView( this );
     m_FileListView->setDownloadDialog( m_DialogDownloadFile );
     m_FileListView->setUploadDialog( m_DialogUploadFile );
     m_FileListView->setSettings( m_Settings );
     m_FileListView->setEnabled( false );
     ui->verticalLayoutFileBrowser->addWidget( m_FileListView );
+
+    //Setup the custom list view
+    m_FileIconView = new RemoteFileListView( this );
+    m_FileIconView->setDownloadDialog( m_DialogDownloadFile );
+    m_FileIconView->setUploadDialog( m_DialogUploadFile );
+    m_FileIconView->setSettings( m_Settings );
+    m_FileIconView->setEnabled( false );
+    ui->verticalLayoutFileBrowser->addWidget( m_FileIconView );
 
 
     //setup network signals and slots
@@ -122,14 +122,10 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( ui->pushButtonRefresh, &QPushButton::released, this, &MainWindow::onRefreshButtonReleasedSlot );
     connect( ui->pushButtonUp, &QPushButton::released, this, &MainWindow::onUpButtonReleasedSlot );
     //connect( ui->listWidgetFileBrowser, &QListWidget::doubleClicked, this, &MainWindow::onBrowserItemDoubleClickSlot );
-    connect( m_FileTableView, &RemoteFileTableView::itemsDoubleClicked, this, &MainWindow::onBrowserItemsDoubleClickedSlot );
-    connect( m_FileListView, &RemoteFileListView::itemsDoubleClicked, this, &MainWindow::onBrowserItemsDoubleClickedSlot );
+    connect( m_FileListView, &RemoteFileTableView::itemsDoubleClicked, this, &MainWindow::onBrowserItemsDoubleClickedSlot );
+    connect( m_FileIconView, &RemoteFileListView::itemsDoubleClicked, this, &MainWindow::onBrowserItemsDoubleClickedSlot );
     connect( ui->listWidgetDrives, &QListWidget::clicked, this, &MainWindow::onDrivesItemSelectedSlot );
     connect( ui->lineEditPath, &QLineEdit::editingFinished, this, &MainWindow::onPathEditFinishedSlot );
-    connect( ui->actionShow_Drives, &QAction::toggled, this, &MainWindow::onShowDrivesToggledSlot );
-    connect( ui->actionList_Mode, &QAction::toggled, this, &MainWindow::onListModeToggledSlot );
-    connect( ui->actionShow_Info_Files, &QAction::toggled, this, &MainWindow::onShowInfoFilesToggledSlot );
-    connect( ui->actionSettings, &QAction::triggered, this, &MainWindow::onSettingsMenuItemClickedSlot );
 
     //Upload download slots
     connect( m_DialogUploadFile.get(), &DialogUploadFile::allFilesUploadedSignal, this, &MainWindow::onRefreshButtonReleasedSlot );
@@ -146,20 +142,13 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     connect( this, &MainWindow::currentFileBeingDeleted, &m_DialogDelete, &DialogDelete::onCurrentFileBeingDeletedSlot );
     connect( this, &MainWindow::deletionCompletedSignal, &m_DialogDelete, &DialogDelete::onDeletionCompleteSlot );
 
-    //Connect actions
-    connect( ui->actionDelete, &QAction::triggered, this, &MainWindow::onDeleteSlot );
-    connect( ui->actionAbout, &QAction::triggered, this, &MainWindow::onAboutSlot );
-    connect( ui->actionWhats_New, &QAction::triggered, [&]( bool triggered ){ m_DialogWhatsNew.show(); } );
-    connect( ui->actionReboot_Amiga, &QAction::triggered, this, &MainWindow::onRebootSlot );
-    connect( ui->actionCreate_Directory, &QAction::triggered, this, &MainWindow::onMkdirSlot );
-
     //Context Menu
-    m_FileListView->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_FileTableView->setContextMenuPolicy( Qt::CustomContextMenu );
+    m_FileIconView->setContextMenuPolicy( Qt::CustomContextMenu );
+    m_FileListView->setContextMenuPolicy( Qt::CustomContextMenu );
 
-    connect( m_FileListView, &QListWidget::customContextMenuRequested, this, &MainWindow::showContextMenu );
-    connect( m_FileTableView, &QTableView::customContextMenuRequested, this, &MainWindow::showContextMenu );
-    connect( m_FileTableView, &RemoteFileTableView::downloadViaDownloadDialogSignal, this, &MainWindow::onDownloadSelectedSlot );
+    connect( m_FileIconView, &QListWidget::customContextMenuRequested, this, &MainWindow::showContextMenu );
+    connect( m_FileListView, &QTableView::customContextMenuRequested, this, &MainWindow::showContextMenu );
+    connect( m_FileListView, &RemoteFileTableView::downloadViaDownloadDialogSignal, this, &MainWindow::onDownloadSelectedSlot );
 
     //Setup the throughput timer
     connect( &m_ThroughputTimer, &QTimer::timeout, this, &MainWindow::onThroughputTimerExpired );
@@ -177,17 +166,42 @@ MainWindow::MainWindow( QSharedPointer<QSettings> settings, QSharedPointer<Amiga
     m_VolumeRefreshTimer.setSingleShot( false );
     m_VolumeRefreshTimer.start( 10000 );
 
+    //Get the view type from settings
+    m_Settings->beginGroup( SETTINGS_HOSTS );
+    m_Settings->beginGroup( m_AmigaHost->Name() );
+    QString iconViewMode = m_Settings->value( SETTINGS_BROWSER_ICON_MODE, SETTINGS_BROWSER_ICON_MODE_LIST ).toString();
+    m_Settings->endGroup();
+    m_Settings->endGroup();
+    if( !iconViewMode.compare( SETTINGS_BROWSER_ICON_MODE_LIST ) )
+        m_ViewType = VIEW_LIST;
+    if( !iconViewMode.compare( SETTINGS_BROWSER_ICON_MODE_ICONS ) )
+        m_ViewType = VIEW_ICONS;
+
     //Disable the list view
-    if( m_ViewType == VIEW_TABLE )
+    if( m_ViewType == VIEW_LIST )
     {
-        m_FileTableView->show();
-        m_FileListView->hide();
+        m_FileListView->show();
+        m_FileIconView->hide();
+        ui->actionList_Mode->setChecked( true );
     }
     else
     {
-        m_FileTableView->hide();
-        m_FileListView->show();
+        m_FileListView->hide();
+        m_FileIconView->show();
+        ui->actionList_Mode->setChecked( false );
+
     }
+
+    //Connect actions - Note this has to happen after the views are setup else a crash happens
+    connect( ui->actionDelete, &QAction::triggered, this, &MainWindow::onDeleteSlot );
+    connect( ui->actionAbout, &QAction::triggered, this, &MainWindow::onAboutSlot );
+    connect( ui->actionWhats_New, &QAction::triggered, [&]( bool triggered ){ m_DialogWhatsNew.show(); } );
+    connect( ui->actionReboot_Amiga, &QAction::triggered, this, &MainWindow::onRebootSlot );
+    connect( ui->actionCreate_Directory, &QAction::triggered, this, &MainWindow::onMkdirSlot );
+    connect( ui->actionShow_Drives, &QAction::toggled, this, &MainWindow::onShowDrivesToggledSlot );
+    connect( ui->actionList_Mode, &QAction::toggled, this, &MainWindow::onListModeToggledSlot );
+    connect( ui->actionShow_Info_Files, &QAction::toggled, this, &MainWindow::onShowInfoFilesToggledSlot );
+    connect( ui->actionSettings, &QAction::triggered, this, &MainWindow::onSettingsMenuItemClickedSlot );
 }
 
 MainWindow::~MainWindow()
@@ -200,7 +214,7 @@ MainWindow::~MainWindow()
     m_DialogDownloadFile->deleteLater();
 
     //Clean up the views
-    if( m_FileTableView ) delete m_FileTableView;
+    if( m_FileListView ) delete m_FileListView;
     if( m_FileTableModel ) delete m_FileTableModel;
 
     disconnect( &m_ProtocolHandler, &ProtocolHandler::disconnectedFromHostSignal, this, &MainWindow::onDisconnectedFromHostSlot );
@@ -306,21 +320,33 @@ void MainWindow::onListModeToggledSlot(bool enabled)
 {
     if( enabled )
     {
-        m_ViewType = VIEW_TABLE;
-        m_FileTableView->show();
-        m_FileListView->hide();
+        m_ViewType = VIEW_LIST;
+        m_FileListView->show();
+        m_FileIconView->hide();
         m_ShowFileSizes = true;
         m_FileTableModel->setIconHeightPadding( 0 );
         m_FileTableModel->setIconWidthPadding( 0 );
+        m_Settings->beginGroup( SETTINGS_HOSTS );
+        m_Settings->beginGroup( m_AmigaHost->Name() );
+        m_Settings->setValue( SETTINGS_BROWSER_ICON_MODE, SETTINGS_BROWSER_ICON_MODE_LIST );
+        m_Settings->endGroup();
+        m_Settings->endGroup();
+        m_Settings->sync();
     }
     else
     {
-        m_ViewType = VIEW_LIST;
-        m_FileTableView->hide();
-        m_FileListView->show();
+        m_ViewType = VIEW_ICONS;
+        m_FileListView->hide();
+        m_FileIconView->show();
         m_ShowFileSizes = false;
         m_FileTableModel->setIconHeightPadding( 20 );
         m_FileTableModel->setIconWidthPadding( 30 );
+        m_Settings->beginGroup( SETTINGS_HOSTS );
+        m_Settings->beginGroup( m_AmigaHost->Name() );
+        m_Settings->setValue( SETTINGS_BROWSER_ICON_MODE, SETTINGS_BROWSER_ICON_MODE_ICONS );
+        m_Settings->endGroup();
+        m_Settings->endGroup();
+        m_Settings->sync();
     }
     updateFilebrowser();
 }
@@ -491,10 +517,10 @@ void MainWindow::showContextMenu(QPoint pos )
 {
     // Handle global position
     QPoint globalPos ;
-    if( m_ViewType == VIEW_LIST )
-        globalPos = m_FileListView->mapToGlobal( pos );
+    if( m_ViewType == VIEW_ICONS )
+        globalPos = m_FileIconView->mapToGlobal( pos );
     else
-        globalPos = m_FileTableView->mapToGlobal( pos );
+        globalPos = m_FileListView->mapToGlobal( pos );
 
 
     // Create menu and insert some actions
@@ -706,12 +732,12 @@ void MainWindow::onDeleteSlot()
     //Get the list of files selected
     QList<QSharedPointer<DirectoryListing>> directoryListing;
     QString currentDir = ui->lineEditPath->text();
-    if( m_ViewType == VIEW_TABLE )
-    {
-        directoryListing = m_FileTableView->getSelectedItems();
-    }else
+    if( m_ViewType == VIEW_LIST )
     {
         directoryListing = m_FileListView->getSelectedItems();
+    }else
+    {
+        directoryListing = m_FileIconView->getSelectedItems();
     }
 
     m_DialogDelete.onDeleteRemotePathsSlot( directoryListing );
@@ -729,12 +755,12 @@ void MainWindow::onRenameSlot()
     //Get the list of files selected
     QList<QSharedPointer<DirectoryListing>> directoryListing;
     QString currentDir = ui->lineEditPath->text();
-    if( m_ViewType == VIEW_TABLE )
-    {
-        directoryListing = m_FileTableView->getSelectedItems();
-    }else
+    if( m_ViewType == VIEW_LIST )
     {
         directoryListing = m_FileListView->getSelectedItems();
+    }else
+    {
+        directoryListing = m_FileIconView->getSelectedItems();
     }
 
     //Now do the rename
@@ -779,12 +805,12 @@ void MainWindow::onDownloadSelectedSlot()
     QList<QSharedPointer<DirectoryListing>> remotePaths;
 
     //Get the list of files selected
-    if( m_ViewType == VIEW_TABLE )
-    {
-        remotePaths = m_FileTableView->getSelectedItems();
-    }else
+    if( m_ViewType == VIEW_LIST )
     {
         remotePaths = m_FileListView->getSelectedItems();
+    }else
+    {
+        remotePaths = m_FileIconView->getSelectedItems();
     }
 
     //Ask the user where to save the files
@@ -816,12 +842,12 @@ void MainWindow::onInformationSelectedSlot()
     QList<QSharedPointer<DirectoryListing>> remotePaths;
 
     //Get the list of files selected
-    if( m_ViewType == VIEW_TABLE )
-    {
-        remotePaths = m_FileTableView->getSelectedItems();
-    }else
+    if( m_ViewType == VIEW_LIST )
     {
         remotePaths = m_FileListView->getSelectedItems();
+    }else
+    {
+        remotePaths = m_FileIconView->getSelectedItems();
     }
 
     //For each of the selected paths, open a info dialog
@@ -864,8 +890,8 @@ void MainWindow::onConnectedToHostSlot()
     m_IconCache.onConnectToHostSlot( serverAddress, port );
 
     //Enable the gui
+    m_FileIconView->setEnabled( true );
     m_FileListView->setEnabled( true );
-    m_FileTableView->setEnabled( true );
     ui->listWidgetDrives->setEnabled( true );
     ui->lineEditPath->setEnabled( true );
 
@@ -899,8 +925,8 @@ void MainWindow::onDisconnectedFromHostSlot()
     m_IconCache.onDisconnectFromHostSlot();
 
     //Grey out the gui
+    m_FileIconView->setEnabled( false );
     m_FileListView->setEnabled( false );
-    m_FileTableView->setEnabled( false );
     ui->listWidgetDrives->setEnabled( false );
     ui->lineEditPath->setEnabled( false );
 }
@@ -931,7 +957,7 @@ void MainWindow::onDeviceLeftSlot()
     m_DialogUploadFile->disconnectFromhost();
 
     //Grey out the gui
-    m_FileListView->setEnabled( false );
+    m_FileIconView->setEnabled( false );
     ui->listWidgetDrives->setEnabled( false );
     ui->lineEditPath->setEnabled( false );
 }
@@ -984,11 +1010,6 @@ void MainWindow::onDirectoryListingUpdateSlot( QSharedPointer<DirectoryListing> 
 
 void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volumes )
 {
-    m_Volumes = volumes;
-
-    //Update the drive view
-    updateDrivebrowser();
-
     m_Settings->beginGroup( SETTINGS_BROWSER );
     bool downloadAmigaIcons = m_Settings->value( SETTINGS_DOWNLOAD_AMIGA_ICONS, true ).toBool();
     m_Settings->endGroup();
@@ -1001,10 +1022,22 @@ void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volum
         //Form the path to the disk icon
         QString iconPath = drive->getName() + ":Disk.info";
 
+        //Check if we have an amiga info file already
+        auto amigaInfoFile = m_IconCache.getIcon( iconPath );
+        if( !amigaInfoFile.isNull() )
+        {
+            drive->setAmigaInfoFile( amigaInfoFile );
+        }
+
         //Now trigger the retrieval of the icon
         if( downloadAmigaIcons )
             emit retrieveIconSignal( iconPath );
     }
+
+    m_Volumes = volumes;
+
+    //Update the drive view
+    updateDrivebrowser();
 
     //We should now check that at least one drive is selected and then fetch the contents of that drive.
     if( ( volumes.size() > 0 ) )
@@ -1149,12 +1182,23 @@ void MainWindow::updateFilebrowser()
         m_FileTableModel = new RemoteFileTableModel( m_DirectoryListings[ selectedPath ] );
         m_FileTableModel->setSettings( m_Settings);
         m_FileTableModel->showInfoFiles( !m_HideInfoFiles );
-        connect( m_FileTableView->horizontalHeader(), &QHeaderView::sectionClicked, m_FileTableModel, &RemoteFileTableModel::onHeaderSectionClicked  );
+        connect( m_FileListView->horizontalHeader(), &QHeaderView::sectionClicked, m_FileTableModel, &RemoteFileTableModel::onHeaderSectionClicked  );
     }
 
     //Apply the model to the views
-    m_FileTableView->setModel( m_FileTableModel );
     m_FileListView->setModel( m_FileTableModel );
+    m_FileIconView->setModel( m_FileTableModel );
+
+    //There are some things we need to setup but easiest is just to call the list mode toggled function
+    if( m_ViewType == VIEW_LIST )
+    {
+        m_FileTableModel->setIconHeightPadding( 0 );
+        m_FileTableModel->setIconWidthPadding( 0 );
+    }else
+    {
+        m_FileTableModel->setIconHeightPadding( 20 );
+        m_FileTableModel->setIconWidthPadding( 30 );
+    }
 }
 
 void MainWindow::updateDrivebrowser()
