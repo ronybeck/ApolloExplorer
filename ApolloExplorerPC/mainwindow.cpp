@@ -1020,6 +1020,7 @@ void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volum
         auto drive = *iter;
 
         //Form the path to the disk icon
+        QString fileSystem = drive->getFileSystemType();
         QString iconPath = drive->getName() + ":Disk.info";
 
         //Check if we have an amiga info file already
@@ -1027,6 +1028,20 @@ void MainWindow::onVolumeListUpdateSlot( QList<QSharedPointer<DiskVolume>> volum
         if( !amigaInfoFile.isNull() )
         {
             drive->setAmigaInfoFile( amigaInfoFile );
+            continue;
+        }else
+        {
+            //Special case: For FAT we can assume it is an SD Card.
+            if( fileSystem.startsWith( "FAT" ) )
+            {
+                iconPath = "env:sys/def_SD0.info";
+                amigaInfoFile = m_IconCache.getIcon( iconPath );
+                if( !amigaInfoFile.isNull() )
+                {
+                    drive->setAmigaInfoFile( amigaInfoFile );
+                    continue;
+                }
+            }
         }
 
         //Now trigger the retrieval of the icon

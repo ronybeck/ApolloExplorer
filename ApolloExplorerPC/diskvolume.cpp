@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QtEndian>
+#include <cstring>
 
 #define DEBUG 0
 #include "AEUtils.h"
@@ -14,7 +15,7 @@ DiskVolume::DiskVolume( VolumeEntry_t &entry, QObject *parent)
       m_NumBlocks( qFromBigEndian( entry.id_NumBlocks ) ),
       m_NumBlocksUsed( qFromBigEndian( entry.id_NumBlocksUsed ) ),
       m_BytesPerBlock( qFromBigEndian( entry.id_BytesPerBlock ) ),
-      m_DiskType( qFromBigEndian( entry.id_DiskType ) ),
+      //m_DiskType( qFromBigEndian( entry.id_DiskType ) ),
       m_InUse( qFromBigEndian( entry.id_InUse ) ),
       m_Name( convertFromAmigaTextEncoding( entry.name ) ),
       m_PixMap( ":/browser/icons/Harddisk_Amiga.png" )
@@ -23,6 +24,11 @@ DiskVolume::DiskVolume( VolumeEntry_t &entry, QObject *parent)
     m_SizeInBytes = (quint64)m_NumBlocks * (quint64)m_BytesPerBlock;
     m_BytesUsed = (quint64)m_NumBlocksUsed * (quint64)m_BytesPerBlock;
     generatePixmap();
+
+    memcpy( &m_DiskType, &entry.diskType, 4 );
+    char fileSystem[5] = { 0, 0, 0, 0, 0 };
+    memcpy( fileSystem, &m_DiskType, 4 );
+    m_FileSystemDesignation = fileSystem;
 }
 
 QString DiskVolume::getName()
@@ -43,6 +49,11 @@ quint64 DiskVolume::getUsedInBytes()
 QPixmap DiskVolume::getPixmap()
 {
     return m_PixMap;
+}
+
+QString DiskVolume::getFileSystemType()
+{
+    return m_FileSystemDesignation;
 }
 
 void DiskVolume::setPixmap(QPixmap icon)
@@ -74,7 +85,13 @@ void DiskVolume::generatePixmap()
     QPixmap diskPixmap( ":/browser/icons/Harddisk_Amiga.png" );
     diskPixmap = diskPixmap.scaled( QSize( imageWidth, imageHeight - barHeight - 5 ), Qt::KeepAspectRatio,Qt::SmoothTransformation );
     if( !m_AmigaInfoFile.isNull() && m_AmigaInfoFile->hasImage() )
+    {
         diskPixmap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToHeight( imageHeight - barHeight - 5, Qt::SmoothTransformation ) );
+        if( diskPixmap.width() > imageWidth )
+        {
+            diskPixmap = QPixmap::fromImage( m_AmigaInfoFile->getBestImage1().scaledToWidth( imageWidth, Qt::SmoothTransformation ) );
+        }
+    }
     //Center the image
     quint32 imagePositionLeft = (imageWidth - diskPixmap.width() ) / 2;
     painter.drawPixmap( imagePositionLeft, 0, diskPixmap );

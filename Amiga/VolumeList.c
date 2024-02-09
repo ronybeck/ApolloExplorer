@@ -20,7 +20,7 @@
 
 #endif
 
-#define DBGOUT 0
+#define DBGOUT 1
 #include "AEUtil.h"
 
 #define VOL_MSG_LENGTH MAX_MESSAGE_LENGTH*5
@@ -61,7 +61,7 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 		volumeName[ volumeNameLength ] = 0;		//Terminating 0 because I don't trust that there is one.
 		if( dosList->dol_Type != DLT_VOLUME )
 		{
-			//dbglog( "[getVolumeList] Ignoring entry '%s' which is of type 0x%08x.\n", volumeName, dosList->dol_Type );
+			dbglog( "[getVolumeList] Ignoring entry '%s' which is of type 0x%08x.\n", volumeName, dosList->dol_Type );
 		}else
 		{
 			dbglog( "[getVolumeList] Adding entry '%s' (size %d) which is of type 0x%08x.\n", volumeName, volumeNameLength, (unsigned int)dosList->dol_Type );
@@ -73,6 +73,7 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 		dosList = NextDosEntry( dosList, LDF_VOLUMES );
 	}
 	UnLockDosList( LDF_VOLUMES|LDF_READ );
+
 
 	dbglog( "[getVolumeList] There are %d volumes.  %d bytes are required to store the strings.\n", volumeCount, stringSize );
 
@@ -119,21 +120,27 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 			volumeEntry->entrySize = sizeof( VolumeEntry_t ) + volumeNameLength;	//We don't need the extra char for terminating 0 in the size calculation
 			strncpy( volumeEntry->name, volumeName, volumeNameLength + 1 );
 			volumeEntry->name[ volumeNameLength ] = 0; //Don't trust that this won't be the case.
-			volumeEntry->diskType = dosList->dol_misc.dol_volume.dol_DiskType;
+			volumeEntry->diskType = (unsigned int)dosList->dol_misc.dol_volume.dol_DiskType;
+			volumeEntry->id_DiskType = (unsigned int)dosList->dol_misc.dol_volume.dol_DiskType;
 
 			//Get a lock on the disk so we can read information out
 			char diskAsPath[64] __attribute__((aligned(4)));
 			sprintf( diskAsPath, "%s:", volumeEntry->name );
 			BPTR diskLock = Lock( diskAsPath, ACCESS_READ );
+			NameFromLock( diskLock, diskAsPath, sizeof( diskAsPath ) );
+			dbglog( "[getVolumeList] Getting info for %s.\n", diskAsPath );
 			if( diskLock )
 			{
 				struct InfoData *infoData = AllocMem( sizeof( struct InfoData ), MEMF_FAST|MEMF_CLEAR );
 				if( Info( diskLock, infoData ) )
 				{
-					dbglog( "[client] Disk unit: %ld\n", infoData->id_UnitNumber );
-					dbglog( "[client] Number of blocks: %ld\n", infoData->id_NumBlocks );
-					dbglog( "[client] Number of blocks used: %ld\n", infoData->id_NumBlocksUsed );
-					dbglog( "[client] Bytes per block: %ld\n", infoData->id_BytesPerBlock );
+					char diskType[ 5 ] = { 0, 0, 0, 0, 0 };
+					CopyMem( &dosList->dol_misc.dol_volume.dol_DiskType, diskType, 4 );
+					dbglog( "[getVolumeList] Disk unit: %ld\n", infoData->id_UnitNumber );
+					dbglog( "[getVolumeList] Number of blocks: %ld\n", infoData->id_NumBlocks );
+					dbglog( "[getVolumeList] Number of blocks used: %ld\n", infoData->id_NumBlocksUsed );
+					dbglog( "[getVolumeList] Bytes per block: %ld\n", infoData->id_BytesPerBlock );
+					dbglog( "[getVolumeList] Disk type: %s\n", diskType );
 
 					volumeEntry->id_NumSoftErrors = infoData->id_NumSoftErrors;
 					volumeEntry->id_UnitNumber = infoData->id_UnitNumber;
@@ -141,7 +148,6 @@ ProtocolMessage_VolumeList_t *getVolumeList()
 					volumeEntry->id_NumBlocks = infoData->id_NumBlocks;
 					volumeEntry->id_NumBlocksUsed = infoData->id_NumBlocksUsed;
 					volumeEntry->id_BytesPerBlock = infoData->id_BytesPerBlock;
-					volumeEntry->diskType = infoData->id_DiskType;
 					volumeEntry->id_InUse = infoData->id_InUse;
 					FreeMem( infoData, sizeof( struct InfoData ) );
 				}

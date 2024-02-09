@@ -18,6 +18,7 @@ public:
     quint64 getSizeInBytes();
     quint64 getUsedInBytes();
     QPixmap getPixmap();
+    QString getFileSystemType();
     void setPixmap( QPixmap icon );
 
     QSharedPointer<AmigaInfoFile> getAmigaInfoFile() const;
@@ -37,6 +38,7 @@ private:
     int m_BytesPerBlock;
     int m_DiskType;
     int m_InUse;
+    QString m_FileSystemDesignation;
     quint64 m_BytesUsed;
     quint64 m_SizeInBytes;
     QString m_Name;

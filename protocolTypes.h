@@ -10,8 +10,8 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
-#define VERSION_REVISION 2
-#define VERSION_STRING "1.1.2"
+#define VERSION_REVISION 3
+#define VERSION_STRING "1.1.3"
 #define RELEASE_TYPE 'U'
 #define MAIN_LISTEN_PORTNUMBER 30302
 #define BROADCAST_PORTNUMBER 30301
@@ -238,14 +238,14 @@ typedef struct
 {
 	unsigned int entrySize;
 	unsigned int diskType;
-	int id_NumSoftErrors;
-	int id_UnitNumber;
-	int id_DiskState;
-	int id_NumBlocks;
-	int id_NumBlocksUsed;
-	int id_BytesPerBlock;
-	int id_DiskType;
-	int id_InUse;
+    unsigned int id_NumSoftErrors;
+    unsigned int id_UnitNumber;
+    unsigned int id_DiskState;
+    unsigned int id_NumBlocks;
+    unsigned int id_NumBlocksUsed;
+    unsigned int id_BytesPerBlock;
+    unsigned int id_DiskType;
+    unsigned int id_InUse;
 	char name[1];
 } VolumeEntry_t;
 
