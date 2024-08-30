@@ -76,7 +76,7 @@ signals:
     void connectedToServerSignal();
     void abortedSignal( QString message );
     void directoryCreationCompletedSignal();
-    void directoryCreationFailedSignal();
+    void directoryCreationFailedSignal( QString message );
     void operationTimedOutSignal();
 
     //Communication with the protocol handler

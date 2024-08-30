@@ -41,7 +41,7 @@ public slots:
     void onDisconnectedFromHostSlot();
     void onStartNextFileUploadSlot();
     void onStartNextDirectoryCreationSlot();
-    void onDirectoryCreateFailedSlot();
+    void onDirectoryCreateFailedSlot( QString message );
     void onUploadFailedSlot( UploadThread::UploadFailureType type );
     void onAbortedSlot( QString reason );
     void onProgressUpdate( quint8 procent, quint64 bytes, quint64 throughput );

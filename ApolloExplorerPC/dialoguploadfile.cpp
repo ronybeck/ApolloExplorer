@@ -298,10 +298,10 @@ void DialogUploadFile::onStartNextDirectoryCreationSlot()
     emit createDirectorySignal( m_CurrentRemoteFilePath );
 }
 
-void DialogUploadFile::onDirectoryCreateFailedSlot()
+void DialogUploadFile::onDirectoryCreateFailedSlot( QString message )
 {
-    QMessageBox errorBox( "Error Creating directory", "We failed to create the directory " + m_CurrentRemoteFilePath + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
-    errorBox.show();
+    QMessageBox errorBox( "Error Creating directory", "We failed to create the directory " + m_CurrentRemoteFilePath + "\n" + message + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+    errorBox.exec();
     resetDialog();
     cleanup();
     hide();
@@ -318,10 +318,14 @@ void DialogUploadFile::onUploadFailedSlot( UploadThread::UploadFailureType type 
 
 void DialogUploadFile::onAbortedSlot( QString reason )
 {
-    Q_UNUSED( reason );
-
-    m_UploadRetryList.append( QPair<QString,QString>(m_CurrentLocalFilePath,m_CurrentRemoteFilePath) );
-    onStartNextFileUploadSlot();
+    //Q_UNUSED( reason );
+    //m_UploadRetryList.append( QPair<QString,QString>(m_CurrentLocalFilePath,m_CurrentRemoteFilePath) );
+    //onStartNextFileUploadSlot();
+    QMessageBox errorBox( "Error Uploading file", "We failed upload the file " + m_CurrentRemoteFilePath + "\n" + reason + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+    errorBox.exec();
+    resetDialog();
+    cleanup();
+    hide();
 }
 
 void DialogUploadFile::onProgressUpdate(quint8 procent, quint64 bytes, quint64 throughput)

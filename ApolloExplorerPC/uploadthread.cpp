@@ -388,16 +388,27 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
     LOCK;
 
     //Interpret the response code
+    QString errorMessage = "";
     switch( responseCode )
     {
-        case 0:
-            m_AcknowledgeState = ProtocolHandler::AS_FAILED;
+    case AT_NOK:
+        m_AcknowledgeState = ProtocolHandler::AS_FAILED;
+        errorMessage="Unspecified error";
         break;
-        case 1:
-            m_AcknowledgeState = ProtocolHandler::AS_SUCCESS;
+    case AT_OK:
+        m_AcknowledgeState = ProtocolHandler::AS_SUCCESS;
         break;
-        default:
-            m_AcknowledgeState = ProtocolHandler::AS_Unknown;
+    case AT_DEST_EXISTS_AS_FILE:
+        m_AcknowledgeState = ProtocolHandler::AS_FAILED;
+        errorMessage = "The destination already exists as a file";
+        break;
+    case AT_DEST_EXISTS_AS_DIR:
+        m_AcknowledgeState = ProtocolHandler::AS_FAILED;
+        errorMessage = "The destination already exists as a directory";
+        break;
+    default:
+        m_AcknowledgeState = ProtocolHandler::AS_Unknown;
+        errorMessage="Unspecified error";
         break;
     }
 
@@ -405,18 +416,18 @@ void UploadThread::onAcknowledgeSlot(quint8 responseCode)
     if( m_JobType == JT_MKDIR )
     {
         if( m_AcknowledgeState == ProtocolHandler::AS_SUCCESS ) emit directoryCreationCompletedSignal();
-        else emit directoryCreationFailedSignal();
+        else emit directoryCreationFailedSignal( errorMessage );
         return;
     }
 
     //If the server cancels the upload for some reason
     if( m_JobType == JT_UPLOAD || m_JobType == JT_UPLOAD_INIT || m_JobType == JT_UPLOAD_WAIT_ACK )
     {
-        if( responseCode == 0 )
+        if( responseCode != AT_OK )
         {
             cleanup();
             DBGLOG << "File could not be uploaded.  Error code " << responseCode;
-            emit abortedSignal( "Upload rejected by server." );
+            emit abortedSignal( errorMessage );
             return;
         }
     }

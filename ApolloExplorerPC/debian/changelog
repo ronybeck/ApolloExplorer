@@ -1,3 +1,6 @@
+apolloexplorer (1.1.3-0) RELEASED; urgency=low
+  * Fixed SD Card icon which was blank
+
 apolloexplorer (1.1.2-0) UNRELEASED; urgency=low
   * Fix blinking Drive icons
 
