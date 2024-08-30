@@ -36,7 +36,7 @@ public slots:
     void connectedToServerSlot();
     void disconnectedFromServerSlot();
     void directoryCreationCompletesSlot();
-    void directoryCreationFailedSlot();
+    void directoryCreationFailedSlot( QString message );
 
 
 private:

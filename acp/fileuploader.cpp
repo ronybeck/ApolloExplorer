@@ -297,7 +297,8 @@ void FileUploader::fileUploadFailedSlot(UploadThread::UploadFailureType failure)
 
 void FileUploader::fileUploadAbortedSlot(QString message)
 {
-    emit  uploadAbortedSignal( message );
+    QString abortMessage = "Aborting during upload of " + m_CurrentRemotePath + " - " + message;
+    emit  uploadAbortedSignal( abortMessage );
 }
 
 void FileUploader::uploadProgressSlot(quint8 percent, quint64 progressBytes, quint64 throughput)
@@ -354,9 +355,10 @@ void FileUploader::directoryCreationCompletesSlot()
     fileUploadCompletedSlot();
 }
 
-void FileUploader::directoryCreationFailedSlot()
+void FileUploader::directoryCreationFailedSlot( QString message )
 {
     //give up?
-    DBGLOG << "Directory creation failed.";
-    emit  uploadAbortedSignal( "Failed to create directory" );
+    DBGLOG << "Creating directory " << m_CurrentRemotePath << " failed: " << message;
+    QString errorMessage = "Failed to create directory " + m_CurrentRemotePath + " - " + message;
+    emit  uploadAbortedSignal( errorMessage );
 }

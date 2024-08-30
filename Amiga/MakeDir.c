@@ -7,7 +7,7 @@
 
 #include "MakeDir.h"
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #if DBGOUT
@@ -29,22 +29,42 @@
 char makeDir( char *dirPath )
 {
 	//What if the path already exists?
+	char returnCode = AT_NOK;
 	BPTR dirLock = Lock( dirPath, ACCESS_READ );
 	if( dirLock )
 	{
-		//The dir already exists.  This is good
+		//OK this path already exists.   But is it a directory?
+		struct FileInfoBlock fileInfoBlock;
+		dbglog( "makeDir() Path %s already exists.\n", dirPath );
+		if( Examine( dirLock, &fileInfoBlock ) )
+		{
+			dbglog( "makeDir() Examining %s\n", dirPath );
+			if( fileInfoBlock.fib_DirEntryType < 0 )
+			{
+				dbglog( "makeDir() Path %s is already a file.  We can't make a directory here.\n", dirPath );
+				returnCode = AT_DEST_EXISTS_AS_FILE;
+			} else
+			{
+				returnCode = AT_OK;
+			}
+		}
 		UnLock( dirLock );
-		return 1;
+		return returnCode;
 	}
 
 	//Attempt to create the directory
 	dirLock = CreateDir( dirPath );
 	if( dirLock )
 	{
+		//We succeeded in creating the directory.
 		UnLock( dirLock );
-		return 1;
+		returnCode = AT_OK;
+	} else
+	{
+		//We failed to create the directory for some reason.  But that reason is not clear.
+		returnCode = AT_NOK;
 	}
 
 	//looks like we couldn't create this for some reason.
-	return 0;
+	return returnCode;
 }

@@ -66,7 +66,28 @@ ProtocolMessage_Ack_t *requestFileReceive( char *path )
 	else
 	{
 		dbglog( "[requestFileReceive] File '%s' could NOT be opened\n", path );
-		g_AcknowledgeMessage->response = 0;
+
+		//Let's dig deeper and see if we can see why this is the case
+		char returnCode = AT_NOK;
+		BPTR dirLock = Lock( path, ACCESS_READ );
+		if( dirLock )
+		{
+			//OK this path already exists.   But is it a directory?
+			struct FileInfoBlock fileInfoBlock;
+			dbglog( "[requestFileReceive] Path %s alread exists\n", path );
+			if( Examine( dirLock, &fileInfoBlock ) )
+			{
+				dbglog( "makeDir() Examining %s\n", path );
+				if( fileInfoBlock.fib_DirEntryType > 0 )
+				{
+					dbglog( "makeDir() Path %s is already a file.  We can't make a directory here.\n", path );
+					returnCode = AT_DEST_EXISTS_AS_DIR;
+				}
+			}
+			UnLock( dirLock );
+
+		}
+		g_AcknowledgeMessage->response = returnCode;
 	}
 
 	return g_AcknowledgeMessage;

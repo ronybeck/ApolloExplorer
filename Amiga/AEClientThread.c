@@ -796,7 +796,7 @@ static void clientThread()
 
 				//Is it possible to write this file?
 				//If not, we need to abort here
-				if( acknowledgeMessage->response == 0 )
+				if( acknowledgeMessage->response != AT_OK )
 				{
 					dbglog( "[child] Unable to write file '%s'.  Aborting.\n", filePath );
 					break;
@@ -1010,16 +1010,10 @@ static void clientThread()
 				};
 
 				//Add the result of the operation
-				if( !makeDir( dirPath ) )
-				{
-					dbglog( "[child] Failed to create dir: %s\n", dirPath );
-					ackMessage.response = 0;
-				}
-				else
-				{
-					dbglog( "[child] Succeeded in creating dir: %s\n", dirPath );
-					ackMessage.response = 1;
-				}
+				char returnCode = makeDir( dirPath );
+				ackMessage.response = returnCode;
+				if( returnCode > 0 ) dbglog( "[child] Failed to create dir: %s\n", dirPath );
+				else dbglog( "[child] Succeeded in creating dir: %s\n", dirPath );
 
 				//Send the ack
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
