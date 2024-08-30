@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define DEBUG 1
+#define DEBUG 0
 #include "AEUtils.h"
 
 FileUploader::FileUploader( QStringList localSources, QString remoteDestination, QString remoteHost, QObject *parent )
@@ -36,6 +36,7 @@ FileUploader::FileUploader( QStringList localSources, QString remoteDestination,
     connect( m_UploadThread.get(), &UploadThread::disconnectFromHostSignal, this, &FileUploader::disconnectedFromServerSlot );
     connect( m_UploadThread.get(), &UploadThread::connectedToServerSignal, this, &FileUploader::connectedToServerSlot );
     connect( m_UploadThread.get(), &UploadThread::uploadProgressSignal, this, &FileUploader::uploadProgressSlot );
+    connect( m_UploadThread.get(), &UploadThread::abortedSignal, this, &FileUploader::fileUploadAbortedSlot );
 
     m_UploadThread->start();
     QThread::msleep(200);
@@ -216,7 +217,7 @@ bool FileUploader::startUpload()
         //Now append the file name
         if( !remoteFilePath.endsWith( ":" ) && !remoteFilePath.endsWith( "/" ) )
             remoteFilePath.append( "/" );
-        remoteFilePath.append( localPathInfo.completeBaseName() );  //Just append the file name
+        remoteFilePath.append( localPathInfo.fileName() );  //Just append the file name
 
         //TODO: What happens if someone wants to upload '*'?
 
@@ -292,6 +293,11 @@ void FileUploader::fileUploadFailedSlot(UploadThread::UploadFailureType failure)
 {
     //give up?
     emit  uploadAbortedSignal( "Failed to upload file" );
+}
+
+void FileUploader::fileUploadAbortedSlot(QString message)
+{
+    emit  uploadAbortedSignal( message );
 }
 
 void FileUploader::uploadProgressSlot(quint8 percent, quint64 progressBytes, quint64 throughput)

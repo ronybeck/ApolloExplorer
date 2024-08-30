@@ -31,6 +31,7 @@ signals:
 public slots:
     void fileUploadCompletedSlot();
     void fileUploadFailedSlot( UploadThread::UploadFailureType failure );
+    void fileUploadAbortedSlot( QString message );
     void uploadProgressSlot( quint8 percentPercent, quint64 progressBytes, quint64 thoughput );
     void connectedToServerSlot();
     void disconnectedFromServerSlot();
