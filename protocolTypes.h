@@ -10,8 +10,8 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
-#define VERSION_REVISION 4
-#define VERSION_STRING "1.1.4"
+#define VERSION_REVISION 5
+#define VERSION_STRING "1.1.5"
 #define RELEASE_TYPE 'U'
 #define MAIN_LISTEN_PORTNUMBER 30302
 #define BROADCAST_PORTNUMBER 30301
@@ -61,6 +61,8 @@ typedef enum
 	//Device Discovery
 	PMT_DEVICE_DISCOVERY	= 0x00000020,
 	PMT_DEVICE_ANNOUNCE		= 0x00000021,
+	PMT_PING				= 0x00000022,
+	PMT_PONG				= 0x00000023,
 
 	//remote commands
     PMT_RUN                 = 0x00000021,

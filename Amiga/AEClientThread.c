@@ -5,7 +5,7 @@
  *      Author: rony
  */
 
-#define DBGOUT 0
+#define DBGOUT 1
 
 #ifdef __GNUC__
 #include <stdio.h>
@@ -483,6 +483,10 @@ static void clientThread()
 	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, &varLen );
 	dbglog( "[child] Adjusted buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
 
+	//Enable the keep alive so that crashed clients won't keep the client thread alive
+	static int keepAliveYes = 1;
+	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_KEEPALIVE, &keepAliveYes, sizeof( keepAliveYes ) );	//This doesn't work!!!!
+
 
 	//Let's reserve some memory for each of the messages
 	ProtocolMessage_t *message __attribute__((aligned(4))) = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
@@ -494,6 +498,7 @@ static void clientThread()
 	int bytesRead = 0;
 	volatile char keepThisConnectionRunning = 1;
 	LONG bytesAvailable = 0;
+	LONG inactivityCount = 300;
 	while( keepThisConnectionRunning )
 	{
 
@@ -536,9 +541,30 @@ static void clientThread()
 				}
 			}
 
+			//Check if we have reached the inactivity limit
+			if( inactivityCount-- == 0 )
+			{
+				dbglog( "[child] Pinging client due to inactivity.\n" );
+				static ProtocolMessage_t ping = { MAGIC_TOKEN, PMT_PING, sizeof( ProtocolMessage_t ) };
+				int returnCode = sendMessage( SocketBase, newClientSocket, &ping );
+				if( returnCode == SOCKET_ERROR )
+				{
+					//This connection is gone
+					keepThisConnectionRunning = 0;
+					dbglog( "[child] Closing connection due to timeout.\n" );
+				}else
+				{
+					inactivityCount = 300;
+				}
+			}
+
+
 			Delay( 5 );
 			continue;
 		}
+
+		//Reset the inactivity counter
+		inactivityCount = 300;
 
 		//Pull in the next message from the socket
 		//dbglog( "[child] Reading next network message.\n" );
@@ -1012,8 +1038,14 @@ static void clientThread()
 				//Add the result of the operation
 				char returnCode = makeDir( dirPath );
 				ackMessage.response = returnCode;
-				if( returnCode > 0 ) dbglog( "[child] Failed to create dir: %s\n", dirPath );
-				else dbglog( "[child] Succeeded in creating dir: %s\n", dirPath );
+				if( returnCode > 0 )
+				{
+					dbglog( "[child] Failed to create dir: %s\n", dirPath );
+				}
+				else
+				{
+					dbglog( "[child] Succeeded in creating dir: %s\n", dirPath );
+				}
 
 				//Send the ack
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );

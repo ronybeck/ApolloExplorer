@@ -71,7 +71,7 @@ QMenu::indicator:checked {
    <item>
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>TextLabel</string>
+      <string>Deleting Files</string>
      </property>
     </widget>
    </item>
