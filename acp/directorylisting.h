@@ -2,7 +2,8 @@
 #define DIRECTORYLISTING_H
 
 #include <QObject>
-#include <QSharedDataPointer>
+#include <QSharedPointer>
+#include <QVector>
 
 #include "protocolTypes.h"
 
