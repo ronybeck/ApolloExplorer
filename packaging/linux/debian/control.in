@@ -1,0 +1,16 @@
+Package: apolloexplorer
+Version: @VERSION@
+Section: net
+Priority: optional
+Architecture: @ARCH@
+Depends: libc6, libqt6core6 | libqt6core6t64, libqt6gui6 | libqt6gui6t64, libqt6widgets6 | libqt6widgets6t64, libqt6network6 | libqt6network6t64
+Maintainer: Rony Beck <ronybeck@themenz.biz>
+Homepage: https://github.com/ronybeck/ApolloExplorer
+Description: File explorer client for the Apollo Amiga accelerator
+ ApolloExplorer is a file sharing utility for getting files to and
+ from your Amiga from the comfort of your PC. A server component runs
+ in the background on the Amiga (Apollo V4) and allows this client to
+ connect, browse local disks and transfer files over the network.
+ .
+ This package installs the ApolloExplorer GUI client, the acp
+ command line copy tool and the ash remote shell tool.

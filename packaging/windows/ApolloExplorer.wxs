@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX v4/v5 source for the ApolloExplorer MSI installer.
+
+  Built by build-msi.ps1, which passes in:
+    -d SourceDir=<path to staged build output (exe + acp.exe + Qt DLLs/plugins)>
+    -d AppVersion=<version, e.g. 1.4.0>
+
+  Build manually with:
+    wix build ApolloExplorer.wxs -arch x64 -d SourceDir=..\..\..\ApolloExplorer-Windows -d AppVersion=1.4.0 -out ApolloExplorer-1.4.0.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="ApolloExplorer"
+           Manufacturer="Rony Beck"
+           Version="$(var.AppVersion)"
+           UpgradeCode="db3ad4c6-984e-4419-b9a5-99ebef2025f8"
+           Compressed="yes"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of ApolloExplorer is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="ApolloExplorerIcon" SourceFile="..\..\ApolloExplorerPC\icons\ApolloExplorer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ApolloExplorerIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/ronybeck/ApolloExplorer" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ApolloExplorer" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ApolloExplorer" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.SourceDir)\**" />
+    </ComponentGroup>
+
+    <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="6ff5c9f1-6c0e-4c3e-9c8a-1a4c9b4f6e21">
+      <Shortcut Id="ApolloExplorerStartMenuShortcut"
+                Name="ApolloExplorer"
+                Description="Browse and transfer files to/from your Amiga"
+                Target="[INSTALLFOLDER]ApolloExplorer.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="ApolloExplorerIcon" />
+      <Shortcut Id="UninstallShortcut"
+                Name="Uninstall ApolloExplorer"
+                Target="[SystemFolder]msiexec.exe"
+                Arguments="/x [ProductCode]" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\ApolloExplorer" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Adds INSTALLFOLDER (containing acp.exe and ash.exe) to the machine
+         PATH so both command-line tools are runnable from any shell after
+         install, without requiring a new logon (Environment/@System). -->
+    <Component Id="PathEnvironment" Directory="INSTALLFOLDER" Guid="a3f0f6e0-6b41-4a3a-8f2e-2c9b6b6a4f10">
+      <Environment Id="AddInstallFolderToPath"
+                   Name="PATH"
+                   Value="[INSTALLFOLDER]"
+                   Permanent="no"
+                   Part="last"
+                   Action="set"
+                   System="yes" />
+      <RegistryValue Root="HKLM" Key="Software\ApolloExplorer" Name="pathAdded" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="MainApplication" Title="ApolloExplorer" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="PathEnvironment" />
+    </Feature>
+  </Package>
+</Wix>

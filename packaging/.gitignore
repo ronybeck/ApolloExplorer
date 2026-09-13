@@ -1,0 +1,7 @@
+linux/pkgroot/
+linux/rpmbuild/
+linux/dist/
+macos/pkgroot/
+macos/dist/
+windows/stage/
+windows/dist/

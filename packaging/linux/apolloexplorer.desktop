@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=false
+Name=ApolloExplorer
+GenericName=Amiga File Explorer
+Comment=Browse and transfer files to/from your Amiga over the network
+Exec=/usr/bin/ApolloExplorer
+Icon=apolloexplorer
+StartupNotify=false
+Categories=Network;FileTransfer;
