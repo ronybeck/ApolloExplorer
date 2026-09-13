@@ -458,6 +458,37 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
             }
             break;
         }
+        case PMT_SHELL_OUTPUT:
+        {
+            ProtocolMessage_ShellOutput_t *shellOutputMsg = reinterpret_cast<ProtocolMessage_ShellOutput_t*>( newMessage );
+            quint32 bytes = qFromBigEndian<quint32>( shellOutputMsg->bytesContained );
+            QByteArray data( shellOutputMsg->output, bytes );
+            emit shellOutputSignal( bytes, data );
+            break;
+        }
+        case PMT_SHELL_DONE:
+        {
+            ProtocolMessage_ShellDone_t *shellDoneMsg = reinterpret_cast<ProtocolMessage_ShellDone_t*>( newMessage );
+            int returnCode = (int)qFromBigEndian<quint32>( (quint32)shellDoneMsg->returnCode );
+            QString currentDir = QString::fromLatin1( shellDoneMsg->currentDir );
+            emit shellDoneSignal( returnCode, currentDir );
+            break;
+        }
+        case PMT_SHELL_COMPLETE_RSP:
+        {
+            ProtocolMessage_ShellCompleteRsp_t *rspMsg = reinterpret_cast<ProtocolMessage_ShellCompleteRsp_t*>( newMessage );
+            quint32 count = qFromBigEndian<quint32>( rspMsg->entryCount );
+            QStringList completions;
+            const char *p = rspMsg->entries;
+            const char *end = reinterpret_cast<const char*>( newMessage ) + newMessage->length;
+            for( quint32 i = 0; i < count && p < end; i++ )
+            {
+                completions << QString::fromLatin1( p );
+                p += strlen( p ) + 1;
+            }
+            emit shellCompleteRspSignal( completions );
+            break;
+        }
         case PMT_CLOSING:
         {
             ProtocolMessageDisconnect_t *disconnectMessage = reinterpret_cast<ProtocolMessageDisconnect_t*>( newMessage );

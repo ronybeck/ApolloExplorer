@@ -265,9 +265,8 @@ void UploadThread::onStartFileSlot( QString localFilePath, QString remoteFilePat
         //Close the file currently open
         m_LocalFile.close();
     }
-    m_LocalFile.setFileName( m_LocalFilePath );
-    m_LocalFile.open( QFile::ReadOnly );
-    if( !m_LocalFile.isOpen() )
+    m_LocalFile.setFileName( m_LocalFilePath );;
+    if( !m_LocalFile.open( QFile::ReadOnly ) || !m_LocalFile.isOpen() )
     {
         DBGLOG << "Unable to open local file: " << m_LocalFile.errorString();
         emit abortedSignal( m_LocalFile.errorString() );

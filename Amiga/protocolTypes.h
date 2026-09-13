@@ -67,7 +67,15 @@ typedef enum
 	//remote commands
     PMT_RUN                 = 0x00000021,
 	PMT_REBOOT				= 0x00000022,
-    PMT_INVALID             = 0x00000023
+
+	//Remote shell
+	PMT_SHELL_EXEC			= 0x00000030,	/* Client->Server: execute a command */
+	PMT_SHELL_OUTPUT		= 0x00000031,	/* Server->Client: stdout/stderr chunk */
+	PMT_SHELL_DONE			= 0x00000032,	/* Server->Client: command finished + exit code */
+	PMT_SHELL_COMPLETE_REQ	= 0x00000033,	/* Client->Server: tab-completion request */
+	PMT_SHELL_COMPLETE_RSP	= 0x00000034,	/* Server->Client: completion candidates */
+
+    PMT_INVALID             = 0x00000035
 } ProtocolMessageType_t;
 
 typedef struct
@@ -302,5 +310,38 @@ typedef struct
 	ProtocolMessage_t header;
 	char message[1];
 } ProtocolMessage_Failed_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	char command[1];
+} ProtocolMessage_ShellExec_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	unsigned int bytesContained;
+	char output[FILE_CHUNK_SIZE];
+} ProtocolMessage_ShellOutput_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	int returnCode;
+	char currentDir[256]; /* current directory after command (null-terminated) */
+} ProtocolMessage_ShellDone_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	char partial[512]; /* partial path token to complete */
+} ProtocolMessage_ShellCompleteReq_t;
+
+typedef struct
+{
+	ProtocolMessage_t header;
+	unsigned int entryCount;
+	char entries[1]; /* entryCount null-terminated strings packed together */
+} ProtocolMessage_ShellCompleteRsp_t;
 
 #endif /* PROTOCOLTYPES_H_ */

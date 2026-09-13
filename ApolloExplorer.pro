@@ -1,3 +1,4 @@
 TEMPLATE=subdirs
 SUBDIRS=ApolloExplorerPC AmigaIconReader \
-    acp
+    acp \
+    ash

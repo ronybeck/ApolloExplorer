@@ -462,6 +462,7 @@ void ProtocolHandler::onMessageReceivedSlot( ProtocolMessage_t *newMessage )
         {
             //We can pretty much ignore this.  No pong required.......yet
             DBGLOG << "Got ping" ;
+            break;
         }
         case PMT_CLOSING:
         {

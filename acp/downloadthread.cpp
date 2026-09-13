@@ -135,8 +135,7 @@ void DownloadThread::onStartFileSlot(QString localFilePath, QString remoteFilePa
 
     DBGLOG << "Opening local file " << m_LocalFilePath;
     m_LocalFile.setFileName( m_LocalFilePath );
-    m_LocalFile.open( QFile::ReadWrite );
-    if( !m_LocalFile.isWritable() || !m_LocalFile.isOpen() )
+    if( !m_LocalFile.open( QFile::ReadWrite ) || !m_LocalFile.isWritable() || !m_LocalFile.isOpen() )
     {
         QString errorMessage = m_LocalFile.errorString();
         cleanup();

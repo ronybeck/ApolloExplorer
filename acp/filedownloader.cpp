@@ -11,7 +11,6 @@
 #if __linux__ || __APPLE__
 #include <sys/ioctl.h>
 #endif
-#include <stdio.h>
 #include <unistd.h>
 
 FileDownloader::FileDownloader( QString remoteSources, QString localDestination, QString remoteHost, QObject *parent  )
@@ -120,7 +119,6 @@ bool FileDownloader::startDownload()
     //Set the starting point for the download
     m_CurrentLocalPath = m_LocalDestination;
     m_CurrentRemotePath = m_RemoteSource;
-    bool remotePathIsWildCard = false;
 
     //Does the local destination exist?
     QDir localDestinationDir( m_LocalDestination );
@@ -165,9 +163,6 @@ bool FileDownloader::startDownload()
     {
         //Ok we have a search pattern
         m_FileMatchPattern.replace( "#?", "*" );
-
-        //Mark this as a wildcard path
-        remotePathIsWildCard = true;
     }else if( lastElement.length() == 0 )
     {
         m_FileMatchPattern = "*";
@@ -324,7 +319,7 @@ void FileDownloader::onConnectedToServerSlot()
 
 void FileDownloader::onDirectoryListingSlot( QSharedPointer<DirectoryListing> listing )
 {
-
+    Q_UNUSED(listing);
 }
 
 void FileDownloader::onAbortSlot(QString reason)

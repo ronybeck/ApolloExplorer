@@ -593,6 +593,9 @@ static void clientThreadBody()
 	//Create a filesend context
 	FileSendContext_t *fileSendContext = allocateFileSendContext();
 
+	//Current directory lock for this shell session (0 = use task default)
+	BPTR cdLock = 0;
+
 	//Start reading all inbound messages
 	int bytesRead = 0;
 	volatile char keepThisConnectionRunning = 1;
@@ -1197,6 +1200,383 @@ static void clientThreadBody()
 				dbglog( "[child] Got return code %d from the command.\n", (int)returnCode );
 				break;
 			}
+			case PMT_SHELL_EXEC:
+			{
+				dbglog( "[child] Received shell exec request.\n" );
+
+				/* Apply this session's current directory before doing anything */
+				if( cdLock != 0 ) CurrentDir( cdLock );
+
+				ProtocolMessage_ShellExec_t *shellExecMsg = ( ProtocolMessage_ShellExec_t* )message;
+				char shellCommand[ 512 ];
+				strncpy( shellCommand, shellExecMsg->command, sizeof( shellCommand ) - 1 );
+				shellCommand[ sizeof( shellCommand ) - 1 ] = '\0';
+				dbglog( "[child] Shell command: '%s'\n", shellCommand );
+
+				LONG shellReturnCode = 0;
+
+				/* Detect "CD" command (case-insensitive) so we can apply it to this
+				 * task rather than just a transient child shell that SystemTagList spawns. */
+				int isCd = ( ( shellCommand[0]=='c' || shellCommand[0]=='C' ) &&
+				             ( shellCommand[1]=='d' || shellCommand[1]=='D' ) &&
+				             ( shellCommand[2]=='\0' || shellCommand[2]==' ' ) );
+
+				if( isCd )
+				{
+					/* Find start of path argument */
+					const char *cdArg = shellCommand + 2;
+					while( *cdArg == ' ' ) cdArg++;
+
+					if( *cdArg == '\0' )
+					{
+						/* CD with no arg: print the current directory */
+						char cwdBuf[ 256 ];
+						cwdBuf[0] = '\0';
+						GetCurrentDirName( cwdBuf, sizeof(cwdBuf) );
+						LONG cwdLen = strlen( cwdBuf );
+						cwdBuf[ cwdLen++ ] = '\n';
+
+						ProtocolMessage_ShellOutput_t *outMsg = (ProtocolMessage_ShellOutput_t*)message;
+						memcpy( outMsg->output, cwdBuf, cwdLen );
+						outMsg->header.token   = MAGIC_TOKEN;
+						outMsg->header.type    = PMT_SHELL_OUTPUT;
+						outMsg->header.length  = sizeof( ProtocolMessage_ShellOutput_t );
+						outMsg->bytesContained = cwdLen;
+						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)outMsg );
+						shellReturnCode = 0;
+					}
+					else
+					{
+						/* CD to a specific path.
+						 * Tab completion appends '/' to directories; on AmigaOS a trailing
+						 * '/' means "parent of", so "DH0:Work/" locks DH0: not DH0:Work.
+						 * Strip it (but keep a lone '/' intact — that IS "go to parent"). */
+						char cdPath[ 512 ];
+						strncpy( cdPath, cdArg, sizeof(cdPath) - 1 );
+						cdPath[ sizeof(cdPath) - 1 ] = '\0';
+						LONG cdPathLen = strlen( cdPath );
+						if( cdPathLen > 1 && cdPath[ cdPathLen - 1 ] == '/' )
+							cdPath[ cdPathLen - 1 ] = '\0';
+
+						BPTR newLock = Lock( cdPath, ACCESS_READ );
+						if( newLock != 0 )
+						{
+							/* Verify the target is a directory, not a file */
+							struct FileInfoBlock *fib = (struct FileInfoBlock*)AllocVec( sizeof(struct FileInfoBlock), MEMF_CLEAR|MEMF_FAST );
+							int isDir = 0;
+							if( fib != NULL )
+							{
+								if( Examine( newLock, fib ) )
+									isDir = ( fib->fib_DirEntryType > 0 );
+								FreeVec( fib );
+							}
+							if( isDir )
+							{
+								if( cdLock != 0 ) UnLock( cdLock );
+								cdLock = newLock;
+								CurrentDir( cdLock );
+								shellReturnCode = 0;
+							}
+							else
+							{
+								UnLock( newLock );
+								ProtocolMessage_ShellOutput_t *outMsg = (ProtocolMessage_ShellOutput_t*)message;
+								char errBuf[ 128 ];
+								snprintf( errBuf, sizeof(errBuf), "cd: Not a directory: '%s'\n", cdPath );
+								LONG errLen = strlen( errBuf );
+								memcpy( outMsg->output, errBuf, errLen );
+								outMsg->header.token   = MAGIC_TOKEN;
+								outMsg->header.type    = PMT_SHELL_OUTPUT;
+								outMsg->header.length  = sizeof( ProtocolMessage_ShellOutput_t );
+								outMsg->bytesContained = errLen;
+								sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)outMsg );
+								shellReturnCode = 20;
+							}
+						}
+						else
+						{
+							/* Lock failed: path not found */
+							ProtocolMessage_ShellOutput_t *outMsg = (ProtocolMessage_ShellOutput_t*)message;
+							char errBuf[ 128 ];
+							snprintf( errBuf, sizeof(errBuf), "cd: Cannot find '%s'\n", cdPath );
+							LONG errLen = strlen( errBuf );
+							memcpy( outMsg->output, errBuf, errLen );
+							outMsg->header.token   = MAGIC_TOKEN;
+							outMsg->header.type    = PMT_SHELL_OUTPUT;
+							outMsg->header.length  = sizeof( ProtocolMessage_ShellOutput_t );
+							outMsg->bytesContained = errLen;
+							sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)outMsg );
+							shellReturnCode = 20;
+						}
+					}
+				}
+				else
+				{
+					/* Implicit directory change: AmigaDOS shell treats any single-token
+					 * input that contains ':' (absolute/volume path), starts with '/'
+					 * (relative-parent path), or ends with '/' (tab-completed directory)
+					 * as a CD if it resolves to a directory. */
+					LONG scLen0   = strlen( shellCommand );
+					int hasColon      = (strchr( shellCommand, ':' ) != NULL);
+					int leadSlash     = (shellCommand[0] == '/');
+					int trailingSlash = (scLen0 > 0 && shellCommand[ scLen0 - 1 ] == '/');
+					int hasSpaces     = (strchr( shellCommand, ' ' ) != NULL);
+					int implicitCd    = !hasSpaces && (hasColon || leadSlash || trailingSlash);
+
+					if( implicitCd )
+					{
+						/* Same trailing-slash fix as for explicit cd above. */
+						LONG scLen = strlen( shellCommand );
+						if( scLen > 1 && shellCommand[ scLen - 1 ] == '/' )
+							shellCommand[ scLen - 1 ] = '\0';
+
+						BPTR tryLock = Lock( shellCommand, ACCESS_READ );
+						if( tryLock != 0 )
+						{
+							struct FileInfoBlock *fib = (struct FileInfoBlock*)AllocVec( sizeof(struct FileInfoBlock), MEMF_CLEAR|MEMF_FAST );
+							int isDir = 0;
+							if( fib != NULL )
+							{
+								if( Examine( tryLock, fib ) )
+									isDir = ( fib->fib_DirEntryType > 0 );
+								FreeVec( fib );
+							}
+							if( isDir )
+							{
+								if( cdLock != 0 ) UnLock( cdLock );
+								cdLock = tryLock;
+								CurrentDir( cdLock );
+								shellReturnCode = 0;
+							}
+							else
+							{
+								UnLock( tryLock );
+								implicitCd = 0; /* it's a file, not a dir */
+							}
+						}
+						else
+						{
+							implicitCd = 0; /* path not found */
+						}
+					}
+
+					if( !implicitCd )
+					{
+						/* Regular command: run via SystemTagList in the current directory.
+						 * Reuse the heap-allocated message buffer for output so we never
+						 * touch the 16 KB thread stack with a 32 KB struct. */
+						char tmpFile[ 64 ];
+						snprintf( tmpFile, sizeof( tmpFile ), "RAM:ash_%d.tmp", newPort );
+
+						BPTR outFH = Open( tmpFile, MODE_NEWFILE );
+						BPTR nilFH = Open( "NIL:", MODE_OLDFILE );
+
+						if( outFH != 0 )
+						{
+							struct TagItem sysTags[] = {
+								{ SYS_Input,  (ULONG)nilFH  },
+								{ SYS_Output, (ULONG)outFH  },
+								{ SYS_Asynch, FALSE         },
+								{ TAG_DONE,   0             }
+							};
+							shellReturnCode = SystemTagList( shellCommand, sysTags );
+							Close( outFH );
+						}
+						if( nilFH != 0 ) { Close( nilFH ); }
+
+						dbglog( "[child] Shell command returned %d\n", (int)shellReturnCode );
+
+						BPTR readFH = Open( tmpFile, MODE_OLDFILE );
+						if( readFH != 0 )
+						{
+							ProtocolMessage_ShellOutput_t *outputMsg = (ProtocolMessage_ShellOutput_t*)message;
+							LONG chunkRead = 0;
+							do
+							{
+								chunkRead = Read( readFH, outputMsg->output, FILE_CHUNK_SIZE );
+								if( chunkRead > 0 )
+								{
+									outputMsg->header.token   = MAGIC_TOKEN;
+									outputMsg->header.type    = PMT_SHELL_OUTPUT;
+									outputMsg->header.length  = sizeof( ProtocolMessage_ShellOutput_t );
+									outputMsg->bytesContained = chunkRead;
+									sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)outputMsg );
+								}
+							} while( chunkRead == FILE_CHUNK_SIZE );
+							Close( readFH );
+						}
+						DeleteFile( tmpFile );
+					}
+				}
+
+				/* Send PMT_SHELL_DONE with return code and current directory. */
+				char currentDirName[ 256 ];
+				currentDirName[0] = '\0';
+				GetCurrentDirName( currentDirName, sizeof(currentDirName) );
+
+				ProtocolMessage_ShellDone_t *doneMsg = (ProtocolMessage_ShellDone_t*)message;
+				doneMsg->header.token  = MAGIC_TOKEN;
+				doneMsg->header.type   = PMT_SHELL_DONE;
+				doneMsg->header.length = sizeof( ProtocolMessage_ShellDone_t );
+				doneMsg->returnCode    = (int)shellReturnCode;
+				strncpy( doneMsg->currentDir, currentDirName, sizeof(doneMsg->currentDir) - 1 );
+				doneMsg->currentDir[ sizeof(doneMsg->currentDir) - 1 ] = '\0';
+				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)doneMsg );
+				break;
+			}
+			case PMT_SHELL_COMPLETE_REQ:
+			{
+				/* Apply session current directory so relative paths resolve correctly */
+				if( cdLock != 0 ) CurrentDir( cdLock );
+
+				ProtocolMessage_ShellCompleteReq_t *reqMsg = (ProtocolMessage_ShellCompleteReq_t*)message;
+				char partial[ 512 ];
+				strncpy( partial, reqMsg->partial, sizeof(partial) - 1 );
+				partial[ sizeof(partial) - 1 ] = '\0';
+				dbglog( "[child] Complete request for '%s'\n", partial );
+
+				/* Split partial into directory part and name prefix at the last : or / */
+				char dirPath[ 512 ];
+				char namePrefix[ 256 ];
+				const char *lastSep = NULL;
+				const char *pp = partial;
+				while( *pp ) { if( *pp == ':' || *pp == '/' ) lastSep = pp; pp++; }
+
+				if( lastSep )
+				{
+					int dlen = (int)(lastSep - partial) + 1;
+					strncpy( dirPath, partial, dlen );
+					dirPath[ dlen ] = '\0';
+					strncpy( namePrefix, lastSep + 1, sizeof(namePrefix) - 1 );
+					namePrefix[ sizeof(namePrefix) - 1 ] = '\0';
+				}
+				else
+				{
+					dirPath[0] = '\0';
+					strncpy( namePrefix, partial, sizeof(namePrefix) - 1 );
+					namePrefix[ sizeof(namePrefix) - 1 ] = '\0';
+				}
+
+				/* Lock the target directory */
+				BPTR scanLock;
+				if( dirPath[0] != '\0' )
+				{
+					scanLock = Lock( dirPath, ACCESS_READ );
+				}
+				else
+				{
+					/* No dir prefix: scan the current directory */
+					struct Process *proc = (struct Process*)FindTask( NULL );
+					scanLock = (proc->pr_CurrentDir != 0) ? DupLock( proc->pr_CurrentDir ) : 0;
+				}
+
+				/* Build response into the shared heap buffer.
+				 * Fixed header = sizeof(ProtocolMessage_t) + sizeof(unsigned int) = 16 bytes.
+				 * Everything after that is the packed null-terminated entries. */
+				ProtocolMessage_ShellCompleteRsp_t *rspMsg = (ProtocolMessage_ShellCompleteRsp_t*)message;
+				unsigned int entryCount = 0;
+				char *entriesBuf = rspMsg->entries;
+				int entriesCapacity = MAX_MESSAGE_LENGTH - 16 - 1;
+
+				LONG prefixLen = strlen( namePrefix );
+
+				if( scanLock != 0 )
+				{
+					struct FileInfoBlock *fib = (struct FileInfoBlock*)AllocVec( sizeof(struct FileInfoBlock), MEMF_CLEAR|MEMF_FAST );
+					if( fib != NULL )
+					{
+						if( Examine( scanLock, fib ) )
+						{
+							while( ExNext( scanLock, fib ) )
+							{
+								/* Case-insensitive prefix match */
+								int match = 1;
+								int ci;
+								for( ci = 0; ci < prefixLen; ci++ )
+								{
+									char a = fib->fib_FileName[ci];
+									char b = namePrefix[ci];
+									if( a >= 'A' && a <= 'Z' ) a += 32;
+									if( b >= 'A' && b <= 'Z' ) b += 32;
+									if( a != b ) { match = 0; break; }
+								}
+								if( !match ) continue;
+								if( fib->fib_FileName[0] == '\0' ) continue;
+
+								/* Build full completion string: dirPath + name [+ "/" if dir] */
+								char completion[ 512 ];
+								int clen = snprintf( completion, sizeof(completion), "%s%s%s",
+									dirPath,
+									fib->fib_FileName,
+									(fib->fib_DirEntryType > 0) ? "/" : "" );
+
+								if( clen > 0 && clen < entriesCapacity )
+								{
+									memcpy( entriesBuf, completion, clen + 1 );
+									entriesBuf += clen + 1;
+									entriesCapacity -= clen + 1;
+									entryCount++;
+								}
+							}
+						}
+						FreeVec( fib );
+					}
+					UnLock( scanLock );
+				}
+
+				/* When no directory separator is present the user may be typing a
+				 * volume/assign/device name.  Scan the DosList and emit any matches
+				 * as "Name:" completions alongside the directory entries above. */
+				if( dirPath[0] == '\0' )
+				{
+					ULONG dosFlags = LDF_VOLUMES | LDF_ASSIGNS | LDF_DEVICES;
+					struct DosList *dl = LockDosList( dosFlags | LDF_READ );
+					while( dl != NULL )
+					{
+						LONG dolNameLen = AROS_BSTR_strlen( dl->dol_Name );
+						if( dolNameLen > 0 && dolNameLen < 128 )
+						{
+							char *dolNameStr = (char*)AROS_BSTR_ADDR( dl->dol_Name );
+
+							int match = 1;
+							int ci;
+							for( ci = 0; ci < prefixLen; ci++ )
+							{
+								if( ci >= dolNameLen ) { match = 0; break; }
+								char a = dolNameStr[ci];
+								char b = namePrefix[ci];
+								if( a >= 'A' && a <= 'Z' ) a += 32;
+								if( b >= 'A' && b <= 'Z' ) b += 32;
+								if( a != b ) { match = 0; break; }
+							}
+
+							if( match )
+							{
+								char completion[130];
+								int clen = snprintf( completion, sizeof(completion),
+								                     "%.*s:", (int)dolNameLen, dolNameStr );
+								if( clen > 0 && clen < entriesCapacity )
+								{
+									memcpy( entriesBuf, completion, clen + 1 );
+									entriesBuf    += clen + 1;
+									entriesCapacity -= clen + 1;
+									entryCount++;
+								}
+							}
+						}
+						dl = NextDosEntry( dl, dosFlags );
+					}
+					UnLockDosList( dosFlags | LDF_READ );
+				}
+
+				int entriesSize = (int)(entriesBuf - rspMsg->entries);
+				rspMsg->header.token  = MAGIC_TOKEN;
+				rspMsg->header.type   = PMT_SHELL_COMPLETE_RSP;
+				rspMsg->header.length = 16 + entriesSize;
+				rspMsg->entryCount    = entryCount;
+				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)rspMsg );
+				break;
+			}
 			case PMT_REBOOT:
 			{
 
@@ -1243,6 +1623,9 @@ exit_child: ;
 	//Close our message port.  We need to clear it out first though.
 	dbglog( "[child] Deleting message port.\n" );
 	DeleteMsgPort( replyPort );
+
+	//Release the current-directory lock held by this shell session
+	if( cdLock != 0 ) { UnLock( cdLock ); cdLock = 0; }
 
 	//Free our messagebuffer
 	dbglog( "[child] Freeing message buffer.\n" );

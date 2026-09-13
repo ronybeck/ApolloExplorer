@@ -69,7 +69,6 @@ QStringList getHostList( QSharedPointer<QSettings> settings, const QStringList p
 bool performDownload( QSharedPointer<QSettings> settings, QStringList arguments, bool recursive )
 {
     //How many arguments do we have?
-    int numberOfArguments = arguments.size();
     QString sourcePath = arguments[ 0 ];
     QString destinationPath = arguments[ 1 ];
 

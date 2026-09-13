@@ -66,10 +66,10 @@ void DiskVolume::generatePixmap()
     QPainterPath path;
 
     //Setup the boundaries of our new image
-    quint32 imageWidth = 85;
-    quint32 imageHeight = 100;
-    quint32 fontHeight = 12;
-    quint32 barHeight = fontHeight + 4;
+    qint32 imageWidth = 85;
+    qint32 imageHeight = 100;
+    qint32 fontHeight = 12;
+    qint32 barHeight = fontHeight + 4;
 
     //Basic icon
     QImage image( imageWidth, imageHeight, QImage::Format_ARGB32 );

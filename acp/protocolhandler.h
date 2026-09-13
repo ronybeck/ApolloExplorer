@@ -94,6 +94,9 @@ signals:
     void fileDeletedSignal( QString path );
     void fileDeleteFailedSignal( QString path, DeleteFailureReason reasonCode );
     void recursiveDeletionCompletedSignal();
+    void shellOutputSignal( quint32 bytesContained, QByteArray data );
+    void shellDoneSignal( int returnCode, QString currentDir );
+    void shellCompleteRspSignal( QStringList completions );
 
 
     //Requests to the vconnection object

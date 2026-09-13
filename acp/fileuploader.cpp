@@ -291,6 +291,7 @@ void FileUploader::fileUploadCompletedSlot()
 
 void FileUploader::fileUploadFailedSlot(UploadThread::UploadFailureType failure)
 {
+    Q_UNUSED(failure);
     //give up?
     emit  uploadAbortedSignal( "Failed to upload file" );
 }
