@@ -5,12 +5,13 @@
  *      Author: rony
  */
 
-#define DBGOUT 1
+#define DBGOUT 0
 
 #ifdef __GNUC__
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/filio.h>
+#include <netinet/tcp.h>
 #include <proto/dos.h>
 #include <clib/exec_protos.h>
 //#include <clib/timer_protos.h>
@@ -36,10 +37,12 @@
 
 
 extern char g_KeepServerRunning;
+extern volatile LONG g_ActiveThreadCount;
 
 static unsigned short g_NextClientPort = MAIN_LISTEN_PORTNUMBER + 1;
 
 static void clientThread();
+static void clientThreadBody();
 
 ClientThread_t *g_ClientThreadList;
 struct SignalSemaphore g_ClientThreadListLock;
@@ -73,6 +76,19 @@ void freeClientThreadList( ClientThread_t *list )
 	}
 	FreeVec( node );	//This should be the tail
 	FreeVec( head );
+}
+
+//Free the global client list itself (the head/tail sentinels allocated in
+//initialiseClientThreadList).  Call once at shutdown, after all clients are gone.
+void destroyClientThreadList()
+{
+	lockClientThreadList();
+	if( g_ClientThreadList != NULL )
+	{
+		freeClientThreadList( g_ClientThreadList );
+		g_ClientThreadList = NULL;
+	}
+	unlockClientThreadList();
 }
 
 void addClientThreadToList( ClientThread_t *client )
@@ -111,6 +127,12 @@ void removeClientThreadFromList( ClientThread_t *client )
 			previousNode->next = nextNode;
 			client->next = NULL;
 			client->previous = NULL;
+
+			//Free the unlinked list entry.  It was AllocVec'd per connection in
+			//startClientThread(); without this it leaks on every disconnect and the
+			//memory is never reclaimed (AmigaOS does not free a process's
+			//allocations on exit).
+			FreeVec( node );
 
 			unlockClientThreadList();
 			return;
@@ -234,13 +256,47 @@ void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOC
 			//CloseLibrary( DOSBase );
 			return;
 		}
+		//Count this live child so the master waits for it before unloading the seglist.
+		Forbid(); g_ActiveThreadCount++; Permit();
 		//dbglog( "[master] Child started.\n" );
 
-		//Wait for the child to request the socket handle
-		dbglog( "[master] Waiting for child tell us what port the client should reconnect on.\n" );
-		struct AEMessage *newClientMessage = (struct AEMessage *)WaitPort( msgPort );
-		struct Message *clientMessage = GetMsg( msgPort );	//Remove this message from the queue
-		unsigned short clientPort = newClientMessage->port;
+			//Wait (bounded) for the child to tell us its listen port.  A child that dies
+			//during its own setup must NOT wedge the master here forever (that made the
+			//server impossible to kill), and a shutdown request that lands on this same
+			//shared port while we wait must still be honoured.
+			dbglog( "[master] Waiting for child to tell us what port the client should reconnect on.\n" );
+			struct Message *clientMessage = NULL;
+			struct AEMessage *newClientMessage = NULL;
+			LONG regTimeout = 250;	//~5s at Delay(2)
+			while( regTimeout-- > 0 )
+			{
+				clientMessage = GetMsg( msgPort );
+				if( clientMessage != NULL )
+				{
+					newClientMessage = (struct AEMessage *)clientMessage;
+
+					//Shutdown can arrive on this shared port while we are mid-registration.
+					if( newClientMessage->messageType == AEM_Shutdown
+					 || newClientMessage->messageType == WB_ICON_DOUBLE_CLICKED )
+					{
+						dbglog( "[master] Shutdown received while registering a client.  Honouring it.\n" );
+						g_KeepServerRunning = 0;
+						newClientMessage->msg.mn_Node.ln_Type = NT_REPLYMSG;
+						ReplyMsg( clientMessage );
+						CloseSocket( clientSocket );
+						return;
+					}
+					break;	//Got the child's AEM_NewClient / AEM_KillClient
+				}
+				Delay( 2 );
+			}
+			if( newClientMessage == NULL )
+			{
+				dbglog( "[master] Child did not register within timeout.  Abandoning connection.\n" );
+				CloseSocket( clientSocket );
+				return;
+			}
+			unsigned short clientPort = newClientMessage->port;
 
 		//Did the child request to kill the client?
 		if( newClientMessage->messageType == AEM_KillClient )
@@ -301,13 +357,22 @@ void startClientThread( struct Library *SocketBase, struct MsgPort *msgPort, SOC
 }
 
 
+//Entry point for the spawned process.  Wraps the real body so that, no matter
+//which of the body's many return paths is taken, we always decrement the live
+//thread counter exactly once as our final act before returning into the system.
 static void clientThread()
+{
+	clientThreadBody();
+	Forbid(); g_ActiveThreadCount--; Permit();
+}
+
+static void clientThreadBody()
 {
 	dbglog( "[child] Client thread started.\n" );
 
 	struct Library *SocketBase = NULL;
 	struct sockaddr_in addr __attribute__((aligned(4))) ;
-	int returnCode = 0;
+	LONG returnCode = 0;
 	unsigned short newPort = g_NextClientPort++;		//Here we will also store our client port
 
 	//saftey check for the port number
@@ -358,6 +423,7 @@ static void clientThread()
 		removeClientByPort( newPort );
 		unlockClientThreadList();
 		dbglog( "[child] Exiting.\n" );
+		if( SocketBase != NULL ) { CloseLibrary( SocketBase ); SocketBase = NULL; }
 		return;
 	}
 
@@ -374,6 +440,7 @@ static void clientThread()
 		removeClientByPort( newPort );
 		unlockClientThreadList();
 		dbglog( "[child] Exiting.\n" );
+		if( SocketBase != NULL ) { CloseLibrary( SocketBase ); SocketBase = NULL; }
 		return;
 	}
 
@@ -392,6 +459,7 @@ static void clientThread()
 		removeClientByPort( newPort );
 		unlockClientThreadList();
 		CloseSocket( childServerSocket );
+		if( SocketBase != NULL ) { CloseLibrary( SocketBase ); SocketBase = NULL; }
 		return;
 	}
 
@@ -413,6 +481,7 @@ static void clientThread()
 		removeClientByPort( newPort );
 		unlockClientThreadList();
 		CloseSocket( childServerSocket );
+		if( SocketBase != NULL ) { CloseLibrary( SocketBase ); SocketBase = NULL; }
 		return;
 	}
 
@@ -429,6 +498,7 @@ static void clientThread()
 		removeClientByPort( newPort );
 		unlockClientThreadList();
 		CloseSocket( childServerSocket );
+		if( SocketBase != NULL ) { CloseLibrary( SocketBase ); SocketBase = NULL; }
 		return;
 	}
 
@@ -453,12 +523,29 @@ static void clientThread()
 	dbglog("[child] Awaiting new connection\n" );
 
 	socklen_t addrLen __attribute__((aligned(4))) = sizeof( addr );
-	SOCKET newClientSocket = (SOCKET)accept( childServerSocket, (struct sockaddr *)&addr, &addrLen);
+
+	//Make the listen socket non-blocking so we can honour a server shutdown while
+	//waiting for the client to reconnect, instead of blocking forever in accept().
+	int nbFlag = 1;
+	IoctlSocket( childServerSocket, FIONBIO, &nbFlag );
+
+	SOCKET newClientSocket = -1;
+	LONG acceptTimeout = 500;	//~10s at Delay(2); ample for a reconnect
+	while( g_KeepServerRunning && acceptTimeout-- > 0 )
+	{
+		newClientSocket = (SOCKET)accept( childServerSocket, (struct sockaddr *)&addr, &addrLen );
+		if( newClientSocket >= 0 ) break;
+		Delay( 2 );
+	}
 	if( newClientSocket < 0 )
 	{
-		dbglog( "[child] accept error for socket %d - Error number %d \"%s\"\n", newClientSocket, errno, strerror( errno ) );
+		dbglog( "[child] No client reconnect (server shutdown or timeout).  Aborting.\n" );
 		goto exit_child;
 	}
+
+	//Put the accepted socket back into blocking mode, as the rest of the code expects.
+	int blkFlag = 0;
+	IoctlSocket( newClientSocket, FIONBIO, &blkFlag );
 
 	//Start the listen loop
 	dbglog( "[child] Accepting client connection from handle %d.\n", newClientSocket );
@@ -467,25 +554,37 @@ static void clientThread()
 	//Get current buffer sizes
 	ULONG sendBufferSize = 0;
 	ULONG receiveBufferSize = 0;
-	ULONG varLen = sizeof( sendBufferSize );
-	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, &varLen );
-	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, &varLen );
+	socklen_t varLen = sizeof( sendBufferSize );
+
+	returnCode = getsockopt( newClientSocket, SOL_SOCKET, SO_RCVBUF, &receiveBufferSize, &varLen );
+	returnCode = getsockopt( newClientSocket, SOL_SOCKET, SO_SNDBUF, &sendBufferSize, &varLen );
 	dbglog( "[child] Buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
 
-	//Set new buffer sizes (but unaligned with the largest message size to see if it helps the stall)
-	sendBufferSize = 1514*3;
-	receiveBufferSize = 1514*3;
-	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, varLen );
-	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, varLen );
+	//The previous stall workaround shrank these to 1514*3 (~4.5KB), which caps the TCP
+	//window (and therefore throughput ~= window/RTT) far below what a 100Mbit link can
+	//sustain.  The actual stall cause was Nagle/delayed-ACK interaction (see TCP_NODELAY
+	//below), not buffer size, so we can give the socket a generous window instead.
+	sendBufferSize = 65536;
+	receiveBufferSize = 65536;
+	returnCode = setsockopt( newClientSocket, SOL_SOCKET, SO_RCVBUF, &receiveBufferSize, varLen );
+	returnCode = setsockopt( newClientSocket, SOL_SOCKET, SO_SNDBUF, &sendBufferSize, varLen );
 
 	//Check that they took hold
-	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_RCVBUF, &receiveBufferSize, &varLen );
-	returnCode = getsockopt( newClientSocket, IPPROTO_TCP, SO_SNDBUF, &sendBufferSize, &varLen );
+	returnCode = getsockopt( newClientSocket, SOL_SOCKET, SO_RCVBUF, &receiveBufferSize, &varLen );
+	returnCode = getsockopt( newClientSocket, SOL_SOCKET, SO_SNDBUF, &sendBufferSize, &varLen );
 	dbglog( "[child] Adjusted buffer sizes %lu (snd) %lu (rcv)\n", sendBufferSize, receiveBufferSize );
+
+	//Disable Nagle's algorithm.  Without this, small writes (headers, acks, chunk
+	//confirms) sit buffered waiting to coalesce and interact badly with the peer's
+	//delayed ACKs, producing the multi-10ms "stalls" the buffer shrink above was
+	//originally (mis-)diagnosed to fix.
+	static int noDelayYes = 1;
+	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, TCP_NODELAY, &noDelayYes, sizeof( noDelayYes ) );
+	dbglog( "[child] TCP_NODELAY setsockopt returned %ld\n", returnCode );
 
 	//Enable the keep alive so that crashed clients won't keep the client thread alive
 	static int keepAliveYes = 1;
-	returnCode = setsockopt( newClientSocket, IPPROTO_TCP, SO_KEEPALIVE, &keepAliveYes, sizeof( keepAliveYes ) );	//This doesn't work!!!!
+	returnCode = setsockopt( newClientSocket, SOL_SOCKET, SO_KEEPALIVE, &keepAliveYes, sizeof( keepAliveYes ) );
 
 
 	//Let's reserve some memory for each of the messages
@@ -499,7 +598,7 @@ static void clientThread()
 	volatile char keepThisConnectionRunning = 1;
 	LONG bytesAvailable = 0;
 	LONG inactivityCount = 300;
-	while( keepThisConnectionRunning )
+	while( keepThisConnectionRunning && g_KeepServerRunning )
 	{
 
 		//Check if there is any
@@ -744,6 +843,16 @@ static void clientThread()
 				LONG bytesAvailable __attribute__((aligned(4))) = 0;
 				while( ( nextFileChunk = getNextFileSendChunk( filePath, fileSendContext ) ) )
 				{
+					//Abort immediately if the server is shutting down, so we never
+					//keep the master waiting through a whole file transfer.
+					if( !g_KeepServerRunning )
+					{
+						dbglog( "[child] Server shutting down, aborting file send.\n" );
+						cleanupFileSend( fileSendContext );
+						keepThisConnectionRunning = FALSE;
+						break;
+					}
+
 					bytesAvailable = 0;
 					dbglog( "[child] Sending the next chunk %d of %d (size %db/%db)\n", nextFileChunk->chunkNumber, numberOfChunks, nextFileChunk->bytesContained, nextFileChunk->header.length );
 					bytesSent = sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)nextFileChunk );
@@ -873,19 +982,31 @@ static void clientThread()
 				dbglog( "[child] Now just waiting for the file chunks to arrive.\n" );
 				do
 				{
-					//Let's give the client some time to send the next chunk, else we make a timeout
-					LONG bytesAvailable = 0;
-					LONG retryCount = 50;
-					IoctlSocket( newClientSocket, FIONREAD ,&bytesAvailable );
-					while( bytesAvailable < sizeof( ProtocolMessage_t ) && retryCount-- > 0 )
+					//Abort immediately if the server is shutting down.
+					if( !g_KeepServerRunning )
 					{
-						dbglog( "[child] Waiting on client to send bytes...... (waiting %ld)\r", retryCount );
-						Delay( 2 );
-						IoctlSocket( newClientSocket, FIONREAD ,&bytesAvailable );
+						dbglog( "[child] Server shutting down, aborting file receive.\n" );
+						cleanupFileReceive();
+						keepThisConnectionRunning = 0;
+						goto exit_child;
 					}
 
-					//Are there some bytes here now?
-					if( bytesAvailable < sizeof( ProtocolMessage_t ) )
+					//Let's give the client some time to send the next chunk, else we make a timeout.
+					//This blocks on WaitSelect() until data actually arrives (or the timeout
+					//expires) instead of polling FIONREAD with a Delay(2) (40ms) between checks.
+					//That polling granularity taxed every single chunk boundary - with a 5 chunk
+					//(160KB) in-flight window, 160KB/40ms is ~4MB/s, which was exactly the
+					//throughput ceiling being seen - independent of any TCP-level tuning.
+					fd_set waitFdSet;
+					FD_ZERO( &waitFdSet );
+					FD_SET( newClientSocket, &waitFdSet );
+					struct timeval selectTimeout;
+					selectTimeout.tv_sec = 2;	//2s stall timeout, matches the previous 50*Delay(2) budget
+					selectTimeout.tv_usec = 0;
+					int waitResult = WaitSelect( newClientSocket + 1, &waitFdSet, NULL, NULL, &selectTimeout, NULL );
+
+					//Did we time out waiting for the client?
+					if( waitResult <= 0 )
 					{
 						//So a timeout occurred.  Close the connection and cleanup
 						dbglog( "[child] There was a timeout on recieving file chunks from the client.  Terminating the conection.\n" );
@@ -1096,6 +1217,18 @@ static void clientThread()
 
 exit_child: ;
 
+	//If we are leaving because the whole server is shutting down, let the PC
+	//client know politely before we drop the socket.
+	if( !g_KeepServerRunning )
+	{
+		ProtocolMessageDisconnect_t disconnectMessage;
+		disconnectMessage.header.length = sizeof( disconnectMessage );
+		disconnectMessage.header.type = PMT_CLOSING;
+		disconnectMessage.header.token = MAGIC_TOKEN;
+		snprintf( disconnectMessage.message, sizeof( disconnectMessage.message ), "Server is shutting down." );
+		sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&disconnectMessage );
+	}
+
 	//Free the file send context
 	freeFileSendContext( fileSendContext );
 
@@ -1115,9 +1248,24 @@ exit_child: ;
 	dbglog( "[child] Freeing message buffer.\n" );
 	if( message ) FreeVec( message );
 
-	//Now close the socket because we are done here
+	//Now close the sockets because we are done here
+	if( newClientSocket >= 0 )
+	{
+		dbglog( "[child] Closing client connection socket.\n" );
+		CloseSocket( newClientSocket );
+	}
 	dbglog( "[child] Closing client thread for socket 0x%08x.\n", childServerSocket );
 	CloseSocket( childServerSocket );
+
+	//Close bsdsocket.library from this task.  Each client thread opens its OWN
+	//bsdsocket base; if it is never closed, the library's open count never returns
+	//to baseline and the TCP/IP stack cannot be shut down (which blocks WHDLoad).
+	if( SocketBase != NULL )
+	{
+		dbglog( "[child] Closing bsdsocket.library.\n" );
+		CloseLibrary( SocketBase );
+		SocketBase = NULL;
+	}
 
 	dbglog( "[child] Terminating.\n" );
 	return;

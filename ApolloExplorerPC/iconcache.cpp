@@ -8,7 +8,7 @@ static QStringList g_RamDiskPaths = { "ENVARC:sys/def_ram.info", "ENVARC:sys/def
 
 IconCache::IconCache(QObject *parent)
     : QObject{parent},
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_Cache( ),
     m_Connected( false ),
     m_DownloadInProgress( false ),

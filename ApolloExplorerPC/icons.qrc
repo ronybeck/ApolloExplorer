@@ -9,15 +9,16 @@
         <file>icons/Harddisk_Amiga.png</file>
         <file>icons/CommodoreHW.png</file>
         <file>icons/VampireHW.png</file>
-        <file>icons/FirebirdHW.png</file>
-        <file>icons/IcedrakeHW.png</file>
+        <file>icons/FireBirdHW.png</file>
+        <file>icons/IceDrakeHW.png</file>
+        <file>icons/MantiCoreHW.png</file>
+        <file>icons/UniCornHW.png</file>
         <file>icons/go-up.png</file>
         <file>icons/refresh.png</file>
         <file>icons/Apollo_Explorer_icon.png</file>
         <file>icons/Apollo_Explorer_24x24.ico</file>
         <file>icons/Apollo_Explorer_24x24.xpm</file>
         <file>icons/Apollo_Explorer_24x24.png</file>
-        <file>icons/ManticoreHW.png</file>
     </qresource>
     <qresource prefix="/"/>
 </RCC>

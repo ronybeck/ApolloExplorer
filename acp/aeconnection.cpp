@@ -51,6 +51,11 @@ AEConnection::~AEConnection()
 
 void AEConnection::onConnectToHostRequestedSlot(QHostAddress serverAddress, quint16 port )
 {
+    //Disable Nagle's algorithm.  File chunk headers/acks are small and latency-sensitive;
+    //leaving Nagle enabled interacts with the Amiga side's delayed ACKs and produces the
+    //multi-10ms transfer stalls this app has historically fought.
+    m_Socket.setSocketOption( QAbstractSocket::LowDelayOption, 1 );
+
     //Connect to the host
     m_Socket.connectToHost( serverAddress, port );
 
@@ -101,11 +106,16 @@ void AEConnection::onSendMessage(ProtocolMessage_t *message )
 
         //Update throughput statistics
         m_OutgoingByteCount += bytesSent;
-
-        //Wait until the bytes are written
-        m_Socket.flush();
-        m_Socket.waitForBytesWritten( 10000 );
     }
+
+    //Nudge the OS to start transmitting now rather than waiting for the event loop to
+    //get back around to it.  Note: we deliberately do NOT block here with
+    //waitForBytesWritten() any more - QTcpSocket::write() already queues the full
+    //message in its (unbounded) internal buffer, so that call was just forcing a
+    //synchronous round trip per message on top of whatever flow control the caller
+    //(e.g. the upload thread's in-flight chunk window) already provides, capping
+    //throughput at roughly one send-buffer-flush per message.
+    m_Socket.flush();
 }
 
 void AEConnection::onConnectedSlot()

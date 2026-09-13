@@ -14,6 +14,8 @@
 #include <QEventLoop>
 #include <QAbstractNativeEventFilter>
 #include <QMutexLocker>
+#include <QMetaType>
+#include <QRecursiveMutex>
 
 
 class RemoteFileMimeData : public QMimeData
@@ -23,7 +25,7 @@ public:
     RemoteFileMimeData();
     ~RemoteFileMimeData();
 
-    virtual QVariant retrieveData( const QString &mimeType, QVariant::Type type ) const override;
+    QVariant retrieveData( const QString &mimeType, QMetaType type ) const override;
     virtual bool hasFormat(const QString &mimeType) const override;
 
     void setAction( Qt::DropAction action );
@@ -41,7 +43,7 @@ signals:
     void dropHappenedSignal() const;
 
 private:
-    mutable QMutex m_Mutex;
+    mutable QRecursiveMutex m_Mutex;
     Qt::DropActions m_Action;
     QString m_TempFilePath;
     mutable QList<QUrl> m_LocalUrls;

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.5
+Type=Application
+Terminal=false
+Name=ApolloExplorer
+Exec=/opt/ApolloExplorer/bin/ApolloExplorer
+Comment=VnetPC
+Icon=/usr/share/pixmaps/ApolloExplorer.ico
+StartupNotify=false
+Encoding=UTF-8
+Categories=Network;FileTransfer

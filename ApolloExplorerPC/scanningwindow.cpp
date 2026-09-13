@@ -7,25 +7,26 @@
 
 static QPixmap getPixmap( QSharedPointer<AmigaHost> host )
 {
-    if( host->Hardware().contains( "V2", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V4", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V500", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V600", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V1200", Qt::CaseInsensitive ))
+    if( host->Hardware().contains( "V2-", Qt::CaseInsensitive ) ||
+        host->Hardware().contains( "V4-SA", Qt::CaseInsensitive ))
     {
         return QPixmap( ":/browser/icons/VampireHW.png" );
     }
-    else if( host->Hardware().contains( "FB", Qt::CaseInsensitive ) || host->Hardware().contains( "FB500", Qt::CaseInsensitive ))
+    else if( host->Hardware().contains( "V4-A6000", Qt::CaseInsensitive ))
     {
-        return QPixmap( ":/browser/icons/FirebirdHW.png" );
+        return QPixmap( ":/browser/icons/UniCornHW.png" );
     }
-    else if( host->Hardware().contains( "Icedrake", Qt::CaseInsensitive ))
+    else if( host->Hardware().contains( "V4-A500", Qt::CaseInsensitive ))
     {
-        return QPixmap( ":/browser/icons/IcedrakeHW.png" );
+        return QPixmap( ":/browser/icons/FireBirdHW.png" );
     }
-    else if( host->Hardware().contains( "Manticore", Qt::CaseInsensitive ))
+    else if( host->Hardware().contains( "V4-A600", Qt::CaseInsensitive ))
     {
-        return QPixmap( ":/browser/icons/ManticoreHW.png" );
+        return QPixmap( ":/browser/icons/MantiCoreHW.png" );
+    }
+    else if( host->Hardware().contains( "V4-A1200", Qt::CaseInsensitive ))
+    {
+        return QPixmap( ":/browser/icons/IceDrakeHW.png" );
     }
 
     return QPixmap( ":/browser/icons/CommodoreHW.png" );
@@ -98,14 +99,14 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     m_Settings->endGroup();
 
     //Show the "Whats New" dialog
-    m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
-    QString seenWhatsNewVersion = m_Settings->value( SETTINGS_SEEN_WHATS_NEW_VERSION, "" ).toString();
-    if( seenWhatsNewVersion != QString( VERSION_STRING ) )
-    {
-        m_DialogWhatsnew.show();
-        m_Settings->setValue( SETTINGS_SEEN_WHATS_NEW_VERSION, VERSION_STRING );
-    }
-    m_Settings->endGroup();
+    //m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
+    //QString seenWhatsNewVersion = m_Settings->value( SETTINGS_SEEN_WHATS_NEW_VERSION, "" ).toString();
+    //if( seenWhatsNewVersion != QString( VERSION_STRING ) )
+    //{
+    //    m_DialogWhatsnew.show();
+    //    m_Settings->setValue( SETTINGS_SEEN_WHATS_NEW_VERSION, VERSION_STRING );
+    //}
+    //m_Settings->endGroup();
 }
 
 ScanningWindow::~ScanningWindow()

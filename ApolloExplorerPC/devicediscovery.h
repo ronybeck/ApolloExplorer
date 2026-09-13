@@ -5,6 +5,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 #include <QSharedPointer>
 #include <QHostAddress>
 #include <QSettings>
@@ -31,7 +32,7 @@ private:
     QTimer m_ScanTimer;
     QUdpSocket m_Socket;
     QMap<QString, QSharedPointer<AmigaHost>> m_HostList;
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QSharedPointer<QSettings> m_Settings;
 };
 

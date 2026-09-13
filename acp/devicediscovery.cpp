@@ -13,7 +13,7 @@ DeviceDiscovery::DeviceDiscovery(QSharedPointer<QSettings> settings, QObject *pa
     m_ScanTimer( ),
     m_Socket( ),
     m_HostList( ),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex( QRecursiveMutex() ),
     m_Settings( settings )
 {
     //Signal SLots
@@ -21,7 +21,7 @@ DeviceDiscovery::DeviceDiscovery(QSharedPointer<QSettings> settings, QObject *pa
     connect( &m_Socket, &QUdpSocket::readyRead, this, &DeviceDiscovery::onSocketReadReadySlot );
 
     //Setup the socket
-    m_Socket.bind( QHostAddress::AnyIPv4, BROADCAST_PORTNUMBER, QUdpSocket::BindMode::enum_type::ReuseAddressHint );
+    m_Socket.bind( QHostAddress::AnyIPv4, BROADCAST_PORTNUMBER, QUdpSocket::ReuseAddressHint );
     m_Socket.open( QIODevice::ReadWrite );
 
     //Setup the timer

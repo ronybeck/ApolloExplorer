@@ -11,7 +11,7 @@
 
 RemoteFileTableModel::RemoteFileTableModel(  QSharedPointer<DirectoryListing> directoryListing, QObject *parent)
     : QAbstractTableModel{parent},
-      m_Mutex( new QMutex( QMutex::Recursive ) ),
+      m_Mutex( new QRecursiveMutex() ),
       m_HeaderNames( ),
       m_DirectoryListing(),
       m_FileList( ),

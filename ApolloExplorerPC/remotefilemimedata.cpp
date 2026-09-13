@@ -15,7 +15,7 @@
 
 
 RemoteFileMimeData::RemoteFileMimeData() :
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_Action( Qt::IgnoreAction ),
     m_TempFilePath( QDir::tempPath() + "/ApolloExplorer/" ),
     m_LocalUrls( ),
@@ -34,9 +34,9 @@ RemoteFileMimeData::~RemoteFileMimeData()
     DBGLOG << "Destroying";
 }
 
-QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QVariant::Type type) const
+QVariant RemoteFileMimeData::retrieveData(const QString &mimeType, QMetaType type) const
 {
-    DBGLOG << "Requested QVariant mime type : " << mimeType << " of QVariant type: " << type;
+    DBGLOG << "Requested QVariant mime type : " << mimeType << " of QMetaType: " << type.name();
 
     //First, check that we are ready to do the drop
     if( m_Action != Qt::MoveAction )

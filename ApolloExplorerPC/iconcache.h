@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QMap>
 #include <QSharedPointer>
-#include <QMutex>
+#include <QRecursiveMutex>
 
 #include "../AmigaIconReader/AmigaInfoFile.h"
 #include "iconthread.h"
@@ -46,7 +46,7 @@ signals:
     void getIconSignal( QString filePath );
 
 private:
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QMap<QString,QSharedPointer<AmigaInfoFile>> m_Cache;
     QStringList m_DownloadList;
     bool m_Connected;

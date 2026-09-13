@@ -10,8 +10,20 @@
 #include "bitgetter.h"
 
 
-static inline quint32 getULONGFromBuffer( QByteArray someBuffer, quint64 &someOffset )
+static inline bool canReadBytes( const QByteArray& someBuffer, quint64 someOffset, quint64 numberOfBytes )
 {
+    const quint64 bufferSize = static_cast<quint64>( someBuffer.size() );
+    return someOffset <= bufferSize && numberOfBytes <= bufferSize - someOffset;
+}
+
+static inline quint32 getULONGFromBuffer( const QByteArray& someBuffer, quint64 &someOffset )
+{
+    if( !canReadBytes( someBuffer, someOffset, 4 ) )
+    {
+        someOffset = static_cast<quint64>( someBuffer.size() );
+        return 0;
+    }
+
     quint32 val;
     memcpy( &val, someBuffer.constData() + someOffset, 4 );
     val = qFromBigEndian( val );
@@ -19,8 +31,14 @@ static inline quint32 getULONGFromBuffer( QByteArray someBuffer, quint64 &someOf
     return val;
 }
 
-static inline quint16 getUWORDFromBuffer( QByteArray someBuffer, quint64 &someOffset )
+static inline quint16 getUWORDFromBuffer( const QByteArray& someBuffer, quint64 &someOffset )
 {
+    if( !canReadBytes( someBuffer, someOffset, 2 ) )
+    {
+        someOffset = static_cast<quint64>( someBuffer.size() );
+        return 0;
+    }
+
     quint16 val;
     memcpy( &val, someBuffer.constData() + someOffset, 2 );
     val = qFromBigEndian( val );
@@ -29,26 +47,45 @@ static inline quint16 getUWORDFromBuffer( QByteArray someBuffer, quint64 &someOf
 }
 
 
-static inline quint8 getUBYTEFromBuffer( QByteArray someBuffer, quint64 &someOffset )
+static inline quint8 getUBYTEFromBuffer( const QByteArray& someBuffer, quint64 &someOffset )
 {
-    quint8 val;
-    memcpy( &val, someBuffer.constData() + someOffset, 1 );
+    if( !canReadBytes( someBuffer, someOffset, 1 ) )
+    {
+        someOffset = static_cast<quint64>( someBuffer.size() );
+        return 0;
+    }
+
+    const quint8 val = static_cast<quint8>( someBuffer.constData()[someOffset] );
     someOffset+=1;
     return val;
 }
 
 
-static inline void getStringFromBuffer( QByteArray someBuffer, quint64 &someOffset, char *dstBuffer, const quint64 dstBufferSize )
+static inline void getStringFromBuffer( const QByteArray& someBuffer, quint64 &someOffset, char *dstBuffer, const quint64 dstBufferSize )
 {
-    memcpy( dstBuffer, someBuffer.constData() + someOffset, dstBufferSize );
-    someOffset+=dstBufferSize;
+    memset( dstBuffer, 0, dstBufferSize );
+    const quint64 bufferSize = static_cast<quint64>( someBuffer.size() );
+    const quint64 availableBytes = someOffset < bufferSize ? bufferSize - someOffset : 0;
+    const quint64 bytesToCopy = qMin( dstBufferSize, availableBytes );
+    if( bytesToCopy > 0 )
+    {
+        memcpy( dstBuffer, someBuffer.constData() + someOffset, bytesToCopy );
+    }
+    someOffset += bytesToCopy;
 }
 
 
-static inline QByteArray extractByteArray( QByteArray someBuffer, quint64 &someOffset, const quint64 numberOfBytes )
+static inline QByteArray extractByteArray( const QByteArray& someBuffer, quint64 &someOffset, const quint64 numberOfBytes )
 {
-    QByteArray extractedData( someBuffer.constData() + someOffset, numberOfBytes );
-    someOffset+=numberOfBytes;
+    const quint64 bufferSize = static_cast<quint64>( someBuffer.size() );
+    const quint64 availableBytes = someOffset < bufferSize ? bufferSize - someOffset : 0;
+    const quint64 bytesToCopy = qMin( numberOfBytes, availableBytes );
+    QByteArray extractedData;
+    if( bytesToCopy > 0 )
+    {
+        extractedData = QByteArray( someBuffer.constData() + someOffset, bytesToCopy );
+    }
+    someOffset += bytesToCopy;
     return extractedData;
 }
 
@@ -59,7 +96,7 @@ static inline void putUBYTEInBuffer( QByteArray &someBuffer, quint64 &someOffset
     someOffset++;
 }
 
-static inline void putByteArrayInBuffer( QByteArray &someBuffer, quint64 &someOffset, const QByteArray sourceBytes )
+static inline void putByteArrayInBuffer( QByteArray &someBuffer, quint64 &someOffset, const QByteArray& sourceBytes )
 {
     someBuffer.append( sourceBytes );
     someOffset += sourceBytes.size();
@@ -150,9 +187,10 @@ bool AmigaInfoFile::loadFile(QString path)
     return process( buffer );
 }
 
-static bool isPNGIcon( QByteArray data )
+static bool isPNGIcon( const QByteArray& data )
 {
     //PNG Files start with hex code 89 followed by 'PNG'
+    if( data.size() < 4 ) return false;
     if( data.constData()[ 1 ] != 'P' )  return false;
     if( data.constData()[ 2 ] != 'N' )  return false;
     if( data.constData()[ 3 ] != 'G' )  return false;
@@ -640,8 +678,6 @@ void AmigaInfoFile::decodeOS35Icon(QByteArray data, quint64 &offset, QByteArray 
         quint8 nextPixel = 0;
         BitGetter bitGetter( imageData );
         quint64 uncompressedImageSize = width * height;
-        quint32 debugHeight = 0;
-        quint32 debugWidth = 0;
 
         while( uncompressedImageDataOffset < uncompressedImageSize  )
         {
@@ -674,10 +710,6 @@ void AmigaInfoFile::decodeOS35Icon(QByteArray data, quint64 &offset, QByteArray 
                     putUBYTEInBuffer( uncompressedData, uncompressedImageDataOffset, nextPixel );
                 }
             }
-
-            //Debug
-            debugHeight = uncompressedImageDataOffset / width;
-            debugWidth = uncompressedImageDataOffset % width;
         }
 
         //Now do the bitplanar to chunky conversion

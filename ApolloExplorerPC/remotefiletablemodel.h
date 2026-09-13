@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QVector>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 #include <QSharedPointer>
 #include <QSettings>
 
@@ -50,7 +51,7 @@ signals:
     void modelUpdatedSignal();
 
 private:
-    QMutex *m_Mutex;
+    QRecursiveMutex *m_Mutex;
     QStringList m_HeaderNames;
     QSharedPointer<DirectoryListing> m_DirectoryListing;
     QVector<QSharedPointer<DirectoryListing>> m_FileList;

@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"amiga gcc: $?\")",
+      "Bash(echo \"qmake: $?\")",
+      "Bash(qmake ApolloExplorerPC.pro -o /tmp/ae_build/Makefile)",
+      "Read(//private/tmp/ae_build/**)",
+      "Bash(make -j8)",
+      "Bash(ls -la /tmp/ae_build/aeconnection.o /tmp/ae_build/uploadthread.o 2>&1)",
+      "Bash(rm -rf /tmp/ae_build *)",
+      "Bash(qmake acp.pro -o /tmp/acp_build/Makefile)",
+      "Read(//tmp/**)",
+      "Bash(rm -rf /tmp/acp_build *)",
+      "Read(//Users/willemdrijver/ApolloCrossDev/Compilers/**)",
+      "Read(//Users/willemdrijver/**)",
+      "Bash(find / -maxdepth 6 -iname \"m68k-amigaos-gcc*\")",
+      "Bash(ls -la \"/Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/bin/\" 2>&1 | head -20)",
+      "Read(//Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/bin/**)",
+      "Bash(make clean *)",
+      "Bash(make all *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(cd /Users/willemdrijver/ApolloExplorer/ApolloExplorerPC && grep -n \"TRANSLATIONS\\\\|lrelease\\\\|CONFIG\" ApolloExplorerPC.pro *)",
+      "Read(//usr/local/Qt-6.11.1/bin/**)",
+      "Bash(qmake -recursive)",
+      "Bash(grep -rn \"SetFileSize\\\\|OFFSET_BEGINNING\" /Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/m68k-amigaos/ndk32-include/Include_H/proto/dos.h /Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/m68k-amigaos/ndk32-include/Include_H/clib/dos_protos.h /Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/m68k-amigaos/ndk32-include/Include_H/dos/dos.h 2>/dev/null)",
+      "Read(//Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/m68k-amigaos/ndk32-include/Include_H/proto/**)",
+      "Read(//Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/m68k-amigaos/**)",
+      "Read(//Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/**)",
+      "Bash(rm -f /tmp/ReceiveFile_test.o)",
+      "Read(//Users/willemdrijver/ApolloCrossDev/Compilers/GCC-6.50-Stable/m68k-amigaos/sys-include/sys/**)",
+      "Bash(xargs -I{} sh -c 'echo {}; grep -A5 \"struct timeval\" {}')",
+      "Bash(rm -f /tmp/AEClientThread_test.o)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp/ae_build",
+      "/private/tmp/acp_build"
+    ]
+  }
+}

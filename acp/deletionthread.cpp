@@ -1,6 +1,6 @@
 #include "deletionthread.h"
 
-#include <QApplication>
+#include <QCoreApplication>
 
 #define LOCK QMutexLocker locker( &m_Mutex )
 #define UNLOCK locker.unlock()
@@ -11,7 +11,7 @@
 
 DeletionThread::DeletionThread(QObject *parent)
     : QThread{parent},
-      m_Mutex( QMutex::Recursive ),
+      m_Mutex( QRecursiveMutex() ),
       m_TimeoutTimer( nullptr ),
       m_RecursiveDeleteActive( false )
 {
@@ -50,7 +50,7 @@ void DeletionThread::run()
         }
 
         //Event pump
-        QApplication::processEvents();
+        QCoreApplication::processEvents();
 
         //Sleep
         QThread::yieldCurrentThread();

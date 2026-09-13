@@ -11,7 +11,7 @@
 
 DeletionThread::DeletionThread(QObject *parent)
     : QThread{parent},
-      m_Mutex( QMutex::Recursive ),
+      m_Mutex(),
       m_TimeoutTimer( nullptr ),
       m_RecursiveDeleteActive( false )
 {

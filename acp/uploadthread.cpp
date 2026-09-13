@@ -1,9 +1,7 @@
 #include "uploadthread.h"
 #include <QDebug>
 #include <QtEndian>
-#include <QApplication>
-#include <QMessageBox>
-
+#include <QCoreApplication>
 #define DEBUG 0
 #include "AEUtils.h"
 
@@ -13,7 +11,7 @@
 
 UploadThread::UploadThread(QObject *parent) :
     QThread(parent),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex( QRecursiveMutex() ),
     m_ThroughPutTimer( nullptr ),
     m_UploadTimeoutTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
@@ -82,7 +80,7 @@ void UploadThread::run()
     while( m_Keeprunning )
     {
         //Process events
-        QApplication::processEvents();
+        QCoreApplication::processEvents();
 
         //Nothing to send yet?  Just loop around until there is
         RELOCK;
@@ -100,9 +98,6 @@ void UploadThread::run()
 
         while( m_CurrentChunk < m_FileChunks && m_JobType == JT_UPLOAD )
         {
-            QThread::yieldCurrentThread();
-            QThread::msleep( 5 );
-
             RELOCK;
             //Check again that an interruption isn't requested
             if( this->isInterruptionRequested() )
@@ -162,11 +157,19 @@ void UploadThread::run()
             }else
             {
                 UNLOCK;
+
+                //The in-flight window is full - only now is it worth yielding/sleeping,
+                //since we're genuinely waiting on acks rather than free to send more.
+                //Sleeping unconditionally on every iteration (as this used to do) capped
+                //submission at 1 chunk / 5ms regardless of window state, i.e. ~6.4MB/s
+                //for 32KB chunks, well below what the link can do.
+                QThread::yieldCurrentThread();
+                QThread::msleep( 5 );
             }
 
 
             //Process events
-            QApplication::processEvents();
+            QCoreApplication::processEvents();
         }
 
         //Cleanup
@@ -334,7 +337,7 @@ void UploadThread::onFileChunkReceivedSlot(quint32 chunkNumber)
     //DBGLOG << "Inflight chunk count: " << m_InflightChunks.count();
     if( m_InflightChunks.contains( chunkNumber ) )
     {
-        m_InflightChunks.removeOne( chunkNumber );
+        m_InflightChunks.removeAll( chunkNumber );
     }
     emit startUploadTimeoutTimerSignal();  //Reset timer
 }

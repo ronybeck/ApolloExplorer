@@ -1,93 +1,67 @@
 #include <QtTest>
 
-// add necessary includes here
 #include "directorylisting.h"
 
 class DirectoryListing_SetPath : public QObject
 {
     Q_OBJECT
 
-public:
-    DirectoryListing_SetPath();
-    ~DirectoryListing_SetPath();
-
 private slots:
-    void initTestCase();
-    void cleanupTestCase();
-    void test_case1();
-    void test_case2();
-    void test_case3();
-    void test_case4();
-    void test_case5();
+    void driveDirectoryPath();
+    void driveRootPath();
+    void nestedDirectoryPath();
+    void setNameReformsPath();
+    void setParentReformsPath();
 
 };
 
-DirectoryListing_SetPath::DirectoryListing_SetPath()
-{
-
-}
-
-DirectoryListing_SetPath::~DirectoryListing_SetPath()
-{
-
-}
-
-void DirectoryListing_SetPath::initTestCase()
-{
-
-}
-
-void DirectoryListing_SetPath::cleanupTestCase()
-{
-
-}
-
-void DirectoryListing_SetPath::test_case1()
+void DirectoryListing_SetPath::driveDirectoryPath()
 {
     DirectoryListing listing;
-    listing.setPath( "test:dir" );
-    QVERIFY( listing.Path() == "test:dir" );
-    QVERIFY( listing.Parent() == "test:" );
-    QVERIFY( listing.Name() == "dir" );
+    listing.setPath(QStringLiteral("test:dir"));
+    QCOMPARE(listing.Path(), QStringLiteral("test:dir"));
+    QCOMPARE(listing.Parent(), QStringLiteral("test:"));
+    QCOMPARE(listing.Name(), QStringLiteral("dir"));
 }
 
-void DirectoryListing_SetPath::test_case2()
+void DirectoryListing_SetPath::driveRootPath()
 {
     DirectoryListing listing;
-    listing.setPath( "test" );
-    QVERIFY( listing.Path() == "test:" );
-    QVERIFY( listing.Parent() == "" );
-    QVERIFY( listing.Name() == "test" );
+    listing.setPath(QStringLiteral("test"));
+    QCOMPARE(listing.Path(), QStringLiteral("test:"));
+    QCOMPARE(listing.Parent(), QString());
+    QCOMPARE(listing.Name(), QStringLiteral("test"));
 }
 
-void DirectoryListing_SetPath::test_case3()
+void DirectoryListing_SetPath::nestedDirectoryPath()
 {
     DirectoryListing listing;
-    listing.setPath( "test:dir1/dir2/" );
-    QVERIFY( listing.Path() == "test:dir1/dir2" );
-    QVERIFY( listing.Parent() == "test:dir1/" );
-    QVERIFY( listing.Name() == "dir2" );
+    listing.setPath(QStringLiteral("test:dir1/dir2/"));
+    QCOMPARE(listing.Path(), QStringLiteral("test:dir1/dir2"));
+    QCOMPARE(listing.Parent(), QStringLiteral("test:dir1/"));
+    QCOMPARE(listing.Name(), QStringLiteral("dir2"));
 }
 
-void DirectoryListing_SetPath::test_case4()
+void DirectoryListing_SetPath::setNameReformsPath()
 {
     DirectoryListing listing;
-    listing.setPath( "test:dir1/dir2/" );
-    listing.setName( "newName" );
-    QVERIFY( listing.Path() == "test:dir1/newName" );
-    QVERIFY( listing.Parent() == "test:dir1/" );
-    QVERIFY( listing.Name() == "newName" );
+    listing.setPath(QStringLiteral("test:dir1/dir2/"));
+    listing.setName(QStringLiteral("newName"));
+    QCOMPARE(listing.Path(), QStringLiteral("test:dir1/newName"));
+    QCOMPARE(listing.Parent(), QStringLiteral("test:dir1/"));
+    QCOMPARE(listing.Name(), QStringLiteral("newName"));
 }
 
-void DirectoryListing_SetPath::test_case5()
+void DirectoryListing_SetPath::setParentReformsPath()
 {
     DirectoryListing listing;
-    listing.setPath("test:dir1/dir2/" );
-    listing.setParent( "new:other" );
-    QVERIFY( listing.Path() == "new:other/dir2" );
-    QVERIFY( listing.Parent() == "new:other/" );
-    QVERIFY( listing.Name() == "dir2" );
+    listing.setPath(QStringLiteral("test:dir1/dir2/"));
+    listing.setParent(QStringLiteral("new:other"));
+    QCOMPARE(listing.Path(), QStringLiteral("new:other/dir2"));
+    QCOMPARE(listing.Parent(), QStringLiteral("new:other/"));
+    QCOMPARE(listing.Name(), QStringLiteral("dir2"));
 }
+
 QTEST_APPLESS_MAIN(DirectoryListing_SetPath)
 
 #include "tst_directorylisting_setpath.moc"

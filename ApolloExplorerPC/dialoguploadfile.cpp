@@ -300,7 +300,11 @@ void DialogUploadFile::onStartNextDirectoryCreationSlot()
 
 void DialogUploadFile::onDirectoryCreateFailedSlot( QString message )
 {
-    QMessageBox errorBox( "Error Creating directory", "We failed to create the directory " + m_CurrentRemoteFilePath + "\n" + message + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+    QMessageBox errorBox( QMessageBox::Critical,
+                          QStringLiteral( "Error Creating directory" ),
+                          QStringLiteral( "We failed to create the directory " ) + m_CurrentRemoteFilePath + QLatin1Char( '\n' ) + message + QStringLiteral( ".  Upload aborted." ),
+                          QMessageBox::Ok,
+                          this );
     errorBox.exec();
     resetDialog();
     cleanup();
@@ -321,7 +325,11 @@ void DialogUploadFile::onAbortedSlot( QString reason )
     //Q_UNUSED( reason );
     //m_UploadRetryList.append( QPair<QString,QString>(m_CurrentLocalFilePath,m_CurrentRemoteFilePath) );
     //onStartNextFileUploadSlot();
-    QMessageBox errorBox( "Error Uploading file", "We failed upload the file " + m_CurrentRemoteFilePath + "\n" + reason + ".  Upload aborted.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+    QMessageBox errorBox( QMessageBox::Critical,
+                          QStringLiteral( "Error Uploading file" ),
+                          QStringLiteral( "We failed upload the file " ) + m_CurrentRemoteFilePath + QLatin1Char( '\n' ) + reason + QStringLiteral( ".  Upload aborted." ),
+                          QMessageBox::Ok,
+                          this );
     errorBox.exec();
     resetDialog();
     cleanup();

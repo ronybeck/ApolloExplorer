@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QPixmap>
 #include <QSharedDataPointer>
+#include <QSharedPointer>
+#include <QVector>
 
 #include "protocolTypes.h"
 #include "../AmigaIconReader/AmigaInfoFile.h"

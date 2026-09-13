@@ -12,7 +12,7 @@
 #include <stdio.h>
 #define dbglog( format, ... ) printf( format, ##__VA_ARGS__ );
 #else
-#define dbglog( format, ... )  //printf( format, ##__VA_ARGS__ );
+#define dbglog( format, ... )
 #endif
 
 //The following BPCL macros are from the AROS project.

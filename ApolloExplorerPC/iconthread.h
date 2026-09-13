@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QThread>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 #include <QWaitCondition>
 #include <QFile>
 #include <QTimer>
@@ -82,7 +83,7 @@ signals:
 
 
 private:
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QTimer *m_OperationTimer;
     ProtocolHandler *m_ProtocolHandler;
     QSharedPointer<DirectoryListing> m_DirectoryListing;

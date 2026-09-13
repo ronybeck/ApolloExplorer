@@ -14,7 +14,7 @@
 
 DownloadThread::DownloadThread(QObject *parent) :
     QThread(parent),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_ThroughPutTimer( nullptr ),
     m_OperationTimer( nullptr ),
     m_ProtocolHandler( nullptr ),

@@ -7,6 +7,8 @@
 #include <QDrag>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
+#include <QMouseEvent>
+#include <QWidget>
 #include <QMimeData>
 #include <QFileInfo>
 #include <QHeaderView>
@@ -28,7 +30,6 @@ class ItemStyleDelegate : public QStyledItemDelegate {
     const QAbstractItemModel* model = index.model();
     QString Text = model->data(index, Qt::DisplayRole).toString();
     QRect neededsize = fm.boundingRect( option.rect, Qt::TextWordWrap,Text );
-    QRect iconSize = model->data(index, Qt::DecorationRole ).toRect();
     return QSize(option.rect.width(), neededsize.height());
   }
 };
@@ -96,7 +97,7 @@ void RemoteFileListView::dropEvent( QDropEvent *e )
     QSharedPointer<DirectoryListing> destinationListing = model->getRootDirectoryListing();
 
     //Check what files lay beneath the mouse
-    QModelIndex index = this->indexAt( e->pos() );
+    QModelIndex index = this->indexAt( e->position().toPoint() );
     if( index.isValid() )
     {
         //Check if this is a file or a directory
@@ -139,7 +140,7 @@ void RemoteFileListView::dragMoveEvent(QDragMoveEvent *e)
     QSharedPointer<DirectoryListing> destinationListing = model->getRootDirectoryListing();
 
     //Check what files lay beneath the mouse
-    QModelIndex index = this->indexAt( e->pos() );
+    QModelIndex index = this->indexAt( e->position().toPoint() );
     if( index.isValid() )
     {
         //Check if this is a file or a directory
@@ -396,8 +397,18 @@ void RemoteFileListView::dropTimerTimeoutSlot()
         QDragRemote *drag = new QDragRemote( this );
         drag->setMimeData( mimeData );
         drag->exec( Qt::MoveAction );
-        QMouseEvent *mEvnRelease = new QMouseEvent(QEvent::MouseButtonRelease, QCursor::pos(), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
-        QCoreApplication::sendEvent( this->parent() ,mEvnRelease);
+        if ( QWidget *parentWidget = qobject_cast<QWidget *>( this->parent() ) )
+        {
+            const QPoint globalPos = QCursor::pos();
+            QMouseEvent *mEvnRelease = new QMouseEvent(
+                QEvent::MouseButtonRelease,
+                QPointF( parentWidget->mapFromGlobal( globalPos ) ),
+                QPointF( globalPos ),
+                Qt::LeftButton,
+                Qt::LeftButton,
+                Qt::NoModifier );
+            QCoreApplication::sendEvent( parentWidget, mEvnRelease );
+        }
         DBGLOG <<"Currentl drag queue is: " << m_QDragList.size();
     }
 }

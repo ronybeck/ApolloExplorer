@@ -6,6 +6,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
+#include <QMutex>
 #include <QThread>
 #include <QWaitCondition>
 #include <QAtomicInteger>
@@ -81,7 +83,7 @@ private:
     Ui::DialogDownloadFile *ui;
     DownloadThread m_DownloadThread;
     QList<QPair<QString, QString>> m_DownloadList;
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QMutex m_DownloadCompletionMutex;
     QWaitCondition m_DownloadCompletionWaitCondition;
     QStringList m_FilesToOpen;      //Which files are to be opened when the download is completed

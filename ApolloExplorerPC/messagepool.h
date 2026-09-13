@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
+#include <QMutex>
 #include <QWaitCondition>
 #include <QVector>
 
@@ -23,7 +25,7 @@ private:
     ~MessagePool();
 
 private:
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QMutex m_WaitMutex;
     QWaitCondition m_WaitCondition;
     QVector<ProtocolMessage_t*> m_FreeList;

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QThread>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 #include <QWaitCondition>
 #include <QFile>
 #include <QTimer>
@@ -69,7 +70,7 @@ private:
 
 signals:
     void uploadCompletedSignal();
-    void uploadFailedSignal( UploadFailureType failure );
+    void uploadFailedSignal( UploadThread::UploadFailureType failure );
     void uploadProgressSignal( quint8 percentPercent, quint64 progressBytes, quint64 thoughput );
     void outgoingBytesSignal( quint32 bytesSent );
     void disconnectedFromServerSignal();
@@ -91,7 +92,7 @@ signals:
     void stopUploadTimeoutTimerSignal();
 
 private:
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QTimer *m_ThroughPutTimer;
     QTimer *m_UploadTimeoutTimer;
     ProtocolHandler *m_ProtocolHandler;

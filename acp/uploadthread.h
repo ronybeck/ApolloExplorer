@@ -91,7 +91,7 @@ signals:
     void stopUploadTimeoutTimerSignal();
 
 private:
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QTimer *m_ThroughPutTimer;
     QTimer *m_UploadTimeoutTimer;
     ProtocolHandler *m_ProtocolHandler;

@@ -5,7 +5,7 @@
  *      Author: rony
  */
 #include <stdio.h>
-#define DBGOUT 1
+#define DBGOUT 0
 #include "protocol.h"
 #include "AEUtil.h"
 #include "AETypes.h"

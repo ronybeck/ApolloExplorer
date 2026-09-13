@@ -27,6 +27,7 @@ void removeClientThreadFromList( ClientThread_t *client );
 ClientThread_t *getClientThreadList();
 void initialiseClientThreadList();
 void freeClientThreadList( ClientThread_t *list );
+void destroyClientThreadList();
 void lockClientThreadList();
 void unlockClientThreadList();
 UBYTE getClientListSize();

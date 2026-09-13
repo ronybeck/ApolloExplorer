@@ -5,7 +5,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <iostream>
 #include <stdlib.h>
 #if __linux__ || __APPLE__
@@ -189,8 +189,7 @@ bool FileDownloader::startDownload()
     }
 
     //Setup the regex for wildcard matching
-    QRegExp wildcardExp( m_FileMatchPattern );
-    wildcardExp.setPatternSyntax( QRegExp::Wildcard );
+    QRegularExpression wildcardExp = QRegularExpression::fromWildcard( m_FileMatchPattern );
 
     //Add all the files we have to the list
     for( auto entry: listing->Entries() )
@@ -199,7 +198,7 @@ bool FileDownloader::startDownload()
 
         if( m_FileMatchPattern.length() )
         {
-            if( !wildcardExp.exactMatch( entry->Name() ) )
+            if( !wildcardExp.match( entry->Name() ).hasMatch() )
             {
                 DBGLOG << "File " << entry->Path() << " doesn't match pattern " << m_FileMatchPattern;
                 continue;

@@ -5,12 +5,12 @@
 
 //Linux specific stuff
 #if __linux__
-#include <QX11Info>
 extern "C"
 {
 #include <linux/input.h>
 #include <fcntl.h>
 #include <X11/Xlib.h>
+#include <xcb/xcb.h>
 #undef Bool
 }
 #endif
@@ -20,7 +20,7 @@ MouseEventFilter::MouseEventFilter() :
 {
 }
 
-bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *result )
+bool MouseEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result )
 {
 #if __linux__
 #define MOUSE_BUTTON_MASK_1 0x0001

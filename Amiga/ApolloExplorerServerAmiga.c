@@ -1,6 +1,7 @@
-#define DBGOUT 1
+#define DBGOUT 0
 
 #include <sys/types.h>
+#include <dos/dos.h>            /* SIGBREAKF_CTRL_C */
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
 #include <clib/wb_protos.h>
@@ -26,50 +27,97 @@ struct Library *SocketBase = NULL;
 
 char g_KeepServerRunning = 1;
 
+/* Number of spawned child processes (client threads + discovery thread) that are
+ * currently alive.  The master must not return from main() — which lets the CLI
+ * unload our seglist — until this reaches 0, otherwise children still executing
+ * code in that seglist crash/hang.  Incremented by the master when a child is
+ * spawned, decremented by the child itself as its very last act. */
+volatile LONG g_ActiveThreadCount = 0;
+
 char* g_MessagePortName __attribute((aligned(4))) = MASTER_MSGPORT_NAME;
 struct MsgPort *g_AEServerMessagePort = NULL;
 char g_ShowWBIcon = 1;
+char g_UseArgsName = 0;
+char g_ArgsName[32] = { 0 };
 
 /*****************************************************************************/
 
-#define ARGS_TEMPLATE "NOICON/s"
+/*
+ * Wait for ONE specific message to come back on 'replyPort', for at most
+ * 'timeoutTicks' (1 tick = 1/50 s).  Returns TRUE if the expected ack arrived,
+ * FALSE on timeout.  'replyPort' MUST be a private port dedicated to the
+ * handshake so no unrelated command can be mistaken for the ack.
+ */
+static BOOL waitForAck( struct MsgPort *replyPort, struct Message *expected, ULONG timeoutTicks )
+{
+	while( timeoutTicks > 0 )
+	{
+		struct Message *m = GetMsg( replyPort );
+		if( m != NULL )
+		{
+			if( m == expected )
+				return TRUE;					//Our ack: done
+			if( m->mn_ReplyPort != NULL && m->mn_Node.ln_Type == NT_MESSAGE )
+				ReplyMsg( m );					//Someone else's: don't strand them
+			continue;
+		}
+		Delay( 1 );							//20 ms
+		timeoutTicks--;
+	}
+	return FALSE;							//Timed out
+}
+
+/*****************************************************************************/
+
+#define ARGS_TEMPLATE "NAME/K,NOICON/s"
 BOOL readArguments( )
 {
 	LONG result[2] = { 0, 0 };
-
+	struct RDArgs *rdargs;
+	
 	//Get the string supplied at execution
 	STRPTR cmdLineArgs = GetArgStr();
 	if( cmdLineArgs == NULL )
 	{
-		printf( "Failed to get the command line arguments.\n" );
+		dbglog( "No command line arguments found.\n" );
 		return FALSE;
 	}
 
 	//Parse the command line arguments
-	if ( ReadArgs(ARGS_TEMPLATE, result, NULL) == NULL )
+	if (rdargs = (struct RDArgs *)ReadArgs(ARGS_TEMPLATE, result, NULL))
+	{
+		//Get the arguments we need
+		if( result[0] )
+		{
+			dbglog( "Read Name [%s] from command line arguments.\n", (char*)result[ 0 ]);
+			g_UseArgsName = 1;
+			strcpy( g_ArgsName, (char*)result[ 0 ] );
+		}
+		if( (BOOL)result[1] )
+		{
+			dbglog( "Disabling workbench icon.\n");
+			g_ShowWBIcon = 0;
+		}
+		return TRUE;
+	}
+	else
 	{
 		printf( "Failed to read command line arguments.\n" );
 		return FALSE;
 	}
 
-	//Get the arguments we need
-	if( (BOOL)result[ 0 ] )
-	{
-		dbglog( "Disabling workbench icon.\n");
-		g_ShowWBIcon = 0;
-		return TRUE;
-	}
+	FreeArgs(rdargs);
 
 	return TRUE;
 }
 
 int main(int argc, char *argv[])
 {
-	dbglog( "starting ApolloExplorer.\n" );
+	dbglog( "starting ApolloExplorer Version: %s\n", VERSION_STRING );
 
 	struct sockaddr_in addr __attribute__((aligned(4)));
 	//SOCKET s = 0;
-	SOCKET serverSocket __attribute__((aligned(4))) = 0;
+	SOCKET serverSocket __attribute__((aligned(4))) = -1;
 	int res = 0;
 
 	//We want to do at least a few attempts to start this
@@ -225,6 +273,15 @@ int main(int argc, char *argv[])
 		//We don't want 100% CPU usage
 		Delay( 5 );
 
+		//Last-resort exit: allow CTRL-C / Break <task> to bring the server down
+		//cleanly even if no client/Tool is able to talk to us.
+		if( CheckSignal( SIGBREAKF_CTRL_C ) )
+		{
+			dbglog( "[master] CTRL-C received, shutting down.\n" );
+			g_KeepServerRunning = 0;
+			break;
+		}
+
 		//dbglog("Awaiting new connection\n");
 		FD_ZERO( &networkReadSet );
 		FD_SET( serverSocket, &networkReadSet );
@@ -266,72 +323,17 @@ int main(int argc, char *argv[])
 				if( appIcon != NULL ) RemoveAppIcon( appIcon );
 				appIcon = NULL;
 
-				//Kill the discovery thread
-				Forbid();
-				struct MsgPort *discoveryMsgPort = FindPort( DISCOVERY_MESSAGE_PORT_NAME );
-				Permit();
-				if( discoveryMsgPort )
-				{
-					dbglog( "[master] Signalling to the discovery thread to terminate.\n" );
-					struct AEMessage killDiscoveryMessage;
-					memset( &killDiscoveryMessage, 0, sizeof( killDiscoveryMessage ) );
-					killDiscoveryMessage.messageType = AEM_Shutdown;
-					killDiscoveryMessage.msg.mn_Length = sizeof( aeMsg );
-					killDiscoveryMessage.msg.mn_ReplyPort = g_AEServerMessagePort;
-					killDiscoveryMessage.msg.mn_Node.ln_Type = NT_MESSAGE;
-					PutMsg( discoveryMsgPort, (struct Message*)&killDiscoveryMessage );
-					dbglog( "[master] Signal sent.  Awaiting acknowledgment.\n" );
-					WaitPort( g_AEServerMessagePort );	//Wait for the discovery thread to acknowledge termination
-					dbglog( "[master] Acknowledgment received.\n" );
-					GetMsg( g_AEServerMessagePort );	//Pop the message from the queue
-				}else{
-					dbglog( "[master] Failed to find the discovery thread's message port.\n" );
-				}
+				//Signal every cooperating task (discovery thread + all client threads)
+				//to stop.  They each observe g_KeepServerRunning and unwind on their own.
+				//The orderly, time-bounded teardown happens at the 'shutdown:' label below.
+				g_KeepServerRunning = 0;
 
-				//Kill the clients now
-				//First get the list of clients
-				dbglog( "[master] Getting the list of clients.\n" );
-				lockClientThreadList();
-				ClientThread_t *clientList = getClientThreadList();
-				unlockClientThreadList();
-				dbglog( "[master] Signalling each client to terminate.\n" );
-				ClientThread_t *client = clientList->next;
-				while( client->next  )
-				{	
-					//Send a signal to the client thread to terminate
-					char ipAddress[17] = "";
-					getIPFromClient( client, ipAddress );
-					dbglog( "[master] Forming kill message to process 0x%08x for client %s:%u\n",
-											(unsigned int)client->process,
-											ipAddress,
-											client->port );
-					struct AEMessage terminateMessage __attribute__((aligned(4)));
-					memset( &terminateMessage, 0, sizeof( terminateMessage ) );
-					terminateMessage.messageType = AEM_KillClient;
-					terminateMessage.msg.mn_ReplyPort = g_AEServerMessagePort;
-					terminateMessage.msg.mn_Node.ln_Type = NT_MESSAGE;
-					terminateMessage.msg.mn_Length = sizeof( struct AEMessage );
-					dbglog( "[master] Sending kill message to client process.\n" );
-					PutMsg( client->messagePort, (struct Message*)&terminateMessage );
-					dbglog( "[master] Awaiting acknowledgment from client process.\n" );
-					WaitPort( g_AEServerMessagePort );	//Wait for the client to acknowledge termination
-					dbglog( "[master] Acknowledgement recieved from client process.\n" );
-					GetMsg( g_AEServerMessagePort );	//Pop the message from the queue
-					client = client->next;
-				}
-				dbglog( "[master] Freeing client list.\n" );
-				freeClientThreadList( clientList );
-
-				//Give the clients time to remove themselves from the client list
-				dbglog( "[master] Giving clients time to remove themselves from the client list.\n" );
-				Delay( 10 );
-
-				//Send a reply to the caller
+				//Acknowledge the caller (e.g. ApolloExplorerTool) IMMEDIATELY so it never
+				//blocks waiting on us, then fall through to the bounded teardown.
 				dbglog( "[master] Acknowledging the caller's shutdown request.\n" );
 				newMessage->mn_Node.ln_Type = NT_REPLYMSG;
 				ReplyMsg( newMessage );
-				
-				//Now exit
+
 				dbglog( "[master] Starting shutdown.\n" );
 				goto shutdown;
 			}else if( aeMsg->messageType == AEM_ClientList )
@@ -365,7 +367,8 @@ int main(int argc, char *argv[])
 				} *clientEntry = (struct ClientEntry_t*)&clientListMessage->ipAddress;
 
 				//Populate the list
-				ClientThread_t *node = getClientThreadList()->next;
+				ClientThread_t *clientListCopy = getClientThreadList();
+				ClientThread_t *node = clientListCopy->next;
 				int index = 0;
 				while( node->next )
 				{
@@ -381,6 +384,10 @@ int main(int argc, char *argv[])
 				}
 				dbglog( "[master] Unlocking the list.\n" );
 				unlockClientThreadList();
+
+				//Free the temporary copy returned by getClientThreadList().
+				freeClientThreadList( clientListCopy );
+
 				PutMsg( newMessage->mn_ReplyPort, (struct Message*)clientListMessage );
 			}else{
 				dbglog( "[master] We got an unknown message (0x%08x) on the message port.\n", (unsigned int)aeMsg->messageType );
@@ -390,21 +397,98 @@ int main(int argc, char *argv[])
 
 	shutdown:
 	dbglog( "[master] Shutting down.\n" );
-	Delay( 10 );
+
+	//Make sure every cooperating task knows we are leaving.
+	g_KeepServerRunning = 0;
 
 	//Remove the app icon
 	if( appIcon != NULL ) RemoveAppIcon( appIcon );
+	appIcon = NULL;
+
+	//Stop the discovery thread.  Bounded handshake on a PRIVATE reply port so
+	//that nothing other than the ack can ever satisfy the wait, and a timeout
+	//so we never hang if it has already gone.
+	{
+		struct MsgPort *shutdownReplyPort = CreateMsgPort();
+		Forbid();
+		struct MsgPort *discoveryMsgPort = FindPort( DISCOVERY_MESSAGE_PORT_NAME );
+		Permit();
+		if( discoveryMsgPort != NULL && shutdownReplyPort != NULL )
+		{
+			dbglog( "[master] Signalling the discovery thread to terminate.\n" );
+			struct AEMessage killDiscoveryMessage;
+			memset( &killDiscoveryMessage, 0, sizeof( killDiscoveryMessage ) );
+			killDiscoveryMessage.messageType = AEM_Shutdown;
+			killDiscoveryMessage.msg.mn_Length = sizeof( killDiscoveryMessage );
+			killDiscoveryMessage.msg.mn_ReplyPort = shutdownReplyPort;
+			killDiscoveryMessage.msg.mn_Node.ln_Type = NT_MESSAGE;
+			PutMsg( discoveryMsgPort, (struct Message*)&killDiscoveryMessage );
+			if( !waitForAck( shutdownReplyPort, (struct Message*)&killDiscoveryMessage, 150 ) )
+			{
+				dbglog( "[master] Discovery did not ack within 3s; continuing.\n" );
+			}
+			else
+			{
+				dbglog( "[master] Discovery acknowledged.\n" );
+			}
+		}
+		if( shutdownReplyPort != NULL ) DeleteMsgPort( shutdownReplyPort );
+	}
+
+	//Wait (time-bounded) for EVERY spawned child process (client threads AND the
+	//discovery thread) to fully exit before we return from main().  Returning
+	//while a child is still executing lets the CLI unload our seglist out from
+	//under it, which crashes/hangs that child into an unkillable task.  The
+	//counter only hits 0 once each child has run its final cleanup.
+	{
+		ULONG drainTicks = 500;	//up to ~10s
+		for( ;; )
+		{
+			LONG remaining = g_ActiveThreadCount;
+			if( remaining <= 0 )
+			{
+				dbglog( "[master] All child threads have ended.\n" );
+			}
+			if( remaining <= 0 ) break;
+			if( drainTicks == 0 )
+			{
+				dbglog( "[master] Timeout waiting for %ld child thread(s); forcing shutdown.\n", remaining );
+				break;
+			}
+			Delay( 2 );
+			drainTicks -= 2;
+		}
+	}
+
+	//Give the children's final return-into-system a moment to complete before the
+	//seglist can be unloaded.
+	Delay( 5 );
+
 	if( wbIconImageData != NULL ) FreeVec( wbIconImageData );
+
+	//Free the client list sentinels (all client entries are gone by now).
+	destroyClientThreadList();
 
 	//Clear out and then free the message port
 	dbglog( "[master] Removing message port.\n" );
-
-	RemPort( g_AEServerMessagePort );
-	DeleteMsgPort( g_AEServerMessagePort );
+	if( g_AEServerMessagePort != NULL )
+	{
+		RemPort( g_AEServerMessagePort );
+		DeleteMsgPort( g_AEServerMessagePort );
+		g_AEServerMessagePort = NULL;
+	}
 
 	//Shutdown the socket.
 	dbglog( "[master] Closing socket.\n" );
-	CloseSocket(serverSocket);
+	if( SocketBase != NULL && serverSocket >= 0 ) CloseSocket( serverSocket );
+
+	//Close bsdsocket.library from the task that opened it.  Leaving it open can
+	//stall this task's exit on some TCP stacks.
+	if( SocketBase != NULL )
+	{
+		CloseLibrary( SocketBase );
+		SocketBase = NULL;
+	}
 
 	dbglog( "[master] Terminating.\n" );
 	return 0;

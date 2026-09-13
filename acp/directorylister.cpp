@@ -72,11 +72,8 @@ QStringList DirectoryLister::getDirectoryList()
             {
                 //Ok we have the list of drives.
                 //Lets reproduce this as strings
-                QListIterator<QSharedPointer<DiskVolume>> iter( m_Volumes );
-                while( iter.hasNext() )
+                for( const QSharedPointer<DiskVolume>& nextVolume : m_Volumes )
                 {
-                    QSharedPointer<DiskVolume> nextVolume = iter.next();
-
                     dirContents.append( nextVolume->getName() + ":" );
                 }
 

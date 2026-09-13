@@ -1,7 +1,7 @@
 #include "downloadthread.h"
 #include <QDebug>
 #include <QtEndian>
-#include <QApplication>
+#include <QCoreApplication>
 
 #define DEBUG 0
 #include "AEUtils.h"
@@ -13,7 +13,7 @@
 
 DownloadThread::DownloadThread(QObject *parent) :
     QThread(parent),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex( QRecursiveMutex() ),
     m_ThroughPutTimer( nullptr ),
     m_OperationTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
@@ -81,7 +81,7 @@ void DownloadThread::run()
     while( m_Keeprunning )
     {
         //Process events
-        QApplication::processEvents();
+        QCoreApplication::processEvents();
 
         //Second check if there is a request to shut down the thread
         if( this->isInterruptionRequested() )

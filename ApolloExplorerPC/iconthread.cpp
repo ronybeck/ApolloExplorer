@@ -14,7 +14,7 @@
 
 IconThread::IconThread(QObject *parent) :
     QThread(parent),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_OperationTimer( nullptr ),
     m_ProtocolHandler( nullptr ),
     m_DirectoryListing(),

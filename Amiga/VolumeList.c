@@ -20,7 +20,7 @@
 
 #endif
 
-#define DBGOUT 1
+#define DBGOUT 0
 #include "AEUtil.h"
 
 #define VOL_MSG_LENGTH MAX_MESSAGE_LENGTH*5

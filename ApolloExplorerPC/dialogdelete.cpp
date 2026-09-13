@@ -57,7 +57,10 @@ void DialogDelete::onFileDeletionFailedSlot( QString path, DeleteFailureReason r
 {
     //Show an error message
     qDebug() << "Failed to delete path " << path;
-    QMessageBox errorBox( QMessageBox::Critical, "Failed to delete remote directory", "An error occurred while deleting remote directory" + path + "Reason: " + reason, QMessageBox::Ok );
+    QMessageBox errorBox( QMessageBox::Critical, QStringLiteral("Failed to delete remote directory"),
+                          QStringLiteral("An error occurred while deleting remote directory ") + path
+                              + QStringLiteral(" Reason: ") + QString::number( static_cast<int>( reason ) ),
+                          QMessageBox::Ok );
     errorBox.exec();
     return;
 }

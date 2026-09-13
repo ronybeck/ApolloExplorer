@@ -7,6 +7,8 @@
 #include <QDrag>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
+#include <QMouseEvent>
+#include <QWidget>
 #include <QMimeData>
 #include <QFileInfo>
 #include <QHeaderView>
@@ -80,7 +82,7 @@ void RemoteFileTableView::dropEvent(QDropEvent *e)
     QSharedPointer<DirectoryListing> destinationListing = model->getRootDirectoryListing();
 
     //Check what files lay beneath the mouse
-    QModelIndex index = this->indexAt( e->pos() );
+    QModelIndex index = this->indexAt( e->position().toPoint() );
     if( index.isValid() )
     {
         //Check if this is a file or a directory
@@ -122,7 +124,7 @@ void RemoteFileTableView::dragMoveEvent(QDragMoveEvent *e)
     QSharedPointer<DirectoryListing> destinationListing = model->getRootDirectoryListing();
 
     //Check what files lay beneath the mouse
-    QModelIndex index = this->indexAt( e->pos() );
+    QModelIndex index = this->indexAt( e->position().toPoint() );
     if( index.isValid() )
     {
         //Check if this is a file or a directory
@@ -393,8 +395,18 @@ void RemoteFileTableView::dropTimerTimeoutSlot()
         QDragRemote *drag = new QDragRemote( this );
         drag->setMimeData( mimeData );
         drag->exec( Qt::MoveAction );
-        QMouseEvent *mEvnRelease = new QMouseEvent(QEvent::MouseButtonRelease, QCursor::pos(), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
-        QCoreApplication::sendEvent( this->parent() ,mEvnRelease);
+        if ( QWidget *parentWidget = qobject_cast<QWidget *>( this->parent() ) )
+        {
+            const QPoint globalPos = QCursor::pos();
+            QMouseEvent *mEvnRelease = new QMouseEvent(
+                QEvent::MouseButtonRelease,
+                QPointF( parentWidget->mapFromGlobal( globalPos ) ),
+                QPointF( globalPos ),
+                Qt::LeftButton,
+                Qt::LeftButton,
+                Qt::NoModifier );
+            QCoreApplication::sendEvent( parentWidget, mEvnRelease );
+        }
         DBGLOG <<"Currentl drag queue is: " << m_QDragList.size();
     }
 }

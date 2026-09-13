@@ -2,6 +2,7 @@
 
 #include <QFileInfo>
 #include <QDebug>
+#include <QRegularExpression>
 #include <QtEndian>
 #include <algorithm>
 
@@ -110,10 +111,8 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
 
 QSharedPointer<DirectoryListing> DirectoryListing::findEntry(QString name, bool recursive )
 {
-    QVectorIterator<QSharedPointer<DirectoryListing>> iter( m_Entries );
-    while( iter.hasNext() )
+    for (const QSharedPointer<DirectoryListing> &nextEntry : std::as_const(m_Entries))
     {
-        QSharedPointer<DirectoryListing> nextEntry = iter.next();
         if( nextEntry->Name() == name )
             return nextEntry;
 
@@ -183,8 +182,8 @@ void DirectoryListing::setPath(const QString &newPath)
     m_Parent = m_Path;
 
     //Chop off the last component of the path after the (2nd) last ":" or "/"
-    QRegExp parentEnd( "[:/]" );
-    quint32 parentEndPos = m_Parent.lastIndexOf( parentEnd );
+    static const QRegularExpression parentEnd(QStringLiteral("[:/]"));
+    const qsizetype parentEndPos = m_Parent.lastIndexOf(parentEnd);
     m_Name = m_Parent.right( m_Parent.length() - parentEndPos - 1);
     m_Parent.chop( m_Parent.length() - parentEndPos - 1 );
 }

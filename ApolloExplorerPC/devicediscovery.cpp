@@ -10,7 +10,7 @@ DeviceDiscovery::DeviceDiscovery(QSharedPointer<QSettings> settings, QObject *pa
     m_ScanTimer( ),
     m_Socket( ),
     m_HostList( ),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_Settings( settings )
 {
     //Signal SLots

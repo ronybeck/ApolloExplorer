@@ -3,6 +3,7 @@
 #include <QCommandLineParser>
 #include <QSettings>
 #include <QThread>
+#include <QRegularExpression>
 #include <iostream>
 #include <memory>
 
@@ -48,7 +49,7 @@ QStringList getHostList( QSharedPointer<QSettings> settings, const QStringList p
         QStringList matches = hostLister.getHostLike( searchPattern );
 
         //Now print the list
-        foreach(  auto match, matches )
+        for( const auto& match : matches )
         {
             hosts.append( match );
         }
@@ -56,10 +57,8 @@ QStringList getHostList( QSharedPointer<QSettings> settings, const QStringList p
     }else
     {
         //Just print the full list
-        QVectorIterator<QSharedPointer<AmigaHost>> iter( hostList );
-        while( iter.hasNext()  )
+        for( const QSharedPointer<AmigaHost>& host : hostList )
         {
-            QSharedPointer<AmigaHost> host = iter.next();
             hosts.append( host->Name() + " " + host->Address().toString() );
         }
     }
@@ -80,9 +79,9 @@ bool performDownload( QSharedPointer<QSettings> settings, QStringList arguments,
     QString remotePath = elements[ 1 ];
 
     //If the host is already an IP address, no lookup is needed
-    QRegExp ipAddressRegExp( "^(?:[0-9]{1,3}.){3}[0-9]{1,3}$" );
+    static const QRegularExpression ipAddressRegExp( "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$" );
     QString ipAddressString = host;
-    if( !ipAddressRegExp.exactMatch( host ) )
+    if( !ipAddressRegExp.match( host ).hasMatch() )
     {
         //Now check for a host with this hostname
         QStringList hosts = getHostList( settings, QStringList { host } );
@@ -102,7 +101,7 @@ bool performDownload( QSharedPointer<QSettings> settings, QStringList arguments,
         ipAddressString = elements[ 1 ];
     }
 
-    //Create the file uploader object
+    //Create the file downloader object
     std::unique_ptr<FileDownloader> fileDownloader( new FileDownloader( remotePath, destinationPath, ipAddressString ) );
     fileDownloader->setRecursive( recursive );
     std::cout << "Downloading from " << host.toStdString().c_str() << ":" << remotePath.toStdString().c_str() << " to " << destinationPath.toStdString().c_str() << std::endl;
@@ -167,9 +166,9 @@ bool performUpload( QSharedPointer<QSettings> settings, QStringList arguments, b
     sourcePaths.pop_back(); //Drop the last one in the list as this will be the destination;
 
     //If the host is already an IP address, no lookup is needed
-    QRegExp ipAddressRegExp( "^(?:[0-9]{1,3}.){3}[0-9]{1,3}$" );
+    static const QRegularExpression ipAddressRegExp( "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$" );
     QString ipAddressString = host;
-    if( !ipAddressRegExp.exactMatch( host ) )
+    if( !ipAddressRegExp.match( host ).hasMatch() )
     {
         //Now check for a host with this hostname
         QStringList hosts = getHostList( settings, QStringList { host } );
@@ -270,9 +269,9 @@ QStringList getDirectoryListing( QSharedPointer<QSettings> settings, const QStri
     }
 
     //If the host is already an IP address, no lookup is needed
-    QRegExp ipAddressRegExp( "^(?:[0-9]{1,3}.){3}[0-9]{1,3}$" );
+    static const QRegularExpression ipAddressRegExp( "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$" );
     QString ipAddressString = host;
-    if( !ipAddressRegExp.exactMatch( host ) )
+    if( !ipAddressRegExp.match( host ).hasMatch() )
     {
         //Now check for a host with this hostname
         QStringList hosts = getHostList( settings, QStringList { host } );
@@ -343,11 +342,8 @@ int main(int argc, char *argv[])
         QStringList hosts = getHostList( settings, cmdParser.positionalArguments() );
         std::cout << "ApolloExplorer Hosts found" << std::endl;
 
-        QStringListIterator iter( hosts );
-        while( iter.hasNext() )
+        for( const QString& host : hosts )
         {
-            //Print the list
-            QString host = iter.next();
             std::cout << host.toStdString() << std::endl;
         }
 
@@ -370,10 +366,8 @@ int main(int argc, char *argv[])
         std::cout << "Directory contents" << std::endl;
 
         //Print the directory listing
-        QStringListIterator iter( contents );
-        while( iter.hasNext() )
+        for( const QString& entry : contents )
         {
-            QString entry = iter.next();
             std::cout << entry.toStdString() << std::endl;
         }
 

@@ -46,7 +46,7 @@ signals:
 
 
 private:
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QTimer *m_TimeoutTimer;
     ProtocolHandler *m_ProtocolHandler;
    QAtomicInteger<bool> m_RecursiveDeleteActive;

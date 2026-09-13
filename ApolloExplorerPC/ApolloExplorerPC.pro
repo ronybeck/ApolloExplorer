@@ -1,19 +1,33 @@
-QT       += core gui network
+QT       += core gui network widgets
 TARGET=ApolloExplorer
 
-linux: QT += x11extras
-linux: LIBS += -lX11
+#linux: QT += x11extras
+#linux: LIBS += -lX11
 
 win32:RC_ICONS += icons/FirebirdHW.ico
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+CONFIG += c++17
+QMAKE_CXXFLAGS_DEBUG += -O0
 
-CONFIG += c++11
-QMAKE_CXXFLAGS += -O0 -g
+# Copy Qt (and MinGW) DLLs next to the .exe so it runs outside Qt Creator / without PATH.
+# https://doc.qt.io/qt-6/windows-deployment.html
+# Note: Do not pass --debug to windeployqt for MinGW kits - prebuilt Qt ships release
+# Qt DLLs/plugins only; --debug expects qwindowsd.dll etc. and fails.
+#
+# Run windeployqt for both debug\ and release\ outputs when each .exe exists. With the
+# Debug kit, qmake only embeds the debug deploy if we gate on CONFIG; then Release
+# never gets DLLs until a Release link happens. Deploying whichever exe exists fixes that.
+win32:equals(QMAKE_HOST.os, Windows) {
+    WINDEPLOYQT = $$shell_path($$[QT_INSTALL_BINS]/windeployqt.exe)
 
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+    CONFIG(debug, debug|release): DEPLOY_EXE = $$shell_path($$OUT_PWD/debug/$${TARGET}.exe)
+    CONFIG(release, debug|release): DEPLOY_EXE = $$shell_path($$OUT_PWD/release/$${TARGET}.exe)
+
+    QMAKE_POST_LINK += cmd /c if exist $$quote($$DEPLOY_EXE) $$quote($$WINDEPLOYQT) --compiler-runtime $$quote($$DEPLOY_EXE)
+}
+
+# Fail the build on APIs Qt marked deprecated before this version (6.11.1 => 0x060B01). Adjust when upgrading Qt.
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060B01
 
 INCLUDEPATH += ../
 
@@ -118,8 +132,10 @@ DISTFILES += \
     icons/go-up.png \
     icons/refresh.png \
     icons/VampireHW.png \
-    icons/IcedrakeHW.png \
-    icons/FirebirdHW.png \
+    icons/IceDrakeHW.png \
+    icons/FireBirdHW.png \
+    icons/MantiCoreHW.png \
+    icons/UniCornHW.png \
     icons/Apollo_Explorer_icon.png \
     icons/Apollo_Explorer_24x24.png
 

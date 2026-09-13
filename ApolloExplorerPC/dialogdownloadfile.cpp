@@ -20,7 +20,7 @@ DialogDownloadFile::DialogDownloadFile(QWidget *parent) :
     ui(new Ui::DialogDownloadFile),
     m_DownloadThread(),
     m_DownloadList( ),
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_FilesToOpen( ),
     m_OperationState( IDLE ),
     m_ConnectionState( DISCONNECTED )
@@ -133,7 +133,11 @@ void DialogDownloadFile::startDownload(QList<QSharedPointer<DirectoryListing> > 
             {
                 //Well, we give up
                 hide();
-                QMessageBox errorBox( "Getting remote Subdirectories failed..", "For reasons unknown, we couldn't get all remote directories.", QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+                QMessageBox errorBox( QMessageBox::Critical,
+                                      QStringLiteral( "Getting remote Subdirectories failed.." ),
+                                      QStringLiteral( "For reasons unknown, we couldn't get all remote directories." ),
+                                      QMessageBox::Ok,
+                                      this );
                 errorBox.exec();
                 resetDownloadDialog();
                 emit singleFileDownloadCompletedSignal();
@@ -251,7 +255,11 @@ void DialogDownloadFile::onAbortedSlot( QString reason )
 {
     LOCK;
     DBGLOG << "Download aborted";
-    QMessageBox errorBox( "Download Aborted.", "The server aborted the download with: " + reason, QMessageBox::Critical, QMessageBox::Ok, 0, 0, this );
+    QMessageBox errorBox( QMessageBox::Critical,
+                          QStringLiteral( "Download Aborted." ),
+                          QStringLiteral( "The server aborted the download with: " ) + reason,
+                          QMessageBox::Ok,
+                          this );
     errorBox.exec();
     resetDownloadDialog();
     hide();

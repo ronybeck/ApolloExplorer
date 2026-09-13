@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QAction>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 #include <QAtomicInt>
 #include <QSharedPointer>
 #include <QSettings>
@@ -174,7 +175,7 @@ private:
     QTimer m_ThroughputTimer;
 
     //Mutex
-    QMutex m_Mutex;
+    QRecursiveMutex m_Mutex;
     QAtomicInteger<bool> m_AbortDeleteRequested;
 };
 #endif // MAINWINDOW_H

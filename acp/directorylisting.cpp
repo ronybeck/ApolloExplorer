@@ -95,24 +95,18 @@ void DirectoryListing::populate( ProtocolMessageDirectoryList_t *newListing )
 
 QSharedPointer<DirectoryListing> DirectoryListing::findEntry(QString name, bool recursive )
 {
-    QVectorIterator<QSharedPointer<DirectoryListing>> iter( m_Entries );
-    while( iter.hasNext() )
+    for( QSharedPointer<DirectoryListing>& nextEntry : m_Entries )
     {
-        QSharedPointer<DirectoryListing> nextEntry = iter.next();
         if( nextEntry->Name() == name )
             return nextEntry;
-
         if( nextEntry->Path() == name )
             return nextEntry;
-
-        //If this is a directory and recursion is activated, go into that directory
         if( nextEntry->isDirectory() && recursive )
         {
             QSharedPointer<DirectoryListing> subdirEntry = nextEntry->findEntry( name, recursive );
             if( subdirEntry != nullptr )
                 return subdirEntry;
         }
-
     }
     return nullptr;
 }
@@ -168,10 +162,25 @@ void DirectoryListing::setPath(const QString &newPath)
     m_Parent = m_Path;
 
     //Chop off the last component of the path after the (2nd) last ":" or "/"
-    QRegExp parentEnd( "[:/]" );
-    quint32 parentEndPos = m_Parent.lastIndexOf( parentEnd );
-    m_Name = m_Parent.right( m_Parent.length() - parentEndPos - 1);
-    m_Parent.chop( m_Parent.length() - parentEndPos - 1 );
+    int parentEndPos = -1;
+    for( int i = m_Parent.length() - 1; i >= 0; i-- )
+    {
+        if( m_Parent[i] == ':' || m_Parent[i] == '/' )
+        {
+            parentEndPos = i;
+            break;
+        }
+    }
+    if( parentEndPos >= 0 )
+    {
+        m_Name = m_Parent.right( m_Parent.length() - parentEndPos - 1 );
+        m_Parent.chop( m_Parent.length() - parentEndPos - 1 );
+    }
+    else
+    {
+        m_Name = m_Parent;
+        m_Parent = "";
+    }
 }
 
 quint32 DirectoryListing::Size() const

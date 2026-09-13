@@ -46,13 +46,10 @@ void MainWindow::on_actionOpen_triggered()
 
     //Now populate the tool types
     ui->plainTextEditToolTypes->clear();
-    QVector<QString> toolTypes = m_Icon.getToolTypes();
-    QVector<QString>::Iterator iter = toolTypes.begin();
-    while( iter != toolTypes.end() )
+    const QVector<QString> toolTypes = m_Icon.getToolTypes();
+    for( const QString& nextToolType : toolTypes )
     {
-        QString nextToolType = (*iter);
         ui->plainTextEditToolTypes->appendPlainText( nextToolType );
-        iter++;
     }
 
     //Show the 1st OS2 icon

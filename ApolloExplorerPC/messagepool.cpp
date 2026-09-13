@@ -61,7 +61,7 @@ void MessagePool::freeMessage(ProtocolMessage_t *message)
 }
 
 MessagePool::MessagePool() :
-    m_Mutex( QMutex::Recursive ),
+    m_Mutex(),
     m_WaitMutex( ),
     m_WaitCondition( ),
     m_FreeList( ),
