@@ -40,6 +40,7 @@ SOURCES += \
     amigahost.cpp \
     deletionthread.cpp \
     devicediscovery.cpp \
+    dialogaddhost.cpp \
     dialogconsole.cpp \
     dialogdelete.cpp \
     dialogdownloadfile.cpp \
@@ -75,6 +76,7 @@ HEADERS += \
     amigahost.h \
     deletionthread.h \
     devicediscovery.h \
+    dialogaddhost.h \
     dialogconsole.h \
     dialogdelete.h \
     dialogdownloadfile.h \
@@ -101,6 +103,7 @@ HEADERS += \
 
 FORMS += \
     aboutdialog.ui \
+    dialogaddhost.ui \
     dialogconsole.ui \
     dialogdelete.ui \
     dialogdownloadfile.ui \

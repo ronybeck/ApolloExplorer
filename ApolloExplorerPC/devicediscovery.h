@@ -22,6 +22,7 @@ public:
 public slots:
     void onScanTimerTimeoutSlot();
     void onSocketReadReadySlot();
+    void onEjectHostSlot( QSharedPointer<AmigaHost> );
 
 signals:
     void hostAliveSignal( QSharedPointer<AmigaHost> );

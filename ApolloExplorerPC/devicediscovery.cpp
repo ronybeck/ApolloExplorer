@@ -1,5 +1,6 @@
 #include "devicediscovery.h"
 #include <QtEndian>
+#include "AEUtils.h"
 
 #define LOCK QMutexLocker locker( &m_Mutex )
 #define UNLOCK locker.unlock()
@@ -112,8 +113,14 @@ void DeviceDiscovery::onSocketReadReadySlot()
     QString senderAddressString = sender.toString();
     if( !m_HostList.contains( senderAddressString ) )
     {
+        //Get the configured timeout internval
+        m_Settings->beginGroup( SETTINGS_GENERAL );
+        int timeoutPeriod = m_Settings->value( SETTINGS_HELLO_TIMEOUT, 10 ).toInt();
+        m_Settings->endGroup();
+
         //add this to the list
-        AmigaHost *host = new AmigaHost( m_Settings, name, osName, osVersion, hardware, sender, this );
+        AmigaHost::HardwareType hardwareType = AmigaHost::hardwareTypeFromString( hardware );
+        AmigaHost *host = new AmigaHost( timeoutPeriod, name, osName, osVersion, hardwareType, sender, false, this );
         m_HostList[ senderAddressString ] = QSharedPointer<AmigaHost>( host );
 
         //Tell the world about this
@@ -125,5 +132,14 @@ void DeviceDiscovery::onSocketReadReadySlot()
 
     //Update the timestamp
     m_HostList[ senderAddressString ]->setHostRespondedNow();
+}
+
+void DeviceDiscovery::onEjectHostSlot(QSharedPointer<AmigaHost> host)
+{
+    QString address = host->Address().toString();
+    if ( m_HostList.contains( address ) ) {
+        m_HostList.remove( address );
+        DBGLOG << "Removed host " << host->Address().toString();
+    }
 }
 

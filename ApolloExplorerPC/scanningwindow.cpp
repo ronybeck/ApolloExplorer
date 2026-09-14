@@ -5,33 +5,6 @@
 
 #include "AEUtils.h"
 
-static QPixmap getPixmap( QSharedPointer<AmigaHost> host )
-{
-    if( host->Hardware().contains( "V2-", Qt::CaseInsensitive ) ||
-        host->Hardware().contains( "V4-SA", Qt::CaseInsensitive ))
-    {
-        return QPixmap( ":/browser/icons/VampireHW.png" );
-    }
-    else if( host->Hardware().contains( "V4-A6000", Qt::CaseInsensitive ))
-    {
-        return QPixmap( ":/browser/icons/UniCornHW.png" );
-    }
-    else if( host->Hardware().contains( "V4-A500", Qt::CaseInsensitive ))
-    {
-        return QPixmap( ":/browser/icons/FireBirdHW.png" );
-    }
-    else if( host->Hardware().contains( "V4-A600", Qt::CaseInsensitive ))
-    {
-        return QPixmap( ":/browser/icons/MantiCoreHW.png" );
-    }
-    else if( host->Hardware().contains( "V4-A1200", Qt::CaseInsensitive ))
-    {
-        return QPixmap( ":/browser/icons/IceDrakeHW.png" );
-    }
-
-    return QPixmap( ":/browser/icons/CommodoreHW.png" );
-}
-
 static QString getItemName( QString name, QHostAddress address )
 {
     QString itemName = name + "\n" + address.toString();
@@ -59,6 +32,7 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::ScanningWindow),
     m_Settings( new QSettings( "ApolloTeam", "ApolloExplorer" ) ),
+    m_StaticHosts( new QSettings( "ApolloTeam", "ApolloExplorerStaticHosts" ) ),
     m_DeviceDiscovery( m_Settings ),
     m_SystemTrayIcon( QPixmap( ":/browser/icons/VampireHW.png" ) ),
     m_DialogPreferences( m_Settings, this )
@@ -74,6 +48,15 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     connect( ui->pushButton, &QPushButton::released, this, &ScanningWindow::onConnectButtonReleasedSlot );
     connect( ui->pushButtonSettings, &QPushButton::released, &m_DialogPreferences, &DialogPreferences::show );
     connect( ui->pushButtonAbout, &QPushButton::released, &m_AboutDialog, &AboutDialog::show );
+    connect( ui->pushButtonAdd, &QPushButton::released, this, &ScanningWindow::onAddHostReleasedSlot );
+
+    //We want to forcibly remove the host from the device discovery sometimes
+    connect( this, &ScanningWindow::ejectHostSignal, &m_DeviceDiscovery, &DeviceDiscovery::onEjectHostSlot );
+
+    //Add a custom menu
+    ui->listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->listWidget, &QListWidget::customContextMenuRequested, this, &ScanningWindow::onContextMenuRequestedSlot);
+
 
     //Show the system try
     m_SystemTrayIcon.show();
@@ -99,14 +82,17 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     m_Settings->endGroup();
 
     //Show the "Whats New" dialog
-    //m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
-    //QString seenWhatsNewVersion = m_Settings->value( SETTINGS_SEEN_WHATS_NEW_VERSION, "" ).toString();
-    //if( seenWhatsNewVersion != QString( VERSION_STRING ) )
-    //{
-    //    m_DialogWhatsnew.show();
-    //    m_Settings->setValue( SETTINGS_SEEN_WHATS_NEW_VERSION, VERSION_STRING );
-    //}
-    //m_Settings->endGroup();
+    m_Settings->beginGroup( SETTINGS_SCANNING_WINDOW );
+    QString seenWhatsNewVersion = m_Settings->value( SETTINGS_SEEN_WHATS_NEW_VERSION, "" ).toString();
+    if( seenWhatsNewVersion != QString( VERSION_STRING ) )
+    {
+        m_DialogWhatsnew.show();
+        m_Settings->setValue( SETTINGS_SEEN_WHATS_NEW_VERSION, VERSION_STRING );
+    }
+    m_Settings->endGroup();
+
+    //Load the static hosts
+    populateStaticHosts();
 }
 
 ScanningWindow::~ScanningWindow()
@@ -146,16 +132,46 @@ void ScanningWindow::openNewHostWindow(QSharedPointer<AmigaHost> host)
     connect( newWindow, &MainWindow::browserWindowCloseSignal, this, &ScanningWindow::onBrowserWindowDestroyedSlot );
 }
 
+void ScanningWindow::populateStaticHosts()
+{
+    //Go through all of the groups and get the hosts out
+    auto staticHostList = m_StaticHosts->childGroups();
+    for( auto iter = staticHostList.begin(); iter != staticHostList.end(); iter++ ) {
+        //Extract from the hosts file
+        QString hostIP = (*iter);
+        m_StaticHosts->beginGroup( hostIP );
+        QString hostname = m_StaticHosts->value( STATIC_HOSTS_NAME, "INVALID" ).toString();
+        QString osname = m_StaticHosts->value( STATIC_HOSTS_OS_NAME, "INVALID" ).toString();
+        QString osversion = m_StaticHosts->value( STATIC_HOSTS_OS_VERSION, "INVALID" ).toString();
+        QString hardwareName = m_StaticHosts->value( STATIC_HOSTS_HARDWARE_NAME, "INVALID" ).toString();
+
+        //Form a host object
+        AmigaHost::HardwareType hardwareType = AmigaHost::hardwareTypeFromString( hardwareName );
+        QHostAddress ipAddress;
+        ipAddress.setAddress( hostIP );
+        AmigaHost *host = new AmigaHost(99999,hostname,osname,osversion,hardwareType, ipAddress, true, this );
+        onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost>( host ) );
+        m_StaticHosts->endGroup();
+    }
+}
+
 void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host )
 {
+    //Check that we don't already have this host
+    if ( m_HostMap.contains( host->Address().toString() ) ) {
+        return;
+    }
+
     //Update the hostmap
     m_HostMap[ host->Address().toString() ] = host;
 
     //Create a new item for the browser
     QListWidgetItem *item = new QListWidgetItem();
+    AmigaHost::HardwareType hardwareType =  host->Hardware();
+    QString hardwareTypeName = AmigaHost::hardwareTypeAsString( hardwareType );
     item->setText( getItemName( host->Name(), host->Address() ) );
-    QString hint( "Name: " + host->Name() + "\nOS: " + host->OsName() + " " + host->OsVersion() + "\nHardware: " + host->Hardware() + "\nAddress: " + host->Address().toString() );
-    item->setIcon( getPixmap( host ) );
+    QString hint( "Name: " + host->Name() + "\nOS: " + host->OsName() + " " + host->OsVersion() + "\nHardware: " + hardwareTypeName + "\nAddress: " + host->Address().toString() );
+    item->setIcon( AmigaHost::getPixmap( hardwareType ) );
     item->setToolTip( hint );
     item->setData( Qt::UserRole, host->Address().toString() );
 
@@ -193,7 +209,8 @@ void ScanningWindow::onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost> host )
 void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
 {
     QString itemName = getItemName( host->Name(), host->Address() );
-    auto items = ui->listWidget->findItems( itemName, Qt::MatchExactly );
+    //auto items = ui->listWidget->findItems( itemName, Qt::MatchExactly );
+    auto items = ui->listWidget->findItems( host->Address().toString(), Qt::MatchContains );
 
     //If this is the currently selected host, disable the system tab
     if( !m_SelectedHost.isNull() && ( m_SelectedHost->Name() == host->Name() ) )
@@ -232,9 +249,12 @@ void ScanningWindow::onDeviceLeftSlot( QSharedPointer<AmigaHost> host )
         {
             m_SystemTrayHostsMenu.removeAction( action );
             delete action;
-            return;
+            break;
         }
     }
+
+    //Remove it from the host listing
+    m_HostMap.remove( host->Address().toString() );
 }
 
 void ScanningWindow::onHostDoubleClickedSlot( QListWidgetItem *item )
@@ -343,12 +363,13 @@ void ScanningWindow::onHostIconClickedSlot( QListWidgetItem *item  )
     m_SelectedHost = m_HostMap[ address ];
 
     //Set the details in the side bar
-    QPixmap icon = getPixmap( m_SelectedHost );
+    AmigaHost::HardwareType hardwareType = m_SelectedHost->Hardware();
+    QPixmap icon = AmigaHost::getPixmap( hardwareType );
     //QPixmap scaledIcon = icon.scaledToWidth( ui->labelIcon->width() );
     //ui->labelIcon->setPixmap( scaledIcon );
     ui->labelIcon->setPixmap( icon );
     ui->labelName->setText( "Name: " + m_SelectedHost->Name() );
-    ui->labelHardware->setText( "Hardware: " + m_SelectedHost->Hardware() );
+    ui->labelHardware->setText( "Hardware: " + m_SelectedHost->HardwareName() );
     ui->labelOS->setText( "OS: " + m_SelectedHost->OsName() + " " + m_SelectedHost->OsVersion() );
     ui->labelIPAddress->setText( "IP: " + address );
 
@@ -376,6 +397,73 @@ void ScanningWindow::onAutoConnectCheckboxToggledSlot()
     m_Settings->endGroup();
     m_Settings->endGroup();
     m_Settings->sync();
+}
+
+void ScanningWindow::onAddHostReleasedSlot()
+{
+    if ( m_DialogAddHost.exec() == QDialog::Accepted ) {
+        auto host = m_DialogAddHost.getAmigaHost();
+        //Remove this from the local list
+        onDeviceLeftSlot( host );
+
+        //Now add it again so that the new details will be picked up.
+        onNewDeviceDiscoveredSlot( host );
+
+        //Add this host to the host list
+        m_StaticHosts->beginGroup( host->Address().toString() );
+        m_StaticHosts->setValue( STATIC_HOSTS_NAME, host->Name() );
+        m_StaticHosts->setValue( STATIC_HOSTS_OS_NAME, host->OsName() );
+        m_StaticHosts->setValue( STATIC_HOSTS_OS_VERSION, host->OsVersion() );
+        m_StaticHosts->setValue( STATIC_HOSTS_HARDWARE_NAME, host->HardwareName() );
+        m_StaticHosts->endGroup();
+        m_StaticHosts->sync();
+
+
+    }
+}
+
+void ScanningWindow::onDeleteHostReleasedSlot()
+{
+    //Get the host being deleted
+    auto selectedList = ui->listWidget->selectedItems();
+    for( auto iter = selectedList.begin(); iter != selectedList.end(); iter++ ) {
+        auto item = (*iter);
+        QString ipAddressString = item->data( Qt::UserRole ).toString();
+        QSharedPointer<AmigaHost> host = m_HostMap[ ipAddressString ];
+        onDeviceLeftSlot( host );
+
+        //Now Remove it from the static host list
+        m_StaticHosts->remove( host->Address().toString() );
+
+        emit ScanningWindow::ejectHostSignal( host );
+    }
+}
+
+void ScanningWindow::onContextMenuRequestedSlot(const QPoint &pos)
+{
+    //First, get the item the user clicked on
+    QListWidgetItem *item = ui->listWidget->itemAt(pos);
+    if (!item) return;  // No item at click position
+
+    //Now get the host associated with it
+    QString ipAddressString = item->data( Qt::UserRole ).toString();
+    if ( !m_HostMap.contains( ipAddressString ) ) return;
+    QSharedPointer<AmigaHost> host = m_HostMap[ ipAddressString ];
+
+    //Ignore hosts which are not statically configured
+    if ( !host->StaticlyConfiguredHost() )  return;
+
+    //Now setup a menu
+    QMenu menu(this);
+
+    // Add actions
+    QAction *deleteAction = menu.addAction("Delete");
+
+    // Optional: pass item data to actions (e.g., via lambda)
+    connect(deleteAction, &QAction::triggered, this, &ScanningWindow::onDeleteHostReleasedSlot );
+
+    // Show menu at global position
+    menu.exec( ui->listWidget->viewport()->mapToGlobal(pos));
 }
 
 void ScanningWindow::resizeEvent( QResizeEvent *event )

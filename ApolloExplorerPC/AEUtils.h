@@ -46,5 +46,9 @@ QString prettyFileSize( quint64 size, bool withUnits = true );
 #define SETTINGS_OPEN "Open"
 #define SETTINGS_ICON_VERTICAL_SIZE "IconVerticalSize"
 #define SETTINGS_DOWNLOAD_AMIGA_ICONS "DownloadAmigaIcons"
+#define STATIC_HOSTS_NAME "hostname"
+#define STATIC_HOSTS_OS_NAME "osname"
+#define STATIC_HOSTS_OS_VERSION "osversion"
+#define STATIC_HOSTS_HARDWARE_NAME "hardwarename"
 
 #endif // AEUTILS_H
