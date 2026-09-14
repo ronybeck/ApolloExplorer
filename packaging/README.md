@@ -97,6 +97,8 @@ GUI app, and adds the install folder to the machine `PATH` so `acp.exe` and
 
 ## Versioning
 
-Each script takes the version as an argument/parameter (default `1.4.0`,
-matching the current release). Pass the release version explicitly when
-cutting a package, e.g. `packaging/linux/build-deb.sh 1.5.0`.
+Each script takes the version as an optional argument/parameter. When
+omitted, the version is extracted automatically from `VERSION_STRING` in
+`protocolTypes.h` at the repository root, so packages stay in sync with the
+protocol version by default. Pass a version explicitly to override this,
+e.g. `packaging/linux/build-deb.sh 1.5.0`.

@@ -11,7 +11,8 @@
 
 .PARAMETER Version
     Product version to embed in the MSI (also used in the output filename).
-    Defaults to 1.4.0.
+    If omitted, it is extracted from VERSION_STRING in protocolTypes.h at the
+    repository root.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File packaging\windows\build-msi.ps1 -Version 1.4.0
@@ -22,7 +23,7 @@
       - .NET SDK (for the 'wix' dotnet tool: dotnet tool install --global wix)
 #>
 param(
-    [string]$Version = "1.4.0"
+    [string]$Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +32,17 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot  = Resolve-Path (Join-Path $ScriptDir "..\..")
 $StageDir  = Join-Path $ScriptDir "stage\ApolloExplorer-Windows"
 $DistDir   = Join-Path $ScriptDir "dist"
+
+if (-not $Version) {
+    $VersionHeader = Join-Path $RepoRoot "protocolTypes.h"
+    $HeaderContent = Get-Content $VersionHeader -Raw
+    if ($HeaderContent -match '#define\s+VERSION_STRING\s+"([^"]+)"') {
+        $Version = $Matches[1]
+    } else {
+        Write-Error "Could not extract VERSION_STRING from $VersionHeader"
+        exit 1
+    }
+}
 
 Write-Host "########## ApolloExplorer MSI builder (version $Version) ##########"
 

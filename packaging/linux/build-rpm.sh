@@ -4,6 +4,9 @@
 #
 # Usage: packaging/linux/build-rpm.sh [version]
 #
+# If [version] is omitted, it is extracted from VERSION_STRING in
+# protocolTypes.h at the repository root.
+#
 # Packages the current working tree (including uncommitted changes), same as
 # build-deb.sh.
 #
@@ -13,7 +16,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-VERSION="${1:-1.4.0}"
+VERSION_HEADER="$REPO_ROOT/protocolTypes.h"
+
+if [ -n "${1:-}" ]; then
+    VERSION="$1"
+else
+    VERSION="$(sed -n 's/^#define VERSION_STRING "\(.*\)"/\1/p' "$VERSION_HEADER")"
+    if [ -z "$VERSION" ]; then
+        echo "ERROR: could not extract VERSION_STRING from $VERSION_HEADER" >&2
+        exit 1
+    fi
+fi
 NAME="apolloexplorer"
 TOPDIR="$SCRIPT_DIR/rpmbuild"
 DIST_DIR="$SCRIPT_DIR/dist"

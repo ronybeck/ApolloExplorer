@@ -4,6 +4,9 @@
 #
 # Usage: packaging/macos/build-pkg.sh [version]
 #
+# If [version] is omitted, it is extracted from VERSION_STRING in
+# protocolTypes.h at the repository root.
+#
 # Optional signing: export APPLE_INSTALLER_IDENTITY="Developer ID Installer: ..."
 # to have the resulting package signed with productsign. Without it an
 # unsigned .pkg is produced (fine for local installs / Gatekeeper will warn).
@@ -16,7 +19,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-VERSION="${1:-1.4.0}"
+VERSION_HEADER="$REPO_ROOT/protocolTypes.h"
+
+if [ -n "${1:-}" ]; then
+    VERSION="$1"
+else
+    VERSION="$(sed -n 's/^#define VERSION_STRING "\(.*\)"/\1/p' "$VERSION_HEADER")"
+    if [ -z "$VERSION" ]; then
+        echo "ERROR: could not extract VERSION_STRING from $VERSION_HEADER" >&2
+        exit 1
+    fi
+fi
 IDENTIFIER="com.ronybeck.apolloexplorer"
 STAGE_DIR="$SCRIPT_DIR/pkgroot"
 DIST_DIR="$SCRIPT_DIR/dist"
