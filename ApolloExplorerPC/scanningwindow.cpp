@@ -91,7 +91,10 @@ ScanningWindow::ScanningWindow(QWidget *parent) :
     }
     m_Settings->endGroup();
 
-    //Load the static hosts
+    //Load the static hosts.
+    //Fallbacks must be off: on macOS they pull in the global preferences domain,
+    //whose "com.apple.*" keys show up as bogus groups (e.g. "com") => an "INVALID" host.
+    m_StaticHosts->setFallbacksEnabled( false );
     populateStaticHosts();
 }
 
@@ -139,6 +142,11 @@ void ScanningWindow::populateStaticHosts()
     for( auto iter = staticHostList.begin(); iter != staticHostList.end(); iter++ ) {
         //Extract from the hosts file
         QString hostIP = (*iter);
+        QHostAddress ipAddress;
+        if( !ipAddress.setAddress( hostIP ) ) {
+            DBGLOG << "Ignoring static host entry that is not an IP address: " << hostIP;
+            continue;
+        }
         m_StaticHosts->beginGroup( hostIP );
         QString hostname = m_StaticHosts->value( STATIC_HOSTS_NAME, "INVALID" ).toString();
         QString osname = m_StaticHosts->value( STATIC_HOSTS_OS_NAME, "INVALID" ).toString();
@@ -147,8 +155,6 @@ void ScanningWindow::populateStaticHosts()
 
         //Form a host object
         AmigaHost::HardwareType hardwareType = AmigaHost::hardwareTypeFromString( hardwareName );
-        QHostAddress ipAddress;
-        ipAddress.setAddress( hostIP );
         AmigaHost *host = new AmigaHost(99999,hostname,osname,osversion,hardwareType, ipAddress, true, this );
         onNewDeviceDiscoveredSlot( QSharedPointer<AmigaHost>( host ) );
         m_StaticHosts->endGroup();
