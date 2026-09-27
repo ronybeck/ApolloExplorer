@@ -5,7 +5,7 @@ CONFIG -= app_bundle
 CONFIG += c++17 console
 QMAKE_CXXFLAGS_DEBUG += -O0
 
-win32:equals(QMAKE_HOST.os, Windows) {
+win32:!static:equals(QMAKE_HOST.os, Windows) {
     WINDEPLOYQT = $$shell_path($$[QT_INSTALL_BINS]/windeployqt.exe)
 
     CONFIG(debug, debug|release): DEPLOY_EXE = $$shell_path($$OUT_PWD/debug/$${TARGET}.exe)
