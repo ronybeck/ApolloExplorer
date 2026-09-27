@@ -7,7 +7,7 @@ QMAKE_CXXFLAGS_DEBUG += -O0
 # https://doc.qt.io/qt-6/windows-deployment.html
 # Note: Do not pass --debug to windeployqt for MinGW kits - prebuilt Qt ships release
 # Qt DLLs/plugins only; --debug expects qwindowsd.dll etc. and fails.
-win32:equals(QMAKE_HOST.os, Windows) {
+win32:!static:equals(QMAKE_HOST.os, Windows) {
     WINDEPLOYQT = $$shell_path($$[QT_INSTALL_BINS]/windeployqt.exe)
 
     CONFIG(debug, debug|release): DEPLOY_EXE = $$shell_path($$OUT_PWD/debug/$${TARGET}.exe)

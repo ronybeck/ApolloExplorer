@@ -5,10 +5,14 @@
 #include <QThread>
 #include <QRegularExpression>
 #include <iostream>
-#include <termios.h>
 #include <unistd.h>
 #include <signal.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <termios.h>
 #include <fcntl.h>
+#endif
 
 #define DEBUG 0
 #include "AEUtils.h"
@@ -19,8 +23,49 @@
 
 // ---------- terminal raw-mode helpers ----------
 
-static struct termios g_SavedTermios;
 static bool g_RawModeActive = false;
+
+#ifdef _WIN32
+
+static DWORD g_SavedInputMode;
+static DWORD g_SavedOutputMode;
+
+static void disableRawMode()
+{
+    if( g_RawModeActive )
+    {
+        SetConsoleMode( GetStdHandle( STD_INPUT_HANDLE ),  g_SavedInputMode );
+        SetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), g_SavedOutputMode );
+        g_RawModeActive = false;
+    }
+}
+
+static void enableRawMode()
+{
+    HANDLE hIn  = GetStdHandle( STD_INPUT_HANDLE );
+    HANDLE hOut = GetStdHandle( STD_OUTPUT_HANDLE );
+    GetConsoleMode( hIn,  &g_SavedInputMode );
+    GetConsoleMode( hOut, &g_SavedOutputMode );
+    atexit( disableRawMode );
+
+    // Disable echo and line-buffered mode; keep processed input (Ctrl+C works)
+    SetConsoleMode( hIn, ( g_SavedInputMode & ~( ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT ) ) | ENABLE_PROCESSED_INPUT );
+    // Let the console interpret ANSI/VT escape sequences sent by the Amiga
+    SetConsoleMode( hOut, g_SavedOutputMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING );
+    g_RawModeActive = true;
+}
+
+// ReadConsole bypasses the CRT's text-mode translation (which would block on
+// a lone CR and treat Ctrl+Z as EOF). Arrow keys produce no characters here.
+static bool readChar( char &c )
+{
+    DWORD count = 0;
+    return ReadConsoleA( GetStdHandle( STD_INPUT_HANDLE ), &c, 1, &count, nullptr ) && count == 1;
+}
+
+#else
+
+static struct termios g_SavedTermios;
 
 static void disableRawMode()
 {
@@ -46,6 +91,13 @@ static void enableRawMode()
     tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw );
     g_RawModeActive = true;
 }
+
+static bool readChar( char &c )
+{
+    return read( STDIN_FILENO, &c, 1 ) == 1;
+}
+
+#endif
 
 static void sigintHandler( int sig )
 {
@@ -232,7 +284,7 @@ int main( int argc, char *argv[] )
         printPrompt();
 
         char c;
-        while( read( STDIN_FILENO, &c, 1 ) == 1 )
+        while( readChar( c ) )
         {
             if( c == '\t' )
             {
@@ -309,20 +361,22 @@ int main( int argc, char *argv[] )
                         std::cout << "\b \b" << std::flush;
                     }
                 }
-                else if( c == 4 )
+                else if( c == 4 || c == 26 )
                 {
-                    // Ctrl+D: exit
+                    // Ctrl+D (or Ctrl+Z on Windows): exit
                     std::cout << "\r\n" << std::flush;
                     break;
                 }
                 else if( c == 27 )
                 {
                     // ESC: swallow the rest of the escape sequence (arrow keys etc.)
+#ifndef _WIN32
                     int flags = fcntl( STDIN_FILENO, F_GETFL, 0 );
                     fcntl( STDIN_FILENO, F_SETFL, flags | O_NONBLOCK );
                     char discard[8];
                     while( read( STDIN_FILENO, discard, sizeof(discard) ) > 0 ) {}
                     fcntl( STDIN_FILENO, F_SETFL, flags );
+#endif
                 }
                 else if( (unsigned char)c >= 32 && (unsigned char)c < 127 )
                 {
