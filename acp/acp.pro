@@ -13,7 +13,7 @@ QMAKE_CXXFLAGS_DEBUG += -O0
 # Run windeployqt for both debug\ and release\ outputs when each .exe exists. With the
 # Debug kit, qmake only embeds the debug deploy if we gate on CONFIG; then Release
 # never gets DLLs until a Release link happens. Deploying whichever exe exists fixes that.
-win32:equals(QMAKE_HOST.os, Windows) {
+win32:!static:equals(QMAKE_HOST.os, Windows) {
     WINDEPLOYQT = $$shell_path($$[QT_INSTALL_BINS]/windeployqt.exe)
 
     CONFIG(debug, debug|release): DEPLOY_EXE = $$shell_path($$OUT_PWD/debug/$${TARGET}.exe)
