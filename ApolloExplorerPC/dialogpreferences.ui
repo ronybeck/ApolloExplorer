@@ -94,7 +94,7 @@ QSlider::handle:horizontal {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #b4b4b4, stop:1 #8f8f8f);
     border: 1px solid #5c5c5c;
     width: 18px;
-	hieght: 12px;
+	height: 12px;
     margin: -5px;
     border-radius: 3px;
 }
@@ -205,10 +205,10 @@ QCheckBox::indicator:checked {
           <item>
            <spacer name="verticalSpacer_2">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Orientation::Vertical</enum>
             </property>
             <property name="sizeType">
-             <enum>QSizePolicy::Fixed</enum>
+             <enum>QSizePolicy::Policy::Fixed</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -261,7 +261,7 @@ QCheckBox::indicator:checked {
             <item>
              <spacer name="horizontalSpacer">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -313,7 +313,7 @@ QCheckBox::indicator:checked {
             <item>
              <spacer name="horizontalSpacer_2">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -362,7 +362,7 @@ QCheckBox::indicator:checked {
             <item>
              <spacer name="horizontalSpacer_3">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -466,7 +466,7 @@ QCheckBox::indicator:checked {
             <item>
              <spacer name="horizontalSpacer_4">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -486,7 +486,7 @@ QCheckBox::indicator:checked {
             <item>
              <spacer name="horizontalSpacer_5">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -501,7 +501,7 @@ QCheckBox::indicator:checked {
           <item>
            <spacer name="verticalSpacer">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Orientation::Vertical</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -558,10 +558,10 @@ QCheckBox::indicator:checked {
                <number>64</number>
               </property>
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="tickPosition">
-               <enum>QSlider::TicksAbove</enum>
+               <enum>QSlider::TickPosition::TicksAbove</enum>
               </property>
              </widget>
             </item>
@@ -577,10 +577,10 @@ QCheckBox::indicator:checked {
           <item>
            <widget class="QFrame" name="frame">
             <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
+             <enum>QFrame::Shape::StyledPanel</enum>
             </property>
             <property name="frameShadow">
-             <enum>QFrame::Raised</enum>
+             <enum>QFrame::Shadow::Raised</enum>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_6">
              <item>
@@ -593,16 +593,16 @@ QCheckBox::indicator:checked {
              <item>
               <widget class="QTableWidget" name="tableWidgetIconSize">
                <property name="verticalScrollBarPolicy">
-                <enum>Qt::ScrollBarAlwaysOn</enum>
+                <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOn</enum>
                </property>
                <property name="horizontalScrollBarPolicy">
-                <enum>Qt::ScrollBarAlwaysOff</enum>
+                <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
                </property>
                <property name="sizeAdjustPolicy">
-                <enum>QAbstractScrollArea::AdjustToContents</enum>
+                <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustToContents</enum>
                </property>
                <property name="editTriggers">
-                <set>QAbstractItemView::NoEditTriggers</set>
+                <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
                </property>
                <property name="showDropIndicator" stdset="0">
                 <bool>false</bool>
@@ -611,7 +611,7 @@ QCheckBox::indicator:checked {
                 <bool>false</bool>
                </property>
                <property name="selectionBehavior">
-                <enum>QAbstractItemView::SelectRows</enum>
+                <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
                </property>
                <property name="iconSize">
                 <size>
@@ -620,7 +620,7 @@ QCheckBox::indicator:checked {
                 </size>
                </property>
                <property name="verticalScrollMode">
-                <enum>QAbstractItemView::ScrollPerPixel</enum>
+                <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
                </property>
                <property name="showGrid">
                 <bool>false</bool>
@@ -727,10 +727,10 @@ QCheckBox::indicator:checked {
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
      </property>
      <property name="centerButtons">
       <bool>false</bool>
