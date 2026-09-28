@@ -91,6 +91,7 @@ echo -e "\033[1m\033[37m6. Install macOS Project\033[0m"
 mkdir -p ApolloExplorer-macOS >>log.txt 2>>log.txt
 mv ApolloExplorerPC/ApolloExplorer.app ApolloExplorer-macOS/ >>log.txt 2>>log.txt
 mv acp/acp ApolloExplorer-macOS/ >>log.txt 2>>log.txt
+mv ash/ash ApolloExplorer-macOS/ >>log.txt 2>>log.txt
 
 echo -e "\033[1m\033[37m7. Clean macOS Project\033[0m"
 rm -r -f .qmake.stash >>log.txt 2>>log.txt
@@ -105,7 +106,8 @@ if [ "$answer" != "${answer#[Yy]}" ] ;then
     create-dmg >>log.txt 2>>log.txt \
     --volicon "ApolloExplorerPC/icons/ApolloExplorer.icns" \
     --icon "ApolloExplorer.app" 200 140 \
-    --icon "acp" 200 300 \
+    --icon "acp" 90 300 \
+    --icon "ash" 250 300 \
     --hide-extension "ApolloExplorer.app" \
     --app-drop-link 600 220 \
     --background "images/ApolloExplorer-macOS.png" \
