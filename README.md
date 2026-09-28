@@ -5,8 +5,11 @@ On the Amiga side the ApolloExplorer Server runs in the background and allows Ap
 Once connected files can be transfer between PC/Mac and Amiga by means of a simple "drag and drop".
 
 ACP and ASH are two additional command line tools to use in a terminal window on your PC/Mac.
-ACP can copy files between PC/Mac and Amiga, same as ApolloExplorer GUI Client. Type `acp --help` for more info.
-ASH opens a full interactive remote shell connection from your PC/Mac to your Amiga. TYpe `ash --help` for more info.
+
+**ACP** can copy files between PC/Mac and Amiga, same as ApolloExplorer GUI Client. Type `acp --help` for more info.
+
+**ASH** opens a full interactive remote shell connection from your PC/Mac to your Amiga. TYpe `ash --help` for more info.
+
 
 # License
 
