@@ -27,6 +27,12 @@ Linux Client Install (Debian/Ubuntu)
 3. Install DPKG: `sudo apt install dpkg`
 4. Install ApolloExplorer: `dpkg -i apolloexplorer_1.4.0_amd64.deb`
 
+Linux Client Install (Fedora/Rocky)
+====================================
+1. Open a Terminal window
+2. Install QT6: `sudo dnf install qt6-base`
+3. Install ApolloExplorer: `dnf install apolloexplorer-1.4.0-1.x86_64.rpm`
+
 After installation you will find the ApolloExplorer Client for Linux in your Application collection.
 ACP and ASH command line tools are installed in the `usr/bin` system folder.
 
