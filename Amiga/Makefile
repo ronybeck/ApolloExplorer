@@ -6,9 +6,10 @@ PWD = $(shell pwd)
 DIR = $(notdir $(shell pwd))
 APOLLO_V4_HOST = "${AMIGAHOST}:Ram Disk/"
 
+PREFIX = $(HOME)/ApolloCrossDev/Compilers/GCC-6.50-Dev
 TARGET 	= m68k-amigaos
 
-C_COMPILER	= m68k-amigaos-gcc
+C_COMPILER	= $(PREFIX)/bin/m68k-amigaos-gcc
 
 C_LIB		= -noixemul
 C_INCL_CLB	= $(PREFIX)/$(TARGET)/libnix/include

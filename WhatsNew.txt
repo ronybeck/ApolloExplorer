@@ -1,0 +1,56 @@
+IMPORTANT:Make sure you update the server binary on your Amiga BEFORE you use the new client.   All sorts of a interesting things might happen if you don't.
+
+Updates in Version 1.4
+This version contains some cool new features and code clean-ups
+ - New util "ash".  This is a remote shell utility, similar in feel to SSH (but there isn't any encryption).
+ - Code has has some clean ups.
+
+Special Thanks
+Thanks to youenchene for several contributions to the code base and CI pipelines.  Your help is greatly appreciated!
+
+ASH Command Line Utility
+This is the newest in the line of command line utilities for interacting with your Amiga from your PC.  If you are familiar with the SSH utility of LInux/MacOS then this will be similar experience.  This emulates Amiga shell, connecting you from your PC's command line to the Amiga.
+ash [options] host command
+
+Usage:
+  ash -l                     List available Amiga hosts
+  ash <host> <command>       Execute a single command and print output
+  ash <host>                 Interactive shell: type commands, Ctrl+D to quit
+
+Options:
+  -h, --help        Displays help on commandline options.
+  --help-all        Displays help, including generic Qt options.
+  -v, --version     Displays version information.
+  -l, --list-hosts  List all available Amiga hosts
+
+Arguments:
+  host              Amiga hostname or IP address
+  command           Command to execute (optional; interactive if omitted)
+
+
+ACP Command Line Utility
+If you are a command line junky, automation enthusiast or simply someone who feels "cooler" typing with the keyboard rather than clicking with the mouse, the new command line tool should be right up your ally.  This tool works similar to the Linux/Unix command "scp" and allows you to copy files or entire directories to and from your Amiga.  This is super useful if you want to script backups or want to include this as part of your software build process.  This is currently only supported on Linux and Mac because I failed to compile the Qt framework for static linking on Windows.  In the next release this should be hopefully resolved.
+
+Usage: acp [options] source destination
+acp file transfer utility
+
+Options:
+  -h, --help            Displays help on commandline options.
+  --help-all            Displays help including Qt specific options.
+  -v, --version         Displays version information.
+  -l, --list-hosts      List all hosts
+  -d, --list-directory  List all contents in a given path
+  -r, --recursive       Copy recursively
+
+Arguments:
+  source                From where to copy
+  destination           To where to copy
+
+Know Bugs
+This release comes with a couple of known issues which will be resolved in future releases:
+- Running the list-host mode in acp while the ApolloExplore GUI is running will fail.  All other operations should work.
+- Downloading/Uploading from both acp and the ApolloExplore GUI doesn't always work.  Best to avoid until I have done some restructuring on the server side
+- Others?
+
+Support
+As always, you can get support from the Apollo Team Discord server.   Message myself "ronybeck" if I am online and I will try my best to help you out!
