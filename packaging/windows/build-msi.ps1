@@ -74,12 +74,35 @@ if (-not (Get-Command wix -ErrorAction SilentlyContinue)) {
     }
 }
 
+# Removes qmake/make generated files. Done directly instead of via
+# 'mingw32-make distclean', which can hang silently (e.g. stale Makefiles
+# triggering a qmake re-run, or a tool waiting on input) with its output hidden.
+function Clear-BuildOutput {
+    $QmakeSubdirs = @("ApolloExplorerPC", "AmigaIconReader", "acp", "ash")
+    $Targets = @(".\Makefile", ".\.qmake.stash")
+    foreach ($dir in $QmakeSubdirs) {
+        $Targets += ".\$dir\release", ".\$dir\debug", ".\$dir\Makefile", ".\$dir\Makefile.Release",
+                    ".\$dir\Makefile.Debug", ".\$dir\.qmake.stash", ".\$dir\*_resource.rc"
+    }
+    Remove-Item -Recurse -Force $Targets -ErrorAction SilentlyContinue
+}
+
 Write-Host "==> 1. Clean previous build output"
 Remove-Item -Recurse -Force $StageDir -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force $DistDir -ErrorAction SilentlyContinue
 Push-Location $RepoRoot
-mingw32-make.exe distclean *>$null
-Remove-Item -Recurse -Force ".\acp\release\", ".\ApolloExplorerPC\release\", ".\ash\release\", ".\AmigaIconReader\release\" -ErrorAction SilentlyContinue
+Clear-BuildOutput
+
+# Sources with a modification time in the future (e.g. checked out while the
+# clock/timezone was off) make every generated Makefile look stale, so make
+# re-runs qmake endlessly. Reset any such timestamps to now.
+$Now = Get-Date
+$FutureFiles = Get-ChildItem -Recurse -File -Force |
+    Where-Object { $_.FullName -notmatch '\\\.git\\' -and $_.LastWriteTime -gt $Now }
+if ($FutureFiles) {
+    Write-Host "* Resetting $(@($FutureFiles).Count) future-dated file timestamp(s)"
+    $FutureFiles | ForEach-Object { $_.LastWriteTime = $Now }
+}
 
 Write-Host "==> 2. Configuring project (qmake, release)"
 qmake -recursive -config release
@@ -102,8 +125,7 @@ Copy-Item $AshExe $StageDir
 windeployqt.exe --release (Join-Path $StageDir "ApolloExplorer.exe")
 
 Write-Host "==> 5. Clean intermediate build output"
-mingw32-make.exe distclean *>$null
-Remove-Item -Recurse -Force ".\acp\release\", ".\ApolloExplorerPC\release\", ".\ash\release\", ".\AmigaIconReader\release\" -ErrorAction SilentlyContinue
+Clear-BuildOutput
 Pop-Location
 
 Write-Host "==> 6. Building MSI (wix)"
@@ -111,7 +133,7 @@ New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 $MsiFile = Join-Path $DistDir "ApolloExplorer-$Version.msi"
 $WxsFile = Join-Path $ScriptDir "ApolloExplorer.wxs"
 
-wix build $WxsFile -arch x64 -d "SourceDir=$StageDir" -d "AppVersion=$Version" -out $MsiFile
+wix build $WxsFile -acceptEula wix7 -arch x64 -d "SourceDir=$StageDir" -d "AppVersion=$Version" -out $MsiFile
 
 Write-Host ""
 Write-Host "Done: $MsiFile"
