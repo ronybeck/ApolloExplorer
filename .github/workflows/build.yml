@@ -1,0 +1,255 @@
+name: Build clients
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  QT_VERSION: "6.11.1"
+
+jobs:
+  macos:
+    name: macOS (universal x86_64 + arm64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          target: desktop
+          cache: true
+
+      - name: Build
+        run: |
+          qmake -recursive QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" MACOSX_DEPLOYMENT_TARGET="12.7.6"
+          make -j"$(sysctl -n hw.ncpu)"
+
+      - name: Bundle app icon
+        run: |
+          mkdir -p ApolloExplorerPC/ApolloExplorer.app/Contents/Resources/
+          cp ApolloExplorerPC/icons/ApolloExplorer.icns ApolloExplorerPC/ApolloExplorer.app/Contents/Resources/
+
+      - name: Deploy Qt frameworks
+        run: macdeployqt ApolloExplorerPC/ApolloExplorer.app -verbose=1
+
+      - name: Ad-hoc code sign
+        # Unsigned/unnotarized: no Apple Developer ID is available in CI. Ad-hoc
+        # signing (identity "-") is required regardless, since arm64 refuses to
+        # run any unsigned Mach-O binary at all. Users must still right-click ->
+        # Open (or `xattr -cr`) the first time because of the quarantine flag.
+        #
+        # TODO: real signing/notarization, deferred for now. build_macos_client.sh
+        # does this locally with an Apple Developer Team ID (${APPLETEAMID}) via
+        # `codesign --sign ${APPLETEAMID}` + `macdeployqt -sign-for-notarization=`
+        # + `xcrun notarytool`. To wire this into CI: add the Developer ID cert
+        # (base64 .p12) and APPLETEAMID as repo secrets, import the cert into a
+        # temporary keychain, sign with it instead of "-", then notarize + staple
+        # before packaging.
+        run: |
+          codesign --force --deep --sign - ApolloExplorerPC/ApolloExplorer.app
+          codesign --force --sign - acp/acp
+          codesign --force --sign - ash/ash
+
+      - name: Package
+        run: |
+          mkdir -p ApolloExplorer-macOS
+          mv ApolloExplorerPC/ApolloExplorer.app ApolloExplorer-macOS/
+          mv acp/acp ApolloExplorer-macOS/
+          mv ash/ash ApolloExplorer-macOS/
+          ditto -c -k --sequesterRsrc --keepParent ApolloExplorer-macOS ApolloExplorer-macOS-universal.zip
+
+      # archive: false => the download is this zip itself, not a zip wrapping it.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ApolloExplorer-macOS-universal.zip
+          archive: false
+
+  linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          target: desktop
+          install-deps: true
+          cache: true
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Build
+        run: |
+          qmake -recursive
+          make -j"$(nproc)"
+
+      - name: Package
+        run: |
+          mkdir -p ApolloExplorer-Linux
+          mv ApolloExplorerPC/ApolloExplorer ApolloExplorer-Linux/ApolloExplorer
+          cp ApolloExplorerPC/ApolloExplorer.desktop ApolloExplorer-Linux/ApolloExplorer.desktop
+          mv acp/acp ApolloExplorer-Linux/acp
+          mv ash/ash ApolloExplorer-Linux/ash
+          tar -czf ApolloExplorer-Linux-x86_64.tar.gz ApolloExplorer-Linux
+
+      # archive: false => the download is the tar.gz itself (keeps exec bits).
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ApolloExplorer-Linux-x86_64.tar.gz
+          archive: false
+
+  windows:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+    env:
+      # aqtinstall cannot resolve any 6.11.x version for Windows targets: Qt
+      # restructured its Windows repo layout starting at 6.11.0 (added an
+      # arm64 cross-compile variant folder), which breaks Updates.xml
+      # resolution upstream in aqtinstall. Pin to the last known-good release
+      # here instead of env.QT_VERSION until aqtinstall ships a fix.
+      QT_VERSION: "6.10.1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          target: desktop
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - name: Build
+        shell: cmd
+        run: |
+          qmake -recursive -config release
+          nmake
+
+      - name: Package
+        shell: pwsh
+        run: |
+          # ash is excluded on win32 in ApolloExplorer.pro (see comment there):
+          # it needs POSIX termios, which Windows doesn't have.
+          New-Item -ItemType Directory -Force -Path ApolloExplorer-Windows
+          Move-Item ApolloExplorerPC\release\ApolloExplorer.exe ApolloExplorer-Windows\ApolloExplorer.exe
+          Move-Item acp\release\acp.exe ApolloExplorer-Windows\acp.exe
+          # Bundle the Qt DLLs, plugins and MSVC runtime next to the exes; the
+          # .pro files' post-link windeployqt only fills release\, not this folder.
+          windeployqt --release --compiler-runtime ApolloExplorer-Windows\ApolloExplorer.exe
+          windeployqt --release --compiler-runtime ApolloExplorer-Windows\acp.exe
+          # Zip the folder itself so it unzips to ApolloExplorer-Windows\.
+          Compress-Archive -Path ApolloExplorer-Windows -DestinationPath ApolloExplorer-Windows-x86_64.zip
+
+      # archive: false => the download is this zip itself, not a zip wrapping it.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ApolloExplorer-Windows-x86_64.zip
+          archive: false
+
+  amiga:
+    name: Amiga server (m68k, experimental)
+    runs-on: ubuntu-latest
+    # Best-effort: this cross-toolchain isn't officially supported by upstream
+    # and hasn't been verified against real hardware/emulator yet. A failure
+    # here must not block the desktop-client release.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential lhasa gettext texinfo flex bison \
+            libgmp-dev libmpfr-dev libmpc-dev rsync
+
+      - name: Cache amiga-gcc toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: /opt/amiga
+          key: amiga-gcc-${{ runner.os }}-amiga6-ndk3.2-libamiga-v1
+
+      - name: Build m68k-amigaos-gcc toolchain (bebbo/amiga-gcc)
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          # bebbo/amiga-gcc migrated off GitHub; Codeberg is its current home.
+          git clone --depth 1 https://codeberg.org/bebbo/amiga-gcc /tmp/amiga-gcc
+          cd /tmp/amiga-gcc
+          make update
+          # `min` (binutils gcc gprof libnix libgcc libnix4.library) fails
+          # deterministically (not a -j race - reproduces serially too):
+          # upstream's libnix4-support generator emits a duplicate
+          # __vfwprintf_total_size stub, breaking export-libnix4.c. That
+          # target builds libnix4.library, a shared-library variant of
+          # libnix that Amiga/Makefile never uses (it links -noixemul,
+          # i.e. plain static libnix) - so build min's other pieces
+          # directly and skip the broken, unneeded target.
+          # ndk/netinclude/libamiga: NDK3.2 headers + -lamiga, as before.
+          make binutils gcc gprof libnix libgcc ndk netinclude libamiga NDK=3.2 PREFIX=/opt/amiga -j"$(nproc)"
+
+      - name: Bridge NDK includes to the ApolloCrossDev layout
+        # Amiga/Makefile (the WDrijver/ApolloCrossDev toolchain convention) expects
+        # headers at ndk32-include/Include_H — the raw Aminet NDK3.2 layout — while
+        # bebbo/amiga-gcc installs its generated, netinclude-merged headers at
+        # ndk-include/. Symlink the two so both conventions resolve to the same,
+        # complete header set without duplicating or hand-maintaining headers.
+        run: |
+          mkdir -p /opt/amiga/m68k-amigaos/ndk32-include
+          ln -sfn /opt/amiga/m68k-amigaos/ndk-include /opt/amiga/m68k-amigaos/ndk32-include/Include_H
+
+      - name: Build
+        run: |
+          export PATH="/opt/amiga/bin:$PATH"
+          # Amiga/Makefile's first (default) target is just the server binary;
+          # `all` is required to also build ApolloExplorerTool.
+          make -C Amiga PREFIX=/opt/amiga all
+
+      - name: Package
+        run: |
+          mkdir -p ApolloExplorer-Amiga
+          mv Amiga/ApolloExplorerSrv ApolloExplorer-Amiga/
+          mv Amiga/ApolloExplorerTool ApolloExplorer-Amiga/
+          # Workbench icons + the AEKill IconX script (runs `ApolloExplorerTool kill`),
+          # same set as the upstream release's "Amiga Server" folder.
+          cp Amiga/dist/ApolloExplorerSrv.info Amiga/dist/AEKill Amiga/dist/AEKill.info ApolloExplorer-Amiga/
+          # Unzips to an ApolloExplorer-Amiga/ folder.
+          zip -r ApolloExplorer-Amiga-m68k.zip ApolloExplorer-Amiga
+
+      # archive: false => the download is this zip itself, not a zip wrapping it.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ApolloExplorer-Amiga-m68k.zip
+          archive: false
+
+  release:
+    name: Attach artifacts to release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, linux, windows, amiga]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # v8 is required to download artifacts uploaded with `archive: false`.
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - run: ls -laR artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

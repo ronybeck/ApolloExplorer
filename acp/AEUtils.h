@@ -5,12 +5,18 @@
 #include <QDebug>
 #include <QNoDebug>
 
+#if defined(_MSC_VER)
+#define AE_PRETTY_FUNCTION __FUNCSIG__
+#else
+#define AE_PRETTY_FUNCTION __PRETTY_FUNCTION__
+#endif
+
 #if DEBUG > 0
-#define DBGLOG  qDebug().noquote() << __PRETTY_FUNCTION__
+#define DBGLOG  qDebug().noquote() << AE_PRETTY_FUNCTION
 #else
 #define DBGLOG QNoDebug()
 #endif
-#define WARNLOG qWarning().noquote() << __PRETTY_FUNCTION__
+#define WARNLOG qWarning().noquote() << AE_PRETTY_FUNCTION
 
 QString convertFromAmigaTextEncoding( char *text );
 void convertFromUTF8ToAmigaTextEncoding( QString utf8Text, char *encodedText, quint64 encodedTextLength );
