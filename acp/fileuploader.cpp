@@ -6,9 +6,9 @@
 #include <iostream>
 #if __linux || __APPLE__
 #include <sys/ioctl.h>
+#include <unistd.h>
 #endif
 #include <stdio.h>
-#include <unistd.h>
 
 #define DEBUG 0
 #include "AEUtils.h"

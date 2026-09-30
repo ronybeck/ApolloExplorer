@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #if __linux__ || __APPLE__
 #include <sys/ioctl.h>
-#endif
 #include <unistd.h>
+#endif
 
 FileDownloader::FileDownloader( QString remoteSources, QString localDestination, QString remoteHost, QObject *parent  )
     : QObject{parent},

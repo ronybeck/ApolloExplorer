@@ -20,7 +20,20 @@ typedef quint16 UWORD;
 typedef qint8 BYTE;
 #endif
 
+// __attribute__((packed)) is a GCC/Clang extension; MSVC's cl.exe doesn't
+// understand it and fails to parse the struct at all. Use #pragma pack on
+// MSVC instead to get the same tightly-packed, wire-format-compatible layout.
+#if defined(_MSC_VER)
+#define AMIGA_PACKED_STRUCT_BEGIN __pragma(pack(push, 1))
+#define AMIGA_PACKED_STRUCT_END __pragma(pack(pop))
+#define AMIGA_PACKED
+#else
+#define AMIGA_PACKED_STRUCT_BEGIN
+#define AMIGA_PACKED_STRUCT_END
+#define AMIGA_PACKED __attribute__((packed))
+#endif
 
+AMIGA_PACKED_STRUCT_BEGIN
 typedef struct
 {
     qint16 LeftEdge;    /* starting offset relative to some origin */
@@ -32,8 +45,10 @@ typedef struct
     quint8 PlanePick;
     quint8 PlaneOnOff;
     quint32 NextImage;
-} __attribute__((packed)) Image_t;
+} AMIGA_PACKED Image_t;
+AMIGA_PACKED_STRUCT_END
 
+AMIGA_PACKED_STRUCT_BEGIN
 typedef struct {
     quint32 ga_Next;   //always 0
     qint16  ga_LeftEdge;
@@ -59,8 +74,10 @@ typedef struct {
     quint32 ga_SpecialInfo;     //<undefined>
     quint16 ga_GadgetID;        //<undefined>
     quint32 ga_UserData;
-} __attribute__((packed)) Gadget_t;
+} AMIGA_PACKED Gadget_t;
+AMIGA_PACKED_STRUCT_END
 
+AMIGA_PACKED_STRUCT_BEGIN
 struct NewWindow
 {
 #if 0
@@ -81,21 +98,26 @@ struct NewWindow
     char padding[48];
 #endif
 
-} __attribute__((packed));
+} AMIGA_PACKED;
+AMIGA_PACKED_STRUCT_END
 
+AMIGA_PACKED_STRUCT_BEGIN
 typedef struct
 {
     quint32 dd_Flags;       /* flags for drawer */
     quint16 dd_ViewModes;	/* view mode for drawer */
-} __attribute__((packed)) DrawerData2_t;
+} AMIGA_PACKED DrawerData2_t;
+AMIGA_PACKED_STRUCT_END
 
+AMIGA_PACKED_STRUCT_BEGIN
 typedef struct
 {
         struct NewWindow	dd_NewWindow;	/* args to open window */
         qint32  dd_CurrentX;    /* current x coordinate of origin */
         qint32  dd_CurrentY;	/* current y coordinate of origin */
         //DrawerData2_t dd_Extended;
-} __attribute__((packed)) DrawerData_t;
+} AMIGA_PACKED DrawerData_t;
+AMIGA_PACKED_STRUCT_END
 
 
 
@@ -109,8 +131,9 @@ typedef enum
     DEVICE = 6,
     KICK = 7,
     APPICON = 8
-} __attribute__((packed)) IconType_t;
+} IconType_t;
 
+AMIGA_PACKED_STRUCT_BEGIN
 typedef struct {
     quint16     do_Magic;           //magic number at start of file. Always 0xE310
     quint16     do_Version;         //Always 1
@@ -133,7 +156,8 @@ typedef struct {
     //ToolWindow        text            if ic_ToolWindow not zero (format see below)
     //                                  this is an extension, which was never implemented
     //struct DrawerData2
-} __attribute__((packed)) OS2Icon_t;
+} AMIGA_PACKED OS2Icon_t;
+AMIGA_PACKED_STRUCT_END
 
 class AmigaInfoFile : public QObject
 {
