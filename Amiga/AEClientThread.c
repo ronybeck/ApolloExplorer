@@ -371,6 +371,11 @@ static void clientThreadBody()
 	dbglog( "[child] Client thread started.\n" );
 
 	struct Library *SocketBase = NULL;
+	ProtocolMessage_t *message __attribute__((aligned(4))) = NULL;
+	FileSendContext_t *fileSendContext = NULL;
+	FileReceiveContext_t fileReceiveContext = {0};
+	//Current directory lock for this shell session (0 = use task default)
+	BPTR cdLock = 0;
 	struct sockaddr_in addr __attribute__((aligned(4))) ;
 	LONG returnCode = 0;
 	unsigned short newPort = g_NextClientPort++;		//Here we will also store our client port
@@ -588,13 +593,12 @@ static void clientThreadBody()
 
 
 	//Let's reserve some memory for each of the messages
-	ProtocolMessage_t *message __attribute__((aligned(4))) = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
+	message = AllocVec( MAX_MESSAGE_LENGTH, MEMF_FAST|MEMF_CLEAR );
+	if( message == NULL ) goto exit_child;
 
 	//Create a filesend context
-	FileSendContext_t *fileSendContext = allocateFileSendContext();
-
-	//Current directory lock for this shell session (0 = use task default)
-	BPTR cdLock = 0;
+	fileSendContext = allocateFileSendContext();
+	if( fileSendContext == NULL ) goto exit_child;
 
 	//Start reading all inbound messages
 	int bytesRead = 0;
@@ -863,7 +867,7 @@ static void clientThreadBody()
 					{
 						dbglog( "[child] error sending file chunk (error %d).  Abondoning connection.\n", bytesSent )
 						{
-							cleanupFileReceive();
+							cleanupFileReceive( &fileReceiveContext );
 							keepThisConnectionRunning = FALSE;
 							break;
 						}
@@ -927,7 +931,7 @@ static void clientThreadBody()
 				strncpy( filePath, filePutMessage->filePath, MAX_FILEPATH_LENGTH );
 
 				//We need to check that we can write the requested file
-				ProtocolMessage_Ack_t *acknowledgeMessage = requestFileReceive( filePath );
+				ProtocolMessage_Ack_t *acknowledgeMessage = requestFileReceive( filePath, &fileReceiveContext );
 				int bytesSent = sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)acknowledgeMessage );
 				(void)bytesSent;
 				//dbglog( "[child] %d bytes sent during sending of ACK.\n", bytesSent );
@@ -959,19 +963,19 @@ static void clientThreadBody()
 					dbglog( "[child] Expected a Start-of-Filesend message.  But that didn't arrive.  Aborting.\n" );
 					dbglog( "[child] Token 0x%08x Type 0x%08x Length %04u\n", message->token, message->type, message->length );
 					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
-					cleanupFileReceive();
+					cleanupFileReceive( &fileReceiveContext );
 					break;
 				}
 				
 				ProtocolMessage_StartOfFileSend_t *startOfFileSend = ( ProtocolMessage_StartOfFileSend_t* )message;
 				dbglog( "[child] PutStartOfFileReceive address: 0x%08x ChunkCount %d Filesize %d\n", (unsigned int)startOfFileSend, startOfFileSend->numberOfFileChunks, startOfFileSend->fileSize );
-				putStartOfFileReceive( startOfFileSend );
+				putStartOfFileReceive( startOfFileSend, &fileReceiveContext );
 
 				//Special Case.  If the file is zero bytes
 				if( startOfFileSend->numberOfFileChunks == 0 )
 				{
 					dbglog( "[child] Empty file sent.\n" );
-					cleanupFileReceive();
+					cleanupFileReceive( &fileReceiveContext );
 					break;
 				}
 
@@ -989,7 +993,7 @@ static void clientThreadBody()
 					if( !g_KeepServerRunning )
 					{
 						dbglog( "[child] Server shutting down, aborting file receive.\n" );
-						cleanupFileReceive();
+						cleanupFileReceive( &fileReceiveContext );
 						keepThisConnectionRunning = 0;
 						goto exit_child;
 					}
@@ -1015,7 +1019,7 @@ static void clientThreadBody()
 						dbglog( "[child] There was a timeout on recieving file chunks from the client.  Terminating the conection.\n" );
 						ackMessage.response = 0;
 						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&ackMessage );
-						cleanupFileReceive();
+						cleanupFileReceive( &fileReceiveContext );
 						keepThisConnectionRunning = 0;
 						goto exit_child;
 					}
@@ -1028,22 +1032,32 @@ static void clientThreadBody()
 					if( message->type == PMT_CANCEL_OPERATION )
 					{
 						dbglog( "[child] Received a cancel notification from the client.  Aborting.\n" );
-						cleanupFileReceive();
+						cleanupFileReceive( &fileReceiveContext );
 						break;
 					}
 
 					//Invalid message?
-					if(  bytesReceived < message->length || message->type != 0x00000011 )
+					if( bytesReceived < 0 || (unsigned int)bytesReceived < message->length || message->type != 0x00000011 )
 					{
 						dbglog( "[child] Received an invalid message awaiting a file chunk.  Aborting.\n" );
-						filePutConfirm.filesize = getBytesWritenToFile();
+						filePutConfirm.filesize = getBytesWritenToFile( &fileReceiveContext );
 						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&filePutConfirm );	//Send back what we got until now
-						cleanupFileReceive();
-						break;
+						cleanupFileReceive( &fileReceiveContext );
+						keepThisConnectionRunning = 0;
+						goto exit_child;
 					}
 
 					ProtocolMessage_FileChunk_t *fileChunkMessage = ( ProtocolMessage_FileChunk_t* )message;
-					chunksRemaining = putNextFileSendChunk( fileChunkMessage );
+					int receiveResult = putNextFileSendChunk( fileChunkMessage, message->length, &fileReceiveContext );
+					if( receiveResult < 0 )
+					{
+						filePutConfirm.filesize = getBytesWritenToFile( &fileReceiveContext );
+						sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t *)&filePutConfirm );
+						cleanupFileReceive( &fileReceiveContext );
+						keepThisConnectionRunning = 0;
+						goto exit_child;
+					}
+					chunksRemaining = (unsigned int)receiveResult;
 					fileChunkConfMessage.chunkNumber = fileChunkMessage->chunkNumber;
 					sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&fileChunkConfMessage );	//Send an ack back
 					dbglog( "[child] Got file chunk %d.  Chunks remaining: %d\r", fileChunkMessage->chunkNumber, chunksRemaining );
@@ -1051,14 +1065,14 @@ static void clientThreadBody()
 				}while( chunksRemaining );
 
 				//Send the confirmation and cleanup
-				unsigned int bytesWritten = getBytesWritenToFile();
+				unsigned int bytesWritten = getBytesWritenToFile( &fileReceiveContext );
 				filePutConfirm.filesize = bytesWritten;
 				sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&filePutConfirm );	//Send back what we got until now
 				dbglog( "\n[child] File receive completed (%u bytes).\n", bytesWritten );
 				
 
 				//We are done
-				cleanupFileReceive();
+				cleanupFileReceive( &fileReceiveContext );
 				Delay( 2 );
 				break;
 			}
@@ -1608,6 +1622,8 @@ exit_child: ;
 		snprintf( disconnectMessage.message, sizeof( disconnectMessage.message ), "Server is shutting down." );
 		sendMessage( SocketBase, newClientSocket, (ProtocolMessage_t*)&disconnectMessage );
 	}
+
+	cleanupFileReceive( &fileReceiveContext );
 
 	//Free the file send context
 	freeFileSendContext( fileSendContext );

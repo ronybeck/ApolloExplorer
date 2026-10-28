@@ -199,26 +199,34 @@ void cleanupFileSend( FileSendContext_t *context )
 FileSendContext_t *allocateFileSendContext()
 {
 	FileSendContext_t *context = (FileSendContext_t*)AllocVec( sizeof( FileSendContext_t ), MEMF_CLEAR|MEMF_FAST );
+	if( context == NULL ) return NULL;
 
 	//Allocate the achknowledge message
 	context->acknowledgeMessage = AllocVec( sizeof( ProtocolMessage_Ack_t ), MEMF_FAST|MEMF_CLEAR );
+	if( context->acknowledgeMessage == NULL ) goto allocation_failed;
 	context->acknowledgeMessage->header.token = MAGIC_TOKEN;
 	context->acknowledgeMessage->header.length = sizeof( ProtocolMessage_Ack_t );
 	context->acknowledgeMessage->header.type = PMT_ACK;
 
 	//Allocate the start of send message
-	context->startOfFilesendMessage = ( ProtocolMessage_StartOfFileSend_t* )AllocVec( MAX_MESSAGE_LENGTH , MEMF_FAST|MEMF_CLEAR ) + MAX_FILEPATH_LENGTH + 1;
+	context->startOfFilesendMessage = AllocVec( sizeof( ProtocolMessage_StartOfFileSend_t ) + MAX_FILEPATH_LENGTH + 1, MEMF_FAST|MEMF_CLEAR );
+	if( context->startOfFilesendMessage == NULL ) goto allocation_failed;
 	context->startOfFilesendMessage->header.token = MAGIC_TOKEN;
 	context->startOfFilesendMessage->header.length = sizeof( ProtocolMessage_StartOfFileSend_t ) + MAX_FILEPATH_LENGTH + 1;
 	context->startOfFilesendMessage->header.type = PMT_START_OF_SEND_FILE;
 
 	//Allocate the file chunk message
 	context->fileChunkMessage = AllocVec( sizeof( ProtocolMessage_FileChunk_t ), MEMF_FAST|MEMF_CLEAR );
+	if( context->fileChunkMessage == NULL ) goto allocation_failed;
 	context->fileChunkMessage->header.token = MAGIC_TOKEN;
 	context->fileChunkMessage->header.length = sizeof( ProtocolMessage_FileChunk_t );
 	context->fileChunkMessage->header.type = PMT_FILE_CHUNK;
 
 	return context;
+
+allocation_failed:
+	freeFileSendContext( context );
+	return NULL;
 }
 
 void freeFileSendContext( FileSendContext_t *context )
@@ -230,7 +238,8 @@ void freeFileSendContext( FileSendContext_t *context )
 	cleanupFileSend( context );
 
 	//Free everything
-	FreeVec( context->acknowledgeMessage );
-	FreeVec( context->startOfFilesendMessage );
-	FreeVec( context->fileChunkMessage );
+	if( context->acknowledgeMessage != NULL ) FreeVec( context->acknowledgeMessage );
+	if( context->startOfFilesendMessage != NULL ) FreeVec( context->startOfFilesendMessage );
+	if( context->fileChunkMessage != NULL ) FreeVec( context->fileChunkMessage );
+	FreeVec( context );
 }

@@ -12,7 +12,7 @@
 #include <clib/exec_protos.h>
 #include <clib/dos_protos.h>
 
-UBYTE *ver = "\0$VER: ApolloExplorerTool" VERSION_STRING;
+UBYTE *ver = "\0$VER: ApolloExplorerTool 1.4.0.1-dev (28.10.2026)";
 
 typedef enum
 {
@@ -39,20 +39,26 @@ BOOL readArguments( )
 	}
 
 	//Parse the command line arguments
-	if ( ReadArgs(ARGS_TEMPLATE, result, NULL) == NULL )
+	struct RDArgs *args = ReadArgs(ARGS_TEMPLATE, result, NULL);
+	if( args == NULL )
 	{
 		printf( "Failed to read command line arguments.\n" );
 		return FALSE;
 	}
 
+	BOOL killServer = result[0] != 0;
+	BOOL listClients = result[1] != 0;
+	FreeArgs( args );
+	operationType = OP_NONE;
+
 	//Get the arguments we need
-	if( (BOOL)result[ 0 ] )
+	if( killServer )
 	{
 		dbglog( "Operation: kill server.\n");
 		operationType = OP_KILLALL;
 		return TRUE;
 	}
-	if( (BOOL)result[ 1 ] )
+	if( listClients )
 	{
 		dbglog( "Operation: list clients.\n");
 		operationType = OP_LIST;
@@ -87,6 +93,9 @@ int main( int argc, char **argv )
 		return 1;
 	}
 
+	int exitCode = 0;
+	struct Message *listReply = NULL;
+
 	//Find the server's message port
 	Forbid();
 	struct MsgPort *msgPort = FindPort( MASTER_MSGPORT_NAME );
@@ -94,12 +103,13 @@ int main( int argc, char **argv )
 	if( msgPort == NULL )
 	{
 
-		struct MsgPort *msgPort = FindPort( OLD_MASTER_MSGPORT_NAME );
+		Forbid();
+		msgPort = FindPort( OLD_MASTER_MSGPORT_NAME );
+		Permit();
 		if( msgPort == NULL )
 		{
-			DeleteMsgPort( replyMsgPort );
 			printf( "We couldn't find the server process's message port.\n" );
-			return 0;
+			goto cleanup;
 		}else
 		{
 			dbglog( "Found a message port but the kill cmd will be ignored.\n" );
@@ -122,27 +132,35 @@ int main( int argc, char **argv )
 		WaitPort( replyMsgPort );
 		dbglog( "Reply received.\n" );
 		struct Message *newMessage = GetMsg( replyMsgPort );
-
+		if( newMessage == NULL || newMessage == &newClientMessage.msg )
+		{
+			printf( "Invalid reply from server.\n" );
+			exitCode = 1;
+			goto cleanup;
+		}
+		listReply = newMessage;
 		struct AEClientList *clientListMsg = (struct AEClientList*)newMessage;
 
 		//Double check this is a message that this is really a client list
 		if( clientListMsg->msg.mn_Length < sizeof( struct AEClientList ) )
 		{
 			dbglog("Reply was too small!\n" );
-			printf( "Invalid reply from server." );
-			return 1;
+			printf( "Invalid reply from server.\n" );
+			exitCode = 1;
+			goto cleanup;
 		}
 		if( clientListMsg->messageType != AEM_ClientList )
 		{
-			printf( "Invalid reply from server." );
-			return 1;
+			printf( "Invalid reply from server.\n" );
+			exitCode = 1;
+			goto cleanup;
 		}
 
 		//If we have an empty list, exit here
 		if( clientListMsg->clientCount < 1 )
 		{
 			printf( "There aren't any clients connected.\n" );
-			return 0;
+			goto cleanup;
 		}
 
 		//Now get a pointer to the start of the message
@@ -159,10 +177,7 @@ int main( int argc, char **argv )
 		}
 		printf( "=======END======\n" );
 
-		//Now that we are done, free the memory for this message
-		FreeVec( clientListMsg );
-		
-		return 0;
+		goto cleanup;
 	}
 
 	if( operationType == OP_KILLALL )
@@ -186,13 +201,15 @@ int main( int argc, char **argv )
 		if( newMessage == NULL )
 		{
 			printf( "We got a NULL message reply.  This should never happen.\n" );
-		}else
-		{
-			ReplyMsg( newMessage );
+			exitCode = 1;
 		}
+		//KILL returns our original request; do not reply to it again.
 	}
 
+	cleanup:
+	if( listReply != NULL ) FreeVec( listReply );
+	DeleteMsgPort( replyMsgPort );
 	dbglog( "Terminating.\n" );
 
-	return 0;
+	return exitCode;
 }

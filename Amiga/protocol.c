@@ -88,6 +88,9 @@ int sendMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessag
 
 int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage_t *message, unsigned int maxMessageLength )
 {
+	if( maxMessageLength < sizeof( ProtocolMessage_t ) )
+		return INVALID_MESSAGE_SIZE;
+
 	int retries = 50;
 	int bytesReceived = 0;
 	int totalBytesReceived = 0;
@@ -139,7 +142,8 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 	//sanity check
 	if( message->type >= PMT_INVALID )
 		return INVALID_MESSAGE_TYPE;
-	if( message->length > MAX_MESSAGE_LENGTH )
+	if( message->length < sizeof( ProtocolMessage_t ) ||
+		message->length > maxMessageLength || message->length > MAX_MESSAGE_LENGTH )
 		return INVALID_MESSAGE_SIZE;
 
 	//Keep pulling bytes until we are done or there is an error
@@ -152,9 +156,9 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 		bytesToRead = readChunkSize < totalBytesLeftToRead ? readChunkSize : totalBytesLeftToRead;
 		dbglog( "[getMessage] Reading up to %04lu of %04d bytes, %04u bytes remaining (Adr: 0x%08x).\r", bytesToRead, totalBytesLeftToRead, message->length, (unsigned int)receiveBufferPosition );
 		bytesReceived = recv( clientSocket, receiveBufferPosition, bytesToRead, MSG_WAITALL );
-		receiveBufferPosition += bytesReceived;
-		if( bytesReceived == -1 )
+		if( bytesReceived <= 0 )
 			return SOCKET_ERROR;
+		receiveBufferPosition += bytesReceived;
 
 		totalBytesReceived += bytesReceived;
 		totalBytesLeftToRead -= bytesReceived;
@@ -166,6 +170,9 @@ int getMessage( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage
 
 int getMessageNB( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessage_t *message, unsigned int maxMessageLength, fd_set *fdset, struct timeval timeOut )
 {
+	if( maxMessageLength < sizeof( ProtocolMessage_t ) )
+		return INVALID_MESSAGE_SIZE;
+
 	dbglog( "getMessage( socket(%d) 0x%08x, %d)\n", clientSocket, (unsigned int)message, maxMessageLength );
 	int totalBytesReceived = 0;
 	int bytesReceived = 0;
@@ -235,7 +242,8 @@ int getMessageNB( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessa
 	//sanity check
 	if( message->type >= PMT_INVALID )
 		return INVALID_MESSAGE_TYPE;
-	if( message->length > MAX_MESSAGE_LENGTH )
+	if( message->length < sizeof( ProtocolMessage_t ) ||
+		message->length > maxMessageLength || message->length > MAX_MESSAGE_LENGTH )
 		return INVALID_MESSAGE_SIZE;
 
 	//Keep pulling bytes until we are done or there is an error
@@ -254,7 +262,7 @@ int getMessageNB( struct Library *SocketBase, SOCKET clientSocket, ProtocolMessa
 
 		dbglog( "[getMessage] %d bytes left of %d to read.\n", totalBytesLeftToRead, message->length );
 		bytesReceived = recv( clientSocket, (char*)message + totalBytesReceived, totalBytesLeftToRead, 0);
-		if( bytesReceived == -1 )
+		if( bytesReceived <= 0 )
 			return SOCKET_ERROR;
 
 		totalBytesReceived += bytesReceived;

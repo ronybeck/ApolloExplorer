@@ -6,6 +6,7 @@
  */
 
 #include "ReceiveFile.h"
+#include <stddef.h>
 
 #define DBGOUT 0
 
@@ -27,41 +28,26 @@
 #include "protocol.h"
 #include "protocolTypes.h"
 
-static BPTR g_FileHandle = (BPTR)NULL;
-static ULONG g_CurrentChunk __attribute__((aligned(4))) = 0;
-static ULONG g_TotalChunks __attribute__((aligned(4))) = 0;
-static ULONG g_FileSize __attribute__((aligned(4))) = 0;
-static unsigned int g_BytesWrittenToFile __attribute__((aligned(4))) = 0;
-static char g_FilePath[ MAX_FILEPATH_LENGTH ] __attribute__((aligned(4)));
-
-//So we don't waste to much time (re)allocating for messages we will (re)use often, we create them once
-static ProtocolMessage_Ack_t *g_AcknowledgeMessage = NULL;
-
-
-ProtocolMessage_Ack_t *requestFileReceive( char *path )
+ProtocolMessage_Ack_t *requestFileReceive( char *path, FileReceiveContext_t *context )
 {
 	dbglog( "[requestFileReceive] We've been asked to recieve file '%s'\n", path );
-	g_BytesWrittenToFile = 0;
-	//If this is the first time we are calling this, then we need to allocate the message
-	if( g_AcknowledgeMessage == NULL )
-	{
-		//Prepare the ack message
-		g_AcknowledgeMessage = AllocVec( sizeof( ProtocolMessage_Ack_t ), MEMF_FAST|MEMF_CLEAR );
-		g_AcknowledgeMessage->header.token = MAGIC_TOKEN;
-		g_AcknowledgeMessage->header.length = sizeof( ProtocolMessage_Ack_t );
-		g_AcknowledgeMessage->header.type = PMT_ACK;
-	}
+	cleanupFileReceive( context );
+	context->bytesWritten = 0;
+	context->acknowledgeMessage.header.token = MAGIC_TOKEN;
+	context->acknowledgeMessage.header.length = sizeof( ProtocolMessage_Ack_t );
+	context->acknowledgeMessage.header.type = PMT_ACK;
 
 	//First, let's try and open a file for writing at the requested location
 	dbglog( "[requestFileReceive] Attempting to open file '%s'\n", path );
-	g_FileHandle = Open( path, MODE_NEWFILE );
-	strncpy( g_FilePath, path, sizeof( g_FilePath ) );
+	context->fileHandle = Open( path, MODE_NEWFILE );
+	strncpy( context->filePath, path, sizeof( context->filePath ) - 1 );
+	context->filePath[sizeof( context->filePath ) - 1] = 0;
 
 	//Did we succeed?
-	if( g_FileHandle )
+	if( context->fileHandle )
 	{
 		dbglog( "[requestFileReceive] File '%s' could be opened\n", path );
-		g_AcknowledgeMessage->response = 1;
+		context->acknowledgeMessage.response = 1;
 	}
 	else
 	{
@@ -87,37 +73,46 @@ ProtocolMessage_Ack_t *requestFileReceive( char *path )
 			UnLock( dirLock );
 
 		}
-		g_AcknowledgeMessage->response = returnCode;
+		context->acknowledgeMessage.response = returnCode;
 	}
 
-	return g_AcknowledgeMessage;
+	return &context->acknowledgeMessage;
 }
 
-void putStartOfFileReceive( ProtocolMessage_StartOfFileSend_t *startOfFilesendMessage )
+void putStartOfFileReceive( ProtocolMessage_StartOfFileSend_t *startOfFilesendMessage, FileReceiveContext_t *context )
 {
 	//Now we get the file information from the sender
-	g_CurrentChunk = 0;
-	g_TotalChunks = startOfFilesendMessage->numberOfFileChunks;
-	g_FileSize = startOfFilesendMessage->fileSize;
+	context->currentChunk = 0;
+	context->totalChunks = startOfFilesendMessage->numberOfFileChunks;
+	context->fileSize = startOfFilesendMessage->fileSize;
 
-	dbglog( "[putStartOfFileReceive] The file contains %lu chunks and is %lu bytes in size.\n", g_TotalChunks, g_FileSize );
+	dbglog( "[putStartOfFileReceive] The file contains %lu chunks and is %lu bytes in size.\n", context->totalChunks, context->fileSize );
 }
 
-int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
+int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage, unsigned int messageLength, FileReceiveContext_t *context )
 {
+	const unsigned int payloadOffset = offsetof( ProtocolMessage_FileChunk_t, chunk );
+	if( messageLength < payloadOffset ||
+		fileChunkMessage->bytesContained > FILE_CHUNK_SIZE ||
+		fileChunkMessage->bytesContained > messageLength - payloadOffset )
+	{
+		cleanupFileReceive( context );
+		return -1;
+	}
+
 	dbglog( "[putNextFileSendChunk] filechunk number: %d bytesContained: %d\n", fileChunkMessage->chunkNumber, fileChunkMessage->bytesContained );
 
 	//Now check that we really have bytes to write
 	if( fileChunkMessage->bytesContained == 0 )
 	{
 		//If we are not finished writting, something went wrong at the sender's end
-		dbglog( "[putNextFileSendChunk] Empty file being sent?  File: '%s'.  Aborting.\n", g_FilePath );
-		cleanupFileReceive();
+		dbglog( "[putNextFileSendChunk] Empty file being sent?  File: '%s'.  Aborting.\n", context->filePath );
+		cleanupFileReceive( context );
 		return 0;
 	}
 
 	//Book keeping
-	g_CurrentChunk = fileChunkMessage->chunkNumber;
+	context->currentChunk = fileChunkMessage->chunkNumber;
 
 	//Write the contents to the disk
 	LONG bytesWriten __attribute__((aligned(4))) = 0; (void)bytesWriten;
@@ -125,46 +120,52 @@ int putNextFileSendChunk( ProtocolMessage_FileChunk_t *fileChunkMessage )
 	LONG bytesRemaining __attribute__((aligned(4))) = fileChunkMessage->bytesContained;
 	while( bytesRemaining > 0 )
 	{
-		bytesWriten = Write( g_FileHandle, fileChunkMessage->chunk, fileChunkMessage->bytesContained );
+		bytesWriten = Write( context->fileHandle,
+			(char *)fileChunkMessage->chunk + totalBytesWriten, bytesRemaining );
+		if( bytesWriten <= 0 || bytesWriten > bytesRemaining )
+		{
+			cleanupFileReceive( context );
+			return -1;
+		}
 		totalBytesWriten += bytesWriten;
 		bytesRemaining -= bytesWriten;
-		g_BytesWrittenToFile += bytesWriten;
+		context->bytesWritten += bytesWriten;
 		dbglog( "[putNextFileSendChunk] Wrote %ld bytes to file.\r", totalBytesWriten );
 	}
 	dbglog( "\n" );
 
 	//If this is the last chunk, close the file
-	if( g_CurrentChunk == ( g_TotalChunks - 1 ) )
+	if( context->currentChunk == ( context->totalChunks - 1 ) )
 	{
-		dbglog( "[putNextFileSendChunk] File '%s' now complete.  Closing.\n", g_FilePath );
+		dbglog( "[putNextFileSendChunk] File '%s' now complete.  Closing.\n", context->filePath );
 		//cleanupFileReceive();
 		return 0;
 	}
 
 	//We should return the number of chunks we are still expecting
-	dbglog( "[putNextFileSendChunk] Current chunk %lu.  Total chunks %lu.  Chunks remaining %lu\n", g_CurrentChunk, g_TotalChunks, g_TotalChunks - g_CurrentChunk -1 );
-	return g_TotalChunks - g_CurrentChunk -1;
+	dbglog( "[putNextFileSendChunk] Current chunk %lu.  Total chunks %lu.  Chunks remaining %lu\n", context->currentChunk, context->totalChunks, context->totalChunks - context->currentChunk -1 );
+	return context->totalChunks - context->currentChunk -1;
 }
 
-unsigned int getBytesWritenToFile()
+unsigned int getBytesWritenToFile( FileReceiveContext_t *context )
 {
-	return g_BytesWrittenToFile;
+	return context->bytesWritten;
 }
 
-void cleanupFileReceive()
+void cleanupFileReceive( FileReceiveContext_t *context )
 {
-	dbglog( "[cleanupFileReceive] Cleaning up for file '%s'.\n", g_FilePath );
+	dbglog( "[cleanupFileReceive] Cleaning up for file '%s'.\n", context->filePath );
 
 	//Close the file if it is open
-	if( g_FileHandle )
+	if( context->fileHandle )
 	{
-		Close( g_FileHandle );
-		g_FileHandle = (BPTR)NULL;
+		Close( context->fileHandle );
+		context->fileHandle = (BPTR)NULL;
 	}
 
 	//Reset globals
-	g_FileSize = 0;
-	g_CurrentChunk = 0;
-	g_TotalChunks = 0;
-	memset( g_FilePath, 0, sizeof( g_FilePath ) );
+	context->fileSize = 0;
+	context->currentChunk = 0;
+	context->totalChunks = 0;
+	memset( context->filePath, 0, sizeof( context->filePath ) );
 }
